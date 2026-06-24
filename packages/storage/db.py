@@ -67,6 +67,7 @@ def _legacy_external_condition():
     return and_(
         Application.status == "skipped",
         Application.skip_reason == "not_easy_apply",
+        Application.error_message == "external apply",
     )
 
 
@@ -182,7 +183,10 @@ def list_applications(status: Optional[str] = None, limit: int = 200) -> list[di
                 ).order_by(Application.created_at.desc()).limit(limit)
             elif status == "skipped":
                 q = select(Application).where(
-                    and_(Application.status == "skipped", Application.skip_reason != "not_easy_apply")
+                    and_(
+                        Application.status == "skipped",
+                        ~_legacy_external_condition(),
+                    )
                 ).order_by(Application.created_at.desc()).limit(limit)
             else:
                 q = select(Application).where(Application.status == status)\
@@ -199,7 +203,11 @@ def get_application(app_id: int) -> Optional[dict]:
 
 def _row_to_dict(r: Application) -> dict:
     display_status = r.status
-    if r.status == "skipped" and r.skip_reason == "not_easy_apply":
+    if (
+        r.status == "skipped"
+        and r.skip_reason == "not_easy_apply"
+        and r.error_message == "external apply"
+    ):
         display_status = "external"
 
     return {
@@ -241,6 +249,19 @@ def finish_run(run_id: int, applied: int, skipped: int, failed: int, needs: int,
             r.failed = failed
             r.needs_answers = needs
             r.notes = notes
+            s.commit()
+
+
+def update_run_progress(run_id: int, applied: int, skipped: int, failed: int, needs: int, notes: str = ""):
+    with SessionLocal() as s:
+        r = s.get(RunHistory, run_id)
+        if r:
+            r.applied = applied
+            r.skipped = skipped
+            r.failed = failed
+            r.needs_answers = needs
+            if notes:
+                r.notes = notes
             s.commit()
 
 

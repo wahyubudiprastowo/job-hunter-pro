@@ -21,6 +21,10 @@ Phase 0 PoC
   -> Patch 13
   -> Patch 14
   -> Patch 15
+  -> Patch 16
+  -> Patch 16.1
+  -> Patch 17
+  -> Patch 18
 ```
 
 ## Summary By Group
@@ -33,44 +37,88 @@ Phase 0 PoC
 | 9-13 | anti-hallucination, cover letter, validators, Easy Apply detection |
 | 14 | already-applied detection |
 | 15 | CV header phone and profile links fix |
+| 16 / 16.1 | cover letter upload plus minor counter/persistence fixes |
+| 17 | fit scoring integration |
+| 18 | dashboard UX improvements |
 
 ## Recent Patches
 
-### Patch 14
+### Patch 16
 
 | Field | Value |
 |---|---|
 | Date | 2026-06-24 |
-| Source | user direct edit |
-| Files | `packages/extractors/linkedin.py`, `apps/worker/runner.py` |
-| Outcome | already-applied jobs no longer treated as external apply |
+| Source | user-directed implementation |
+| Files | extractor base, LinkedIn extractor, runner, db, application detail UI |
+| Outcome | cover letter generation and upload path integrated end-to-end |
 
 Key points:
 
-- Adds explicit already-applied detection logic.
-- Tags duplicate jobs distinctly in runner flow.
-- Keeps apply flow unchanged for valid jobs.
+- Detects cover letter field in LinkedIn Easy Apply flow.
+- Uploads PDF or fills textarea depending on field type.
+- Persists `cover_letter_path` in DB and shows it in detail UI.
 
-### Patch 15
+### Patch 16.1
 
 | Field | Value |
 |---|---|
 | Date | 2026-06-24 |
-| Source | user direct edit |
-| Files | `packages/ai/resume_tailor.py` |
-| Outcome | CV header now respects country code and profile links |
+| Source | user-requested minor review fixes |
+| Files | `apps/worker/runner.py`, `packages/storage/db.py` |
+| Outcome | counters and persistence behavior are clearer and safer |
 
 Key points:
 
-- Uses `phone_country_code` plus `phone`.
-- Renders LinkedIn, GitHub, and portfolio links when configured.
-- Keeps backward-compatible fallback behavior.
+- Adds `cover_letters_generated` counter.
+- Passes `cover_letter_path` explicitly to persistence layer.
+- Adds debug logging for skipped apply returns.
 
-## Historical Detail
+### Patch 17
 
-- Earlier detailed forensic notes from the backup bundle were reviewed during docs merge.
-- The active docs now preserve the important outcomes without keeping stale status claims.
-- For short human-readable release notes, see [17_CHANGELOG.md](17_CHANGELOG.md).
+| Field | Value |
+|---|---|
+| Date | 2026-06-24 |
+| Source | user integration + external patch context |
+| Files | scorer module, models, db, runner, config, application detail UI |
+| Outcome | fit scoring integrated conservatively before tailoring |
+
+Key points:
+
+- Adds `packages/ai/scorer.py`.
+- Adds `fit_score` and `fit_reasoning` DB fields.
+- Adds `SkipReason.FIT_SCORE_LOW`.
+- Integrates fit scoring before tailoring and cover letter generation.
+- Current status remains conservative: code integrated, smoke test still pending with `fit_scoring: true`.
+
+### Patch 18
+
+| Field | Value |
+|---|---|
+| Date | 2026-06-24 |
+| Source | user-requested dashboard improvements |
+| Files | `apps/web/app.py`, `apps/web/templates/dashboard.html` |
+| Outcome | dashboard better distinguishes latest run, screenshots, and empty states |
+
+Key points:
+
+- Adds `Latest Run` panel.
+- Adds latest debug screenshot panel.
+- Improves empty-state messaging and dashboard snapshot UX.
+
+## Imported v3.3 Context
+
+The v3.3 docs bundle added useful planning context that has now been merged selectively:
+
+- `RATE_LIMIT_RECOVERY.md`
+- `PRDs/PRD_SmartRateLimiter.md`
+- expanded roadmap and incident context
+
+Those imported docs are useful, but verified repo state still wins if any status wording conflicts.
+
+## Historical Incident Notes
+
+- A LinkedIn rate-limit incident on 2026-06-24 is documented in [RATE_LIMIT_RECOVERY.md](RATE_LIMIT_RECOVERY.md).
+- Treat that as historical operational context until a current run/log explicitly shows the same condition again.
 
 ## Rules For Future Patch Documentation
 
@@ -95,4 +143,3 @@ When that happens:
 2. reconstruct the behavior
 3. document only verified facts
 4. avoid guessing production status
-

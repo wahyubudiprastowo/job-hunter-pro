@@ -1,245 +1,142 @@
-# 🚀 Next Steps Roadmap (Post Patch 15)
+# Next Steps Roadmap
 
 Last updated: 2026-06-24
 
----
+## Recently Completed
 
-## 🎯 Prioritized Roadmap
+- Patch 16: Cover Letter Upload Integration
+- Patch 16.1: Cover letter persistence and counters review fixes
+- Patch 17: Phase 2d Fit Scoring integrated in code
+- Patch 18: Dashboard UX improvements
 
-### Tier 1 — Quick Wins (1-2 days each)
+## Important Operational Context
 
-#### Patch 16 — Cover Letter LinkedIn Upload
-**Status**: ⏭️ NEXT  
-**Phase**: 2c (complete Phase 2c)  
-**Estimate**: 1-2 days  
-**Risk**: 🟢 LOW
+- A LinkedIn rate-limit incident was documented on 2026-06-24.
+- Recovery and lessons learned are captured in [RATE_LIMIT_RECOVERY.md](RATE_LIMIT_RECOVERY.md).
+- Do not assume current live cooldown unless the current UI/logs confirm it, but do treat account-safety work as a top priority.
 
-**Scope**:
-- Detect cover letter field in LinkedIn Easy Apply modal
-  - Textarea: `textarea[id*='cover'], textarea[name*='cover']`
-  - File input: `input[type='file'][name*='cover']`
-- Upload `cover_letters/generated/{Company}_{JobID}.pdf` when field detected
-- Multi-language label detection:
-  - EN: "Cover Letter"
-  - IT: "Lettera di presentazione"
-  - DE: "Anschreiben"
-  - ES: "Carta de presentación"
-  - FR: "Lettre de motivation"
-- DB schema: ensure `cover_letter_path` column populated
-- Counter: `cover_letters_uploaded` in run summary
-- Log markers: `💌 Uploaded cover letter: <path>`
+## Priority Reordered
 
-**Impact**: Phase 2c → ✅ DONE. Response rate likely +20%.
+### Tier 0 - Validate What Already Landed
 
-**Acceptance**:
-- [ ] Cover letter field detected on 5+ test jobs
-- [ ] PDF uploaded successfully
-- [ ] Bot still applies when field absent
-- [ ] Counter increments correctly
+#### A1. Patch 17 Production Validation
+Status: ready, pending small real run  
+Estimate: 1 hour  
+Risk: low
 
----
+Actions:
 
-#### Patch 18 — UI/UX Improvements
-**Status**: ⏭️ AFTER P16  
-**Phase**: Tier 0 (continuity)  
-**Estimate**: 1 day  
-**Risk**: 🟢 LOW (UI only)
+1. Enable `fit_scoring: true` in `config.yaml`.
+2. Run one small session only.
+3. Verify:
+   - `fit_score` and `fit_reasoning` persisted
+   - `FIT_SCORE_LOW` skip works cleanly
+   - no crash or bad classification
+4. Tune threshold after observing real distribution.
 
-**Scope**:
-- Dashboard timezone fix (UTC → WIB)
-  - Backend: Jinja filter `local_time(7)`
-  - OR Frontend: JavaScript date conversion
-- Per-session vs cumulative counters distinction
-- Better "stuck screenshot" review link in UI
-- Confirmation modal for "Reset State"
-- Better empty-state messaging
-- Stale element error: graceful UI feedback
+#### A2. Monitor Latest LinkedIn Fixes
+Status: active verification  
+Estimate: 1 short run  
+Risk: medium
 
-**Impact**: Better daily-use UX. No backend changes.
+Actions:
 
-**Acceptance**:
-- [ ] "When" column shows WIB time
-- [ ] Counters distinguish run vs total
-- [ ] Reset State requires confirmation
+1. Verify `Latest Run` now updates while run is active.
+2. Verify true external apply jobs still land in `external`.
+3. Verify jobs with visible Easy Apply do not get mislabeled as `external/not_easy_apply`.
 
----
+### Tier 1 - Smart Rate Limiter
 
-### Tier 2 — Strategic Features (2-3 days each)
+#### Patch 19 - Smart Rate Limiter
+Status: next target  
+Estimate: 4-6 hours  
+Risk: medium
 
-#### Patch 17 — Phase 2d Fit Scoring
-**Status**: ⏭️ AFTER P16  
-**Phase**: 2d (NEW)  
-**Estimate**: 2-3 days  
-**Risk**: 🟡 MEDIUM (DB schema change)
+Why now:
 
-**Why**: Saves AI cost — skip irrelevant jobs **before** tailoring + cover letter generation.
+- It is the best direct response to the previously documented LinkedIn rate-limit incident.
+- It protects account safety better than simply lowering caps by hand.
 
-**Scope**:
-- `packages/ai/scorer.py` with `score.v1` prompt
-- Score 0-100 per job
-- Output JSON: `{score, matched_skills, missing_skills, red_flags, reasoning, recommendation}`
-- Skip if `score < ai.fit_threshold` (default 60)
-- New SkipReason `FIT_SCORE_LOW`
-- DB columns: `fit_score`, `fit_reasoning`
-- Filter integration: BEFORE resume tailoring (cost optimization)
-- UI gauge in `application_detail.html` (color-coded)
-- Config keys: `ai.fit_scoring`, `ai.fit_threshold`
-- Cache per job_id
+Primary reference:
 
-**Impact**: 
-- Phase 2d → ✅ DONE
-- ~30% reduction in AI calls (cost saving)
-- Better job prioritization
+- [PRDs/PRD_SmartRateLimiter.md](PRDs/PRD_SmartRateLimiter.md)
 
-**Acceptance**:
-- [ ] Valid JSON 100% of calls
-- [ ] Score in [0, 100]
-- [ ] matched ∩ missing = empty
-- [ ] Skip rate ↑ with tight threshold
-- [ ] UI gauge color-codes correctly
+Core scope:
 
----
+- daily cap tracking per platform
+- rate-limit message detection
+- auto-pause / cooldown
+- persistent safety state across runs
+- dashboard visibility for cap/cooldown state
 
-#### Patch 19 — Phase 3a Ghosting Detector
-**Status**: ⏭️ AFTER P17  
-**Phase**: 3a (NEW)  
-**Estimate**: 3 days  
-**Risk**: 🟡 MEDIUM
+### Tier 2 - Phase 3a Ghosting Detector
 
-**Why**: Unique selling point. Helps you avoid wasting time on companies that ghost.
+#### Patch 20 - Ghosting Detector
+Status: after Patch 19  
+Estimate: 3 days  
+Risk: medium
 
-**Scope**:
-- `packages/ai/ghosting.py` (pure logic, no AI needed initially)
-- DB columns: `viewed_by_recruiter`, `last_response_at`, `last_response_type`
-- GhostStatus enum: ACTIVE / SLOW / LIKELY_GHOSTED / GHOSTED / REJECTED / INTERVIEW / OFFER
-- Status calculator: based on days since apply + recruiter view + response type
-- Per-company ghost rate aggregation
-- UI badges in history table (color-coded)
-- Warning before re-applying to ghoster
-- Phase 3d hook: notify on transition to LIKELY_GHOSTED
+Why after Patch 19:
 
-**Impact**:
-- Phase 3a → ✅ DONE
-- Pipeline visibility
-- Smarter job targeting
+- safety and stability first
+- can benefit from fit score context once Patch 17 is validated
 
-**Acceptance**:
-- [ ] Status transitions correctly
-- [ ] Ghost rate 0-100%
-- [ ] Re-apply warning shown
+### Tier 3 - UI Modernization
 
----
+#### Patch 21 - UI Modernization
+Status: after Patch 20  
+Estimate: 1-2 days  
+Risk: low
 
-### Tier 3 — Expansion (1 week each)
+Why later:
 
-#### Patch 20 — Phase 4a Indeed Extractor
-**Status**: ⏭️ AFTER P19  
-**Phase**: 4a (NEW)  
-**Estimate**: 1 week  
-**Risk**: 🟠 HIGH (new platform)
+- better to modernize UI after fit score and rate-limit data are visible and stable
 
-**Why**: 2× job sources. Validate plugin architecture.
+### Tier 4 - Multi-Platform Expansion
 
-**Scope**:
-- `packages/extractors/indeed.py`
-- Login (with hCaptcha handling)
-- Search with Indeed-specific filters
-- Card collection
-- Detail extraction
-- Apply flow (Indeed Apply iframe)
-- hCaptcha integration (2Captcha)
-- EXTRACTOR_REGISTRY update
-- Config block `platforms.indeed.*`
-- `.env`: `INDEED_EMAIL`, `INDEED_PASSWORD`
+#### Patch 22 - Indeed Extractor
+Status: after Patch 21  
+Estimate: 1-2 weeks  
+Risk: high
 
-**Dependencies**:
-- Phase 3e CAPTCHA Solver (concurrent dev)
+Dependencies:
 
-**Acceptance**:
-- [ ] Login succeeds
-- [ ] Search returns ≥ 5 cards
-- [ ] Detail extracts properly
-- [ ] Apply succeeds ≥ 1 job
-- [ ] No regression in LinkedIn
+- stable LinkedIn behavior
+- rate-limiter guardrails
+- enough bandwidth to support another platform safely
 
----
+## Timeline
 
-### Tier 4 — Enterprise Hardening (multi-week)
+```text
+Now:
+  - verify Patch 17 on a small run
+  - verify latest LinkedIn external/apply fixes
+  - keep Smart Rate Limiter as next real patch
 
-#### Patch 21 — Phase 3d Notifications Hub
-**Estimate**: 4 days
-**Scope**: APScheduler + 5 channels (Email, Telegram, Teams, Discord, Webhook)
+Next:
+  - Patch 19 Smart Rate Limiter
+  - Patch 20 Ghosting Detector
+  - Patch 21 UI Modernization
 
-#### Patch 22 — Phase 5 Security Hardening
-**Estimate**: 3 days
-**Scope**: AES-256 vault, pre-commit hook, audit log
-
-#### Patch 23 — Phase 5 CI/CD
-**Estimate**: 5 days
-**Scope**: GitLab CI pipeline with full test + scan + deploy
-
----
-
-## 📊 Timeline (Realistic)
-
-```
-Week 1 (current):
-  ✅ Patch 14, 15 (DONE)
-  → Patch 16: Cover letter upload
-  → Patch 18: UI improvements
-
-Week 2:
-  → Patch 17: Phase 2d Fit Scoring
-  → Patch 19: Phase 3a Ghosting Detector
-
-Week 3-4:
-  → Patch 20: Phase 4a Indeed
-
-Week 5-6:
-  → Patch 21: Notifications Hub
-  → Patch 22: Security Hardening
-
-Week 7-8:
-  → Patch 23: CI/CD
-  → Phase 5 polish (dark mode, i18n, PWA)
-
-Total estimate: ~8 weeks part-time to reach v1.0
+Later:
+  - Patch 22 Indeed Extractor
 ```
 
----
+## Decision Framework
 
-## 🚦 Decision Points
+### When to enable Patch 17 fully?
+Trigger: one safe test run available and current LinkedIn state looks stable.
 
-### When to ship Phase 2 → Phase 3?
-**Trigger**: 100+ real applies submitted, response rate ≥ 15%
+### When to ship Patch 19?
+Trigger: immediately after Patch 17 smoke test, or in parallel as planning if runtime validation must wait.
 
-### When to add Indeed (Phase 4a)?
-**Trigger**: LinkedIn fully stable, no critical bugs for 1 week
+### When to add Indeed?
+Trigger: LinkedIn flow stable for at least several runs and Smart Rate Limiter is in place.
 
-### When to migrate Postgres (Phase 5)?
-**Trigger**: SQLite DB > 100 MB OR multi-tenant required
+## Related
 
-### When to add CI/CD (Phase 5)?
-**Trigger**: Going public, OR 2+ developers, OR enterprise customer
-
----
-
-## 🎯 What to Start NOW
-
-Based on:
-- Production usage stability ✅
-- Phase 2b just completed ✅
-- Phase 2c 90% done (only upload missing) 🟡
-
-**Recommended**: **Patch 16 (Cover Letter Upload)** — completes Phase 2c.
-Quick win, low risk, immediate impact on response rate.
-
-Then **Patch 17 (Fit Scoring)** — saves cost + improves quality.
-
----
-
-## 🔗 Related
-- [FEATURE_CHECKLIST.md](FEATURE_CHECKLIST.md) — what's done
-- [PATCH_HISTORY_LEDGER.md](PATCH_HISTORY_LEDGER.md) — patch history
-- [12_PHASE_ROADMAP.md](12_PHASE_ROADMAP.md) — full phase plan
-- [PRDs/](PRDs/) — detailed PRDs per feature
+- [FEATURE_CHECKLIST.md](FEATURE_CHECKLIST.md)
+- [PATCH_HISTORY_LEDGER.md](PATCH_HISTORY_LEDGER.md)
+- [PRDs/PRD_2d_Fit_Scoring.md](PRDs/PRD_2d_Fit_Scoring.md)
+- [PRDs/PRD_SmartRateLimiter.md](PRDs/PRD_SmartRateLimiter.md)
+- [RATE_LIMIT_RECOVERY.md](RATE_LIMIT_RECOVERY.md)

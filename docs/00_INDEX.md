@@ -1,6 +1,6 @@
 # Job-Hunter Pro Documentation Index
 
-Bundle: merged active docs  
+Bundle: active merged docs  
 Date: 2026-06-24
 
 ## Start Here
@@ -10,8 +10,16 @@ If you are picking up the project fresh:
 1. [00_MASTER_CONTINUITY.md](00_MASTER_CONTINUITY.md)
 2. [CURRENT_STATE_SNAPSHOT.md](CURRENT_STATE_SNAPSHOT.md)
 3. [PATCH_HISTORY_LEDGER.md](PATCH_HISTORY_LEDGER.md)
-4. [ANTI_BREAKAGE_RULES.md](ANTI_BREAKAGE_RULES.md)
-5. [AI_HANDOFF_PROTOCOL.md](AI_HANDOFF_PROTOCOL.md)
+4. [FEATURE_CHECKLIST.md](FEATURE_CHECKLIST.md)
+5. [NEXT_STEPS_ROADMAP.md](NEXT_STEPS_ROADMAP.md)
+6. [ANTI_BREAKAGE_RULES.md](ANTI_BREAKAGE_RULES.md)
+7. [AI_HANDOFF_PROTOCOL.md](AI_HANDOFF_PROTOCOL.md)
+
+## Current Priority Context
+
+- Historical incident and recovery guidance: [RATE_LIMIT_RECOVERY.md](RATE_LIMIT_RECOVERY.md)
+- Current Fit Scoring PRD: [PRDs/PRD_2d_Fit_Scoring.md](PRDs/PRD_2d_Fit_Scoring.md)
+- Next safety patch PRD: [PRDs/PRD_SmartRateLimiter.md](PRDs/PRD_SmartRateLimiter.md)
 
 ## Continuity
 
@@ -20,7 +28,7 @@ If you are picking up the project fresh:
 | [00_MASTER_CONTINUITY.md](00_MASTER_CONTINUITY.md) | Main entry point for human or AI handoff |
 | [CURRENT_STATE_SNAPSHOT.md](CURRENT_STATE_SNAPSHOT.md) | What is working now |
 | [PATCH_HISTORY_LEDGER.md](PATCH_HISTORY_LEDGER.md) | Patch lineage and documentation rules |
-| [17_CHANGELOG.md](17_CHANGELOG.md) | Short human-readable change summary |
+| [17_CHANGELOG.md](17_CHANGELOG.md) | Human-readable recent changes |
 | [DOCS_MERGE_AUDIT.md](DOCS_MERGE_AUDIT.md) | Docs merge and cleanup audit |
 | [ANTI_BREAKAGE_RULES.md](ANTI_BREAKAGE_RULES.md) | Guardrails for safe changes |
 | [AI_HANDOFF_PROTOCOL.md](AI_HANDOFF_PROTOCOL.md) | AI continuity protocol |
@@ -44,9 +52,8 @@ If you are picking up the project fresh:
 | `11-16` | security, roadmap, checklist, devops, QA, troubleshooting |
 | `17-20` | changelog, development guide, glossary, anti-hallucination |
 
-## Current Production Highlights
+## Notes
 
-- LinkedIn automation is running in production use.
-- Easy Apply detection, already-applied detection, AI answers, and resume tailoring are active.
-- Current docs include both the older full bundle and the newer v3.1 status updates.
-
+- The v3.3 docs bundle was merged selectively.
+- New long-form context was retained where useful.
+- Status claims in active docs should always be treated as more authoritative than imported bundle text.

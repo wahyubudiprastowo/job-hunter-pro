@@ -164,6 +164,15 @@ def run_bot(config_path: str = "config.yaml"):
         "fit_skipped": 0,
     }
 
+    def _sync_run_progress():
+        store.update_run_progress(
+            run_id,
+            counters["applied"],
+            counters["skipped"],
+            counters["failed"],
+            counters["needs"],
+        )
+
     try:
         for platform_name, pcfg in config["platforms"].items():
             if not pcfg.get("enabled"):
@@ -227,35 +236,49 @@ def run_bot(config_path: str = "config.yaml"):
                         config["filters"]["company_blacklist"])
                     if not ok:
                         _record_skip(card, platform_name, SkipReason.BLACKLISTED_COMPANY, reason)
-                        counters["skipped"] += 1; continue
+                        counters["skipped"] += 1
+                        _sync_run_progress()
+                        continue
                     ok, reason = title_passes(card["title"],
                         config["filters"]["title_keywords_include"],
                         config["filters"]["title_keywords_exclude"])
                     if not ok:
                         _record_skip(card, platform_name, SkipReason.BLACKLISTED_TITLE, reason)
-                        counters["skipped"] += 1; continue
+                        counters["skipped"] += 1
+                        _sync_run_progress()
+                        continue
                     if config["filters"]["skip_already_applied"] and store.already_applied(job_id):
                         _record_skip(card, platform_name, SkipReason.DUPLICATE, "already applied")
-                        counters["skipped"] += 1; continue
+                        counters["skipped"] += 1
+                        _sync_run_progress()
+                        continue
 
                     try:
                         job = extractor.open_job_detail(card)
                     except Exception as e:
                         logger.exception(f"open_job_detail: {e}")
-                        counters["failed"] += 1; continue
+                        counters["failed"] += 1
+                        _sync_run_progress()
+                        continue
 
                     ok, reason = description_passes(job.description,
                         config["filters"]["description_keywords_exclude"])
                     if not ok:
                         _record_skip_full(job, SkipReason.EXCLUDED_KEYWORD, reason)
-                        counters["skipped"] += 1; continue
+                        counters["skipped"] += 1
+                        _sync_run_progress()
+                        continue
                     ok, reason = salary_passes(job.salary, config["filters"]["min_salary"])
                     if not ok:
                         _record_skip_full(job, SkipReason.SALARY_TOO_LOW, reason)
-                        counters["skipped"] += 1; continue
+                        counters["skipped"] += 1
+                        _sync_run_progress()
+                        continue
                     if job.raw.get("already_applied"):
                         _record_skip_full(job, SkipReason.DUPLICATE, "already applied on LinkedIn")
-                        counters["skipped"] += 1; continue
+                        counters["skipped"] += 1
+                        _sync_run_progress()
+                        continue
                     if not extractor.can_auto_apply(job):
                         _record_skip_full(
                             job,
@@ -263,7 +286,9 @@ def run_bot(config_path: str = "config.yaml"):
                             "external apply",
                             status=ApplyStatus.EXTERNAL,
                         )
-                        counters["skipped"] += 1; continue
+                        counters["skipped"] += 1
+                        _sync_run_progress()
+                        continue
 
                     # === FIT SCORING ===
                     fit_score_result = None
@@ -288,6 +313,7 @@ def run_bot(config_path: str = "config.yaml"):
                                     )
                                     counters["fit_skipped"] += 1
                                     counters["skipped"] += 1
+                                    _sync_run_progress()
                                     continue
                         except Exception as e:
                             logger.warning(f"Fit scoring failed: {e}")
@@ -365,6 +391,8 @@ def run_bot(config_path: str = "config.yaml"):
                     else:
                         counters["failed"] += 1
                         add_unanswered(result.unanswered_questions)
+
+                    _sync_run_progress()
 
                     if counters["applied"] and counters["applied"] % stealth_cfg["pause_every_n_applications"] == 0:
                         logger.info(f"😴 Pause {stealth_cfg['pause_seconds']}s")

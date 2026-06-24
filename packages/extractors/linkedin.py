@@ -349,8 +349,12 @@ class LinkedInExtractor(BaseExtractor):
         salary = self._safe_text(d, SELECTORS["detail_salary"])
         already_applied = self._detect_already_applied(d, card)
 
-        # PATCH 13: Multi-strategy Easy Apply detection
-        is_easy = False if already_applied else self._detect_easy_apply(d)
+        # PATCH 13: Multi-strategy Easy Apply detection with click-finder fallback
+        is_easy = False
+        if not already_applied:
+            is_easy = self._detect_easy_apply(d)
+            if not is_easy:
+                is_easy = self._find_easy_apply_button(d, timeout=2) is not None
 
         return JobListing(
             platform=self.name, job_id=card["job_id"],
@@ -481,18 +485,44 @@ class LinkedInExtractor(BaseExtractor):
         strategies = [
             SELECTORS["easy_apply_btn"],
             (By.CSS_SELECTOR, "button.jobs-apply-button, button.jobs-apply"),
+            (By.CSS_SELECTOR, "button[data-live-test-job-apply-button], button[data-test-button-action='apply']"),
             (By.XPATH, "//button[@aria-label[contains(translate(.,'EASY APPLY','easy apply'),'easy apply')]]"),
         ]
         while time.time() < end:
             for selector in strategies:
                 try:
                     elem = driver.find_element(*selector)
-                    if elem.is_displayed() and elem.is_enabled():
-                        return elem
+                    if elem.is_displayed():
+                        try:
+                            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", elem)
+                        except Exception:
+                            pass
+                        if elem.is_enabled():
+                            return elem
                 except NoSuchElementException:
                     continue
                 except Exception:
                     continue
+
+            try:
+                buttons = driver.find_elements(By.TAG_NAME, "button")
+                for elem in buttons:
+                    try:
+                        text = (elem.text or "").strip().lower()
+                        aria = (elem.get_attribute("aria-label") or "").strip().lower()
+                        klass = (elem.get_attribute("class") or "").strip().lower()
+                        combined = f"{text} {aria} {klass}"
+                        if "easy apply" in combined and elem.is_displayed():
+                            try:
+                                driver.execute_script("arguments[0].scrollIntoView({block:'center'});", elem)
+                            except Exception:
+                                pass
+                            if elem.is_enabled():
+                                return elem
+                    except Exception:
+                        continue
+            except Exception:
+                pass
             time.sleep(0.5)
         return None
 
@@ -513,21 +543,28 @@ class LinkedInExtractor(BaseExtractor):
                 error_message="No Easy Apply button.")
         
         # PATCH 13: Multi-strategy button find + JS fallback click
-        btn = self._find_easy_apply_button(d, timeout=8)
+        btn = self._find_easy_apply_button(d, timeout=12)
         if btn is None:
             return ApplicationResult(
-                status=ApplyStatus.SKIPPED, skip_reason=SkipReason.NOT_EASY_APPLY,
-                error_message="Easy Apply button not clickable.")
+                status=ApplyStatus.FAILED,
+                error_message="Easy Apply detected earlier but button was not clickable.")
         try:
+            try:
+                d.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
+            except Exception:
+                pass
             btn.click()
         except (ElementClickInterceptedException, StaleElementReferenceException):
             try:
-                d.execute_script("arguments[0].click();", btn)
+                ActionChains(d).move_to_element(btn).pause(0.2).click().perform()
             except Exception as e:
-                logger.warning(f"Easy Apply click failed: {e}")
-                return ApplicationResult(
-                    status=ApplyStatus.SKIPPED, skip_reason=SkipReason.NOT_EASY_APPLY,
-                    error_message=f"Click failed: {e}")
+                try:
+                    d.execute_script("arguments[0].click();", btn)
+                except Exception:
+                    logger.warning(f"Easy Apply click failed: {e}")
+                    return ApplicationResult(
+                        status=ApplyStatus.FAILED,
+                        error_message=f"Easy Apply click failed: {e}")
         
         human_sleep(2, 3.5)
 

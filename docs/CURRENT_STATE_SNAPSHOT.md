@@ -4,14 +4,15 @@ Last verified: 2026-06-24
 
 ## Production Summary
 
-The bot is in active use and the current docs reflect the live merged state of the repo.
+The bot is in active local use and the current docs reflect the merged active state of the repo.
 
 | Metric | Value |
 |---|---|
 | Total applied | 50+ cumulative |
-| Typical applied per run | 6-10 |
 | Saved answers | 138+ |
 | Resume tailoring | active |
+| Cover letter upload | integrated |
+| Fit scoring | integrated in code, disabled in config |
 | CV base text length | 6023 chars |
 | Supported languages | 8 |
 | AI hallucination incidents | 0 verified |
@@ -24,13 +25,16 @@ The bot is in active use and the current docs reflect the live merged state of t
 - Already-applied detection
 - External apply separation
 - Stale element retry paths
+- Live Easy Apply button click fallback improvements
 
 ### AI
 
 - Question fallback
 - Resume tailoring
 - Cover letter generation
+- Cover letter upload when field exists
 - Resume validation
+- Fit scoring module in repo
 - Multi-language handling
 
 ### Output Quality
@@ -45,6 +49,7 @@ The bot is in active use and the current docs reflect the live merged state of t
 - Heartbeat and zombie detection
 - Run cleanup
 - SQLite-backed application history
+- Latest Run progress can update while bot is still running
 
 ## Current File Notes
 
@@ -53,22 +58,28 @@ Important active areas:
 - `packages/extractors/linkedin.py`
 - `apps/worker/runner.py`
 - `packages/ai/resume_tailor.py`
+- `packages/ai/scorer.py`
 - `packages/storage/db.py`
 - `apps/web/app.py`
 - `apps/web/templates/`
 
-## Known Non-Blocking Gaps
+## Known Gaps / Watch Items
 
 | Issue | Status |
 |---|---|
-| Some edge-case external/apply classification | monitor |
+| Fit scoring smoke test with `fit_scoring: true` | pending |
+| Some LinkedIn modal/button edge cases | monitor |
 | Some multilingual form edge cases | partial |
-| Some stale-element retries still noisy | minor |
-| Dashboard time and aggregate stats need polish | pending |
+| Smart per-day rate limiting | not implemented yet |
+| Dashboard polish beyond current live fixes | pending |
+
+## Historical Context
+
+- A LinkedIn rate-limit incident on 2026-06-24 is documented in [RATE_LIMIT_RECOVERY.md](RATE_LIMIT_RECOVERY.md).
+- That document should be treated as operational context and recovery guidance, not as proof of current live cooldown status.
 
 ## Notes For Continuation
 
 - `docs/` is canonical.
-- The old `docs.bak_v31_6` snapshot was reviewed as archive only.
+- Imported bundle context from docs v3.3 was merged selectively.
 - Use [PATCH_HISTORY_LEDGER.md](PATCH_HISTORY_LEDGER.md) for patch-level truth.
-

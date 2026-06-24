@@ -2,6 +2,33 @@
 
 Newest first.
 
+## 2026-06-24 - Selective Docs v3.3 Merge
+
+- merged long-form context from `job-hunter-pro-docs-v3.3.zip`
+- added [RATE_LIMIT_RECOVERY.md](RATE_LIMIT_RECOVERY.md)
+- added [PRDs/PRD_SmartRateLimiter.md](PRDs/PRD_SmartRateLimiter.md)
+- refreshed continuity, roadmap, ledger, and snapshot docs
+- kept implementation status conservative and aligned to active repo state
+
+## 2026-06-24 - Patch 18
+
+- dashboard now separates latest run information from all-time totals
+- latest debug screenshot summary added
+- empty-state and refresh UX improved
+
+## 2026-06-24 - Patch 17
+
+- fit scoring module integrated before tailoring
+- application detail page can show fit score and reasoning
+- DB fields `fit_score` and `fit_reasoning` added
+- current status remains partial until real smoke test with `fit_scoring: true`
+
+## 2026-06-24 - Patch 16 and 16.1
+
+- cover letter upload integrated into LinkedIn Easy Apply flow
+- generated vs uploaded cover letter counters separated
+- cover letter path persisted explicitly
+
 ## 2026-06-24 - Docs Merge Cleanup
 
 - merged active docs with the useful context from the archived snapshot
