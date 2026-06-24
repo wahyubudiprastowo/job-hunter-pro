@@ -231,6 +231,9 @@ def run_bot(config_path: str = "config.yaml"):
                     if not ok:
                         _record_skip_full(job, SkipReason.SALARY_TOO_LOW, reason)
                         counters["skipped"] += 1; continue
+                    if job.raw.get("already_applied"):
+                        _record_skip_full(job, SkipReason.DUPLICATE, "already applied on LinkedIn")
+                        counters["skipped"] += 1; continue
                     if not extractor.can_auto_apply(job):
                         _record_skip_full(job, SkipReason.NOT_EASY_APPLY, "external apply")
                         counters["skipped"] += 1; continue

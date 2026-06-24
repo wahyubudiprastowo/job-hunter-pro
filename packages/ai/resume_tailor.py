@@ -275,11 +275,34 @@ def _render_resume_pdf(profile, tailored: dict, output_path: Path):
     # Header
     name = f"{profile.first_name} {profile.last_name}".strip()
     story.append(Paragraph(name, h1))
-    contact_parts = [profile.email, profile.phone, profile.city, profile.country]
+
+    phone_display = ""
+    phone_raw = (getattr(profile, "phone", "") or "").strip()
+    phone_country_code = (getattr(profile, "phone_country_code", "") or "").strip()
+    if phone_raw:
+        if phone_country_code:
+            cc_match = re.search(r"\+\d+", phone_country_code)
+            if cc_match:
+                phone_display = f"{cc_match.group(0)} {phone_raw}"
+            else:
+                phone_display = f"{phone_country_code} {phone_raw}"
+        else:
+            phone_display = phone_raw
+
+    contact_parts = [profile.email, phone_display, profile.city, profile.country]
     contact_parts = [p for p in contact_parts if p]
-    story.append(Paragraph(" | ".join(contact_parts), contact))
+    if contact_parts:
+        story.append(Paragraph(" | ".join(contact_parts), contact))
+
+    links = []
     if profile.linkedin_url:
-        story.append(Paragraph(profile.linkedin_url, contact))
+        links.append(profile.linkedin_url)
+    if getattr(profile, "github_url", ""):
+        links.append(profile.github_url)
+    if getattr(profile, "portfolio_url", ""):
+        links.append(profile.portfolio_url)
+    if links:
+        story.append(Paragraph(" | ".join(links), contact))
 
     # Summary
     story.append(Paragraph("PROFESSIONAL SUMMARY", h2))

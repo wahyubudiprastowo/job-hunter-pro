@@ -146,5 +146,7 @@
   "maitrise des outils de monitoring (prometheuse, grafana, ...)": "Yes",
   "maitrise des outils d'orchestration (airflow, azure data factory, gcp composer, databricks workflow ...)": "No",
   "maitrise de l’infrastructure as code (terraform, ansible, docker, kubernetes).": "Yes",
-  "do you have hands-on experience with grafana (setting up dashboards, alerts, etc.)": "Yes"
+  "do you have hands-on experience with grafana (setting up dashboards, alerts, etc.)": "Yes",
+  "In quanto libero professionista in Partita Iva, qual è la sua desiderata giornaliera?": "320",
+  "Moet u nu of in de toekomst worden gesponsord voor een werkvisum?Required": "Ja"
 }

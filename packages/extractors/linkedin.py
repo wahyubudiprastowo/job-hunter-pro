@@ -66,6 +66,26 @@ EASY_APPLY_TEXTS = [
 ]
 
 
+ALREADY_APPLIED_TEXTS = [
+    "Applied",
+    "Application submitted",
+    "View application",
+    "Candidatura inviata",
+    "Candidatura presentata",
+    "Visualizza candidatura",
+    "Solicitud enviada",
+    "Ver solicitud",
+    "Candidature envoyée",
+    "Voir la candidature",
+    "Bewerbung gesendet",
+    "Bewerbung anzeigen",
+    "Sollicitatie verzonden",
+    "Bekijk sollicitatie",
+    "Candidatura enviada",
+    "Ver candidatura",
+]
+
+
 def _xpath_button_any(labels):
     conds = []
     for lbl in labels:
@@ -323,16 +343,48 @@ class LinkedInExtractor(BaseExtractor):
         except TimeoutException:
             desc = ""
         salary = self._safe_text(d, SELECTORS["detail_salary"])
-        
+        already_applied = self._detect_already_applied(d)
+
         # PATCH 13: Multi-strategy Easy Apply detection
-        is_easy = self._detect_easy_apply(d)
-        
+        is_easy = False if already_applied else self._detect_easy_apply(d)
+
         return JobListing(
             platform=self.name, job_id=card["job_id"],
             title=title, company=company, location=card.get("location", ""),
             url=f"{self.base_url}/jobs/view/{card['job_id']}/",
             description=desc, salary=salary, is_easy_apply=is_easy,
+            raw={"already_applied": already_applied},
         )
+
+    def _detect_already_applied(self, driver) -> bool:
+        """Detect LinkedIn jobs already applied to, so they aren't mislabeled as external."""
+        selectors = [
+            (By.XPATH, "//button[contains(.,'View application')]"),
+            (By.XPATH, "//button[contains(.,'Application submitted')]"),
+            (By.XPATH, "//*[contains(@class,'jobs-s-apply') and contains(.,'Applied')]"),
+            (By.XPATH, "//*[contains(@class,'jobs-apply-button') and contains(.,'Applied')]"),
+            (By.XPATH, "//*[contains(.,'Applied') and contains(.,'ago')]"),
+        ]
+        for by, sel in selectors:
+            try:
+                elem = driver.find_element(by, sel)
+                if elem.is_displayed():
+                    logger.info("ðŸ” LinkedIn indicates this job was already applied.")
+                    return True
+            except NoSuchElementException:
+                continue
+            except Exception:
+                continue
+
+        try:
+            page_text = (driver.find_element(By.TAG_NAME, "body").text or "").lower()
+            for marker in ALREADY_APPLIED_TEXTS:
+                if marker.lower() in page_text:
+                    logger.info(f"ðŸ” Already-applied marker detected: {marker}")
+                    return True
+        except Exception:
+            pass
+        return False
 
     def _detect_easy_apply(self, driver) -> bool:
         """
