@@ -2,6 +2,14 @@
 
 Newest first.
 
+## 2026-06-24 - Patch 19
+
+- added `packages/extractors/rate_limiter.py`
+- integrated DB-backed daily cap and cooldown tracking
+- added dashboard rate limit status card and reset control
+- added runner-side daily cap enforcement and rate-limit detection hook
+- adapted patch 19 to the current SQLAlchemy-based repo without large refactor
+
 ## 2026-06-24 - Selective Docs v3.3 Merge
 
 - merged long-form context from `job-hunter-pro-docs-v3.3.zip`

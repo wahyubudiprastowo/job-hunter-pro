@@ -61,6 +61,59 @@
   {% endfor %}
 </div>
 
+<div id="rate-limit-card" class="card mb-4 shadow-sm {% if not rate_limit_status %}d-none{% endif %}">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>Rate Limit Status</strong>
+    <form method="post" action="/control/rate_limit/reset" class="m-0">
+      <input type="hidden" name="platform" value="{{ (rate_limit_status.platform if rate_limit_status else 'linkedin') }}">
+      <button class="btn btn-sm btn-outline-secondary" type="submit">Reset Limiter</button>
+    </form>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <div class="small text-muted">Platform</div>
+        <div id="rate-platform">{{ (rate_limit_status.platform if rate_limit_status else 'linkedin').upper() }}</div>
+      </div>
+      <div class="col-md-3">
+        <div class="small text-muted">Daily Cap</div>
+        <div id="rate-count">{{ rate_limit_status.count_today if rate_limit_status else 0 }} / {{ rate_limit_status.cap_today if rate_limit_status else 0 }}</div>
+      </div>
+      <div class="col-md-3">
+        <div class="small text-muted">Remaining</div>
+        <div id="rate-remaining">{{ rate_limit_status.remaining_today if rate_limit_status else 0 }}</div>
+      </div>
+      <div class="col-md-3">
+        <div class="small text-muted">State</div>
+        <div id="rate-state">
+          {% if rate_limit_status and rate_limit_status.is_blocked %}
+            <span class="text-danger">Blocked</span>
+          {% elif rate_limit_status and rate_limit_status.is_at_cap %}
+            <span class="text-warning">At cap</span>
+          {% elif rate_limit_status and rate_limit_status.cap_reduction_active %}
+            <span class="text-warning">Adaptive throttle</span>
+          {% else %}
+            <span class="text-success">OK</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="progress mt-3" style="height: 8px;">
+      <div id="rate-progress" class="progress-bar {% if rate_limit_status and rate_limit_status.is_blocked %}bg-danger{% elif rate_limit_status and rate_limit_status.utilization_pct >= 80 %}bg-warning{% else %}bg-success{% endif %}"
+           style="width: {{ rate_limit_status.utilization_pct if rate_limit_status else 0 }}%"></div>
+    </div>
+    <div id="rate-detail" class="small text-muted mt-2">
+      {% if rate_limit_status and rate_limit_status.is_blocked %}
+        Cooldown {{ rate_limit_status.cooldown_remaining_hours }}h remaining.
+      {% elif rate_limit_status and rate_limit_status.cap_reduction_active %}
+        Reduced daily cap is active.
+      {% else %}
+        Monitoring daily apply usage for account safety.
+      {% endif %}
+    </div>
+  </div>
+</div>
+
 <div class="card mb-4 shadow-sm">
   <div class="card-header"><strong>Latest Run</strong></div>
   <div class="card-body">
@@ -226,6 +279,44 @@ function renderLatestScreenshot(shot) {
   modified.textContent = shot.modified_at || '';
 }
 
+function renderRateLimitStatus(status) {
+  const card = document.getElementById('rate-limit-card');
+  const platform = document.getElementById('rate-platform');
+  const count = document.getElementById('rate-count');
+  const remaining = document.getElementById('rate-remaining');
+  const state = document.getElementById('rate-state');
+  const progress = document.getElementById('rate-progress');
+  const detail = document.getElementById('rate-detail');
+  if (!card || !platform || !count || !remaining || !state || !progress || !detail) return;
+  if (!status || status.error) {
+    card.classList.add('d-none');
+    return;
+  }
+  card.classList.remove('d-none');
+  platform.textContent = (status.platform || 'linkedin').toUpperCase();
+  count.textContent = `${status.count_today || 0} / ${status.cap_today || 0}`;
+  remaining.textContent = `${status.remaining_today || 0}`;
+  progress.style.width = `${status.utilization_pct || 0}%`;
+  progress.className = 'progress-bar';
+  if (status.is_blocked) {
+    state.innerHTML = '<span class="text-danger">Blocked</span>';
+    detail.textContent = `Cooldown ${status.cooldown_remaining_hours || 0}h remaining.`;
+    progress.classList.add('bg-danger');
+  } else if (status.is_at_cap) {
+    state.innerHTML = '<span class="text-warning">At cap</span>';
+    detail.textContent = 'Daily cap reached for today.';
+    progress.classList.add('bg-warning');
+  } else if (status.cap_reduction_active) {
+    state.innerHTML = '<span class="text-warning">Adaptive throttle</span>';
+    detail.textContent = 'Reduced daily cap is active.';
+    progress.classList.add('bg-warning');
+  } else {
+    state.innerHTML = '<span class="text-success">OK</span>';
+    detail.textContent = 'Monitoring daily apply usage for account safety.';
+    progress.classList.add('bg-success');
+  }
+}
+
 async function loadDashboardSnapshot() {
   const r = await fetch('/api/dashboard');
   const data = await r.json();
@@ -257,6 +348,7 @@ async function loadDashboardSnapshot() {
 
   renderLatestRun(data.latest_run || null);
   renderLatestScreenshot(data.latest_screenshot || null);
+  renderRateLimitStatus(data.rate_limit_status || null);
 
   if (Array.isArray(data.recent)) {
     renderRecent(data.recent);

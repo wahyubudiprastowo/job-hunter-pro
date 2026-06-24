@@ -10,6 +10,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
+from packages.extractors import rate_limiter
+
 DB_PATH = Path("data/applications.db")
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -61,6 +63,7 @@ def init_db() -> None:
             conn.execute(text("ALTER TABLE applications ADD COLUMN fit_score INTEGER"))
         if "fit_reasoning" not in columns:
             conn.execute(text("ALTER TABLE applications ADD COLUMN fit_reasoning TEXT"))
+    rate_limiter.init_schema(DB_PATH)
 
 
 def _legacy_external_condition():

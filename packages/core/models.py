@@ -22,6 +22,7 @@ class SkipReason(str, Enum):
     SALARY_TOO_LOW = "salary_too_low"
     DUPLICATE = "duplicate"
     NOT_EASY_APPLY = "not_easy_apply"
+    DAILY_CAP_REACHED = "daily_cap_reached"
     FIT_SCORE_LOW = "fit_score_low"
     UNKNOWN = "unknown"
 

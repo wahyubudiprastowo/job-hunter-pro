@@ -14,6 +14,7 @@ from packages.storage.answers import (
     load_answers, save_answers, load_unanswered, clear_unanswered,
     resolve_unanswered,
 )
+from packages.extractors.rate_limiter import get_status_for_dashboard, SmartRateLimiter
 from apps.worker.control import controller
 from apps.worker.runner import run_bot
 
@@ -62,6 +63,22 @@ def _latest_debug_screenshot():
     }
 
 
+def _load_global_limits_config() -> dict:
+    try:
+        import yaml
+        cfg = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8")) or {}
+        return cfg.get("global_limits", {}) or {}
+    except Exception:
+        return {}
+
+
+def _rate_limit_status(platform: str = "linkedin"):
+    try:
+        return get_status_for_dashboard(store.DB_PATH, platform, _load_global_limits_config())
+    except Exception:
+        return None
+
+
 # ---------- PAGES ----------
 @app.route("/")
 def dashboard():
@@ -72,11 +89,13 @@ def dashboard():
     unanswered = load_unanswered()
     diag = controller.get_diagnostics()
     latest_screenshot = _latest_debug_screenshot()
+    rate_limit_status = _rate_limit_status()
     return render_template(
         "dashboard.html",
         stats=stats, recent=recent, runs=runs, latest_run=latest_run,
         unanswered=unanswered, state=diag["state"], diag=diag,
         latest_screenshot=latest_screenshot,
+        rate_limit_status=rate_limit_status,
     )
 
 
@@ -199,6 +218,18 @@ def control_ai_test():
     return redirect(url_for("dashboard"))
 
 
+@app.route("/control/rate_limit/reset", methods=["POST"])
+def control_rate_limit_reset():
+    platform = (request.form.get("platform") or "linkedin").strip() or "linkedin"
+    try:
+        limiter = SmartRateLimiter(store.DB_PATH, platform, _load_global_limits_config())
+        limiter.reset()
+        flash(f"Rate limiter reset for {platform}.")
+    except Exception as e:
+        flash(f"Rate limiter reset failed: {e}")
+    return redirect(url_for("dashboard"))
+
+
 # ---------- API ----------
 @app.route("/api/state")
 def api_state():
@@ -228,7 +259,13 @@ def api_dashboard():
         "latest_run": latest_run,
         "latest_screenshot": _latest_debug_screenshot(),
         "unanswered_count": len(unanswered),
+        "rate_limit_status": _rate_limit_status(),
     })
+
+
+@app.route("/api/rate_limit/<platform>")
+def api_rate_limit(platform):
+    return jsonify(_rate_limit_status(platform) or {"platform": platform})
 
 
 @app.route("/api/logs/tail")

@@ -1,6 +1,6 @@
 # Feature Checklist - Full Project Progress
 
-Last updated: 2026-06-24 post-Patch 17 review.
+Last updated: 2026-06-24 post-Patch 19 integration.
 
 Comprehensive view of every feature: done, partial, planned.
 
@@ -195,6 +195,21 @@ Comprehensive view of every feature: done, partial, planned.
 
 ---
 
+## Patch 19 - Smart Rate Limiter (85% integrated)
+
+- [x] `packages/extractors/rate_limiter.py`
+- [x] Daily cap table in SQLite
+- [x] Runner-side cap enforcement
+- [x] Rate-limit warning detection hook
+- [x] Cross-run count persistence
+- [x] Dashboard status card
+- [x] Reset control in dashboard
+- [x] Config keys for cooldown and adaptive throttle
+- [x] External bundle self-test passes (15/15)
+- [ ] Real production verification against live LinkedIn limit event
+
+---
+
 ## Phase 3a - Ghosting Detector (0%)
 
 - [ ] DB columns: `viewed_by_recruiter`, `last_response_at`, `last_response_type`
@@ -329,6 +344,7 @@ Comprehensive view of every feature: done, partial, planned.
 | Phase 2b Resume Tailoring | 100% | 8, 9, 9.1, 11, 12, 15 |
 | Phase 2c Cover Letter | 100% | 10, 16, 16.1 |
 | Phase 2d Fit Scoring | 80% | 17 |
+| Patch 19 Smart Rate Limiter | 85% | 19 |
 | Phase 3 Differentiators | 0% | pending |
 | Phase 4 Multi-Platform | 0% | pending |
 | Phase 5 Enterprise | 0% | pending |
@@ -360,6 +376,7 @@ Total completion is still approximate and intentionally conservative.
 | 16 | Phase 2c | User | 2026-06-24 |
 | 16.1 | Phase 2c | User | 2026-06-24 |
 | 17 | Phase 2d | User | 2026-06-24 |
+| 19 | Cross-cutting safety | User | 2026-06-24 |
 
 ---
 

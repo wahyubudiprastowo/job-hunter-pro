@@ -25,6 +25,7 @@ Phase 0 PoC
   -> Patch 16.1
   -> Patch 17
   -> Patch 18
+  -> Patch 19
 ```
 
 ## Summary By Group
@@ -40,6 +41,7 @@ Phase 0 PoC
 | 16 / 16.1 | cover letter upload plus minor counter/persistence fixes |
 | 17 | fit scoring integration |
 | 18 | dashboard UX improvements |
+| 19 | smart rate limiter integration |
 
 ## Recent Patches
 
@@ -104,6 +106,24 @@ Key points:
 - Adds `Latest Run` panel.
 - Adds latest debug screenshot panel.
 - Improves empty-state messaging and dashboard snapshot UX.
+
+### Patch 19
+
+| Field | Value |
+|---|---|
+| Date | 2026-06-24 |
+| Source | selective integration from external patch19 bundle |
+| Files | rate limiter module, models, db, runner, app, dashboard template, config |
+| Outcome | DB-backed daily cap and cooldown protection integrated without major refactor |
+
+Key points:
+
+- Adds `packages/extractors/rate_limiter.py`.
+- Adds `SkipReason.DAILY_CAP_REACHED`.
+- Initializes isolated `rate_limits` table in SQLite.
+- Enforces per-platform daily cap across runs.
+- Adds dashboard visibility and reset control for limiter state.
+- Bundle self-test adapted and verified: 15/15 passed in `.venv`.
 
 ## Imported v3.3 Context
 

@@ -8,6 +8,7 @@ Last updated: 2026-06-24
 - Patch 16.1: Cover letter persistence and counters review fixes
 - Patch 17: Phase 2d Fit Scoring integrated in code
 - Patch 18: Dashboard UX improvements
+- Patch 19: Smart Rate Limiter integrated in code
 
 ## Important Operational Context
 
@@ -45,29 +46,19 @@ Actions:
 2. Verify true external apply jobs still land in `external`.
 3. Verify jobs with visible Easy Apply do not get mislabeled as `external/not_easy_apply`.
 
-### Tier 1 - Smart Rate Limiter
+### Tier 1 - Validate Patch 19 In Real Run
 
-#### Patch 19 - Smart Rate Limiter
-Status: next target  
-Estimate: 4-6 hours  
+#### A3. Patch 19 Runtime Validation
+Status: ready, awaiting live confirmation  
+Estimate: 1 short run  
 Risk: medium
 
-Why now:
+Actions:
 
-- It is the best direct response to the previously documented LinkedIn rate-limit incident.
-- It protects account safety better than simply lowering caps by hand.
-
-Primary reference:
-
-- [PRDs/PRD_SmartRateLimiter.md](PRDs/PRD_SmartRateLimiter.md)
-
-Core scope:
-
-- daily cap tracking per platform
-- rate-limit message detection
-- auto-pause / cooldown
-- persistent safety state across runs
-- dashboard visibility for cap/cooldown state
+1. Lower `total_apply_per_day` temporarily for test if needed.
+2. Confirm cap persists across restart.
+3. Confirm dashboard card shows current state correctly.
+4. Confirm no regression in normal apply flow.
 
 ### Tier 2 - Phase 3a Ghosting Detector
 
@@ -111,10 +102,9 @@ Dependencies:
 Now:
   - verify Patch 17 on a small run
   - verify latest LinkedIn external/apply fixes
-  - keep Smart Rate Limiter as next real patch
+  - validate Patch 19 in a short real run
 
 Next:
-  - Patch 19 Smart Rate Limiter
   - Patch 20 Ghosting Detector
   - Patch 21 UI Modernization
 

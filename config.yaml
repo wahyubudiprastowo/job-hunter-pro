@@ -197,7 +197,12 @@ stealth:
   typing_max_delay: 0.15
   pause_every_n_applications: 5
   pause_seconds: 60
+  jitter_pause_pct: 0
 
 global_limits:
   total_apply_per_day: 25
   total_apply_per_run: 20
+  adaptive_throttle: true
+  cooldown_hours_on_limit: 24
+  cap_reduction_factor: 0.5
+  cap_reduction_days: 7

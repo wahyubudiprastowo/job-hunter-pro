@@ -47,6 +47,14 @@ except ImportError:
     log_fit_score = None
     _HAS_AI = False
 
+try:
+    from packages.extractors.rate_limiter import SmartRateLimiter, detect_rate_limit_in_driver
+    _HAS_RATE_LIMITER = True
+except ImportError:
+    SmartRateLimiter = None
+    detect_rate_limit_in_driver = None
+    _HAS_RATE_LIMITER = False
+
 from apps.worker.control import controller
 
 EXTRACTOR_REGISTRY = {
@@ -82,7 +90,8 @@ def run_bot(config_path: str = "config.yaml"):
     profile = CandidateProfile(**config["personal"])
     mode = config.get("mode", "semi_auto")
     stealth_cfg = config["stealth"]
-    daily_cap = config["global_limits"]["total_apply_per_run"]
+    global_limits_cfg = config.get("global_limits", {}) or {}
+    run_cap = int(global_limits_cfg.get("total_apply_per_run", 20))
     ai_cfg = config.get("ai", {}) or {}
 
     Path("data/logs").mkdir(parents=True, exist_ok=True)
@@ -162,6 +171,8 @@ def run_bot(config_path: str = "config.yaml"):
         "cover_letters_uploaded": 0,
         "fit_scored": 0,
         "fit_skipped": 0,
+        "cap_reached": 0,
+        "rate_limit_detected": 0,
     }
 
     def _sync_run_progress():
@@ -208,9 +219,35 @@ def run_bot(config_path: str = "config.yaml"):
                 logger.error(f"Login failed: {e}")
                 continue
 
+            limiter = None
+            if _HAS_RATE_LIMITER and SmartRateLimiter:
+                try:
+                    limiter = SmartRateLimiter(store.DB_PATH, platform_name, global_limits_cfg)
+                    limiter_status = limiter.get_status()
+                    if limiter_status.is_blocked:
+                        logger.warning(
+                            f"Rate limiter blocks {platform_name} - "
+                            f"{limiter_status.cooldown_remaining_hours}h remaining"
+                        )
+                        continue
+                    if limiter_status.is_at_cap:
+                        logger.warning(
+                            f"Daily cap already reached for {platform_name} "
+                            f"({limiter_status.count_today}/{limiter_status.cap_today})"
+                        )
+                        continue
+                    logger.info(
+                        f"Rate limiter ready for {platform_name}: "
+                        f"{limiter_status.count_today}/{limiter_status.cap_today} today"
+                    )
+                except Exception as e:
+                    logger.warning(f"Rate limiter init failed for {platform_name}: {e}")
+                    limiter = None
+
             search_cfg = pcfg["search"]
+            stop_platform_processing = False
             for query in search_cfg["queries"]:
-                if counters["applied"] >= daily_cap:
+                if stop_platform_processing or counters["applied"] >= run_cap:
                     break
                 controller.check()
                 filters = SearchFilters(
@@ -227,7 +264,7 @@ def run_bot(config_path: str = "config.yaml"):
                     max_cards=pcfg["max_apply_per_run"] * 3)
 
                 for card in cards:
-                    if counters["applied"] >= daily_cap:
+                    if counters["applied"] >= run_cap:
                         break
                     controller.check()
                     job_id = card["job_id"]
@@ -289,6 +326,21 @@ def run_bot(config_path: str = "config.yaml"):
                         counters["skipped"] += 1
                         _sync_run_progress()
                         continue
+
+                    if limiter:
+                        should_block, reason = limiter.should_block()
+                        if should_block:
+                            _record_skip_full(
+                                job,
+                                SkipReason.DAILY_CAP_REACHED,
+                                f"rate limiter: {reason}",
+                            )
+                            counters["cap_reached"] += 1
+                            counters["skipped"] += 1
+                            _sync_run_progress()
+                            logger.warning(f"Daily cap reached for {platform_name} - stopping run gracefully")
+                            stop_platform_processing = True
+                            break
 
                     # === FIT SCORING ===
                     fit_score_result = None
@@ -376,6 +428,8 @@ def run_bot(config_path: str = "config.yaml"):
 
                     if result.status == ApplyStatus.APPLIED:
                         counters["applied"] += 1
+                        if limiter:
+                            limiter.increment()
                         if result.cover_letter_path:
                             counters["cover_letters_uploaded"] += 1
                         suffix = " (tailored)" if effective_resume != resume_path else ""
@@ -394,10 +448,24 @@ def run_bot(config_path: str = "config.yaml"):
 
                     _sync_run_progress()
 
+                    if limiter and detect_rate_limit_in_driver:
+                        matched_phrase = detect_rate_limit_in_driver(driver)
+                        if matched_phrase:
+                            limiter.record_warning(matched_phrase)
+                            counters["rate_limit_detected"] += 1
+                            logger.warning(
+                                f"Rate limit detected for {platform_name} - stopping run after current record"
+                            )
+                            stop_platform_processing = True
+                            break
+
                     if counters["applied"] and counters["applied"] % stealth_cfg["pause_every_n_applications"] == 0:
                         logger.info(f"😴 Pause {stealth_cfg['pause_seconds']}s")
                         time.sleep(stealth_cfg["pause_seconds"])
                     human_sleep(stealth_cfg["min_delay_sec"], stealth_cfg["max_delay_sec"])
+
+                if stop_platform_processing:
+                    break
 
             try:
                 extractor.close()
