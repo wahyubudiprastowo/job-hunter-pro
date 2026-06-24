@@ -2,6 +2,7 @@
 import os
 import json
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from flask import (
     Flask, render_template, request, redirect, url_for, flash, jsonify, Response
@@ -25,6 +26,25 @@ app = Flask(__name__,
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me")
 
 _runner_thread = None
+
+
+def _format_local_datetime(value):
+    """Convert stored UTC-naive timestamps into local server time for the UI."""
+    if not value:
+        return ""
+    try:
+        if isinstance(value, datetime):
+            dt = value
+        else:
+            dt = datetime.fromisoformat(str(value))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return str(value).replace("T", " ")[:19]
+
+
+app.jinja_env.filters["localdt"] = _format_local_datetime
 
 
 # ---------- PAGES ----------
@@ -168,6 +188,21 @@ def api_state():
         "state": controller.get_state(),
         "stats": store.get_stats(),
         "diag": controller.get_diagnostics(),
+    })
+
+
+@app.route("/api/dashboard")
+def api_dashboard():
+    unanswered = load_unanswered()
+    recent = store.list_applications(limit=10)
+    for row in recent:
+        row["created_at_display"] = _format_local_datetime(row.get("created_at"))
+    return jsonify({
+        "state": controller.get_state(),
+        "stats": store.get_stats(),
+        "diag": controller.get_diagnostics(),
+        "recent": recent,
+        "unanswered_count": len(unanswered),
     })
 
 

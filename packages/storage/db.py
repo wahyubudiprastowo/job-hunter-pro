@@ -63,15 +63,26 @@ def record_application(job, result, resume_path: Optional[str] = None) -> bool:
         ).scalar_one_or_none()
 
         if existing:
-            existing.status = result.status.value
-            existing.skip_reason = result.skip_reason.value if result.skip_reason else None
-            existing.error_message = result.error_message
+            # Preserve successful applications as terminal so counters don't regress
+            # when the same LinkedIn job is revisited in later runs.
+            incoming_status = result.status.value
+            next_status = incoming_status
+            preserved_applied = existing.status == "applied" and incoming_status != "applied"
+            if preserved_applied:
+                next_status = existing.status
+
+            existing.status = next_status
+            existing.skip_reason = result.skip_reason.value if result.skip_reason and next_status != "applied" else None
+            existing.error_message = result.error_message if next_status != "applied" else None
             existing.qa_log_json = json.dumps(result.qa_log, ensure_ascii=False)
             existing.unanswered_json = json.dumps(
                 [q.model_dump(mode="json") for q in result.unanswered_questions],
                 ensure_ascii=False, default=str)
             if resume_path:
                 existing.resume_path = resume_path
+            # Refresh dashboard recency only when the stored status reflects the new event.
+            if not preserved_applied:
+                existing.created_at = datetime.utcnow()
             s.commit()
             return False
 

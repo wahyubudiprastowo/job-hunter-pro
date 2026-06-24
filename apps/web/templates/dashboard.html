@@ -1,51 +1,48 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h3>📊 Dashboard</h3>
+  <h3>Dashboard</h3>
   <div>
-    <span class="state-pill state-{{ state }}">{{ state.upper() }}</span>
-    {% if diag.is_zombie %}<span class="badge bg-danger ms-2">ZOMBIE</span>{% endif %}
+    <span id="state-pill" class="state-pill state-{{ state }}">{{ state.upper() }}</span>
+    <span id="zombie-badge" class="badge bg-danger ms-2 {% if not diag.is_zombie %}d-none{% endif %}">ZOMBIE</span>
   </div>
 </div>
 
-<!-- Control buttons -->
 <div class="card mb-3 shadow-sm">
   <div class="card-body d-flex gap-2 flex-wrap">
-    <form method="post" action="/control/start"><button class="btn btn-success">🚀 Start</button></form>
-    <form method="post" action="/control/pause"><button class="btn btn-warning">⏸️ Pause</button></form>
-    <form method="post" action="/control/resume"><button class="btn btn-info">▶️ Resume</button></form>
-    <form method="post" action="/control/stop"><button class="btn btn-danger">🛑 Stop</button></form>
+    <form method="post" action="/control/start"><button class="btn btn-success">Start</button></form>
+    <form method="post" action="/control/pause"><button class="btn btn-warning">Pause</button></form>
+    <form method="post" action="/control/resume"><button class="btn btn-info">Resume</button></form>
+    <form method="post" action="/control/stop"><button class="btn btn-danger">Stop</button></form>
     <form method="post" action="/control/reset"
           onsubmit="return confirm('Force-reset all state files? Use only if bot is stuck.');">
-      <button class="btn btn-outline-dark">🧹 Reset State</button>
+      <button class="btn btn-outline-dark">Reset State</button>
     </form>
-    <form method="post" action="/control/ai-test"><button class="btn btn-outline-primary">🧠 Test AI</button></form>
+    <form method="post" action="/control/ai-test"><button class="btn btn-outline-primary">Test AI</button></form>
   </div>
 </div>
 
-<!-- Diagnostics panel (collapsible) -->
 <div class="card mb-3 shadow-sm">
   <div class="card-header py-2">
     <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#diagPanel" role="button">
-      🔧 Diagnostics
+      Diagnostics
     </a>
   </div>
   <div id="diagPanel" class="collapse">
     <div class="card-body">
       <table class="table table-sm mb-0">
-        <tr><th>State</th><td>{{ diag.state }}</td></tr>
-        <tr><th>Command</th><td>{{ diag.command or '(none)' }}</td></tr>
-        <tr><th>PID</th><td>{{ diag.pid or '(none)' }}</td></tr>
+        <tr><th>State</th><td id="diag-state">{{ diag.state }}</td></tr>
+        <tr><th>Command</th><td id="diag-command">{{ diag.command or '(none)' }}</td></tr>
+        <tr><th>PID</th><td id="diag-pid">{{ diag.pid or '(none)' }}</td></tr>
         <tr><th>Heartbeat age (s)</th>
-            <td>{{ diag.heartbeat_age_sec if diag.heartbeat_age_sec is not none else '(no heartbeat)' }}</td></tr>
+            <td id="diag-heartbeat">{{ diag.heartbeat_age_sec if diag.heartbeat_age_sec is not none else '(no heartbeat)' }}</td></tr>
         <tr><th>Is zombie</th>
-            <td>{% if diag.is_zombie %}<span class="text-danger">YES — click Reset</span>{% else %}No{% endif %}</td></tr>
+            <td id="diag-zombie">{% if diag.is_zombie %}<span class="text-danger">YES - click Reset</span>{% else %}No{% endif %}</td></tr>
       </table>
     </div>
   </div>
 </div>
 
-<!-- Stats cards -->
 <div class="row g-3 mb-4">
   {% set order = ['applied','skipped','needs_answers','failed','external'] %}
   {% for k in order %}
@@ -53,7 +50,7 @@
     <div class="col-md">
       <div class="card text-center shadow-sm">
         <div class="card-body">
-          <div class="display-6">{{ v }}</div>
+          <div id="stat-{{ k }}" class="display-6">{{ v }}</div>
           <div class="text-muted text-uppercase small">{{ k.replace('_',' ') }}</div>
         </div>
       </div>
@@ -61,20 +58,18 @@
   {% endfor %}
 </div>
 
-<!-- Live logs -->
 <div class="card mb-4 shadow-sm">
   <div class="card-header d-flex justify-content-between">
-    <strong>📜 Live Logs (last 100 lines)</strong>
-    <button class="btn btn-sm btn-outline-secondary" onclick="loadLogs()">↻ Refresh</button>
+    <strong>Live Logs (last 100 lines)</strong>
+    <button class="btn btn-sm btn-outline-secondary" onclick="loadLogs()">Refresh</button>
   </div>
   <div class="card-body">
     <pre class="log" id="logbox">(loading...)</pre>
   </div>
 </div>
 
-<!-- Unanswered queue -->
 <div class="card mb-4 shadow-sm">
-  <div class="card-header"><strong>❓ Unanswered Questions ({{ unanswered|length }})</strong></div>
+  <div class="card-header"><strong id="unanswered-title">Unanswered Questions ({{ unanswered|length }})</strong></div>
   <div class="card-body">
     {% if unanswered %}
       <ul class="list-group">
@@ -85,29 +80,28 @@
           </li>
         {% endfor %}
       </ul>
-      <a href="/questions" class="btn btn-sm btn-primary mt-2">Answer all →</a>
+      <a href="/questions" class="btn btn-sm btn-primary mt-2">Answer all</a>
     {% else %}
-      <p class="text-muted mb-0">None. 🎉</p>
+      <p class="text-muted mb-0">None.</p>
     {% endif %}
   </div>
 </div>
 
-<!-- Recent applications -->
 <div class="card shadow-sm">
-  <div class="card-header"><strong>📨 Recent Applications</strong></div>
+  <div class="card-header"><strong>Recent Applications</strong></div>
   <div class="card-body">
     <table class="table table-sm">
       <thead>
         <tr><th>Title</th><th>Company</th><th>Platform</th><th>Status</th><th>When</th></tr>
       </thead>
-      <tbody>
+      <tbody id="recent-body">
         {% for r in recent %}
         <tr>
           <td><a href="/application/{{ r.id }}">{{ r.title or '?' }}</a></td>
           <td>{{ r.company or '?' }}</td>
           <td><span class="badge bg-secondary">{{ r.platform }}</span></td>
           <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
-          <td><small>{{ (r.created_at or '')[:19] }}</small></td>
+          <td><small>{{ r.created_at | localdt }}</small></td>
         </tr>
         {% endfor %}
       </tbody>
@@ -118,11 +112,61 @@
 
 {% block scripts %}
 <script>
-async function loadLogs(){
+function renderRecent(rows) {
+  const tbody = document.getElementById('recent-body');
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td><a href="/application/${r.id}">${r.title || '?'}</a></td>
+      <td>${r.company || '?'}</td>
+      <td><span class="badge bg-secondary">${r.platform}</span></td>
+      <td><span class="badge badge-${r.status}">${r.status}</span></td>
+      <td><small>${r.created_at_display || ''}</small></td>
+    </tr>
+  `).join('');
+}
+
+async function loadDashboardSnapshot() {
+  const r = await fetch('/api/dashboard');
+  const data = await r.json();
+
+  const state = data.state || 'idle';
+  const statePill = document.getElementById('state-pill');
+  statePill.textContent = state.toUpperCase();
+  statePill.className = `state-pill state-${state}`;
+
+  const zombieBadge = document.getElementById('zombie-badge');
+  zombieBadge.classList.toggle('d-none', !data.diag.is_zombie);
+
+  document.getElementById('diag-state').textContent = data.diag.state || 'idle';
+  document.getElementById('diag-command').textContent = data.diag.command || '(none)';
+  document.getElementById('diag-pid').textContent = data.diag.pid || '(none)';
+  document.getElementById('diag-heartbeat').textContent =
+    data.diag.heartbeat_age_sec ?? '(no heartbeat)';
+  document.getElementById('diag-zombie').innerHTML = data.diag.is_zombie
+    ? '<span class="text-danger">YES - click Reset</span>'
+    : 'No';
+
+  ['applied', 'skipped', 'needs_answers', 'failed', 'external'].forEach(key => {
+    const el = document.getElementById(`stat-${key}`);
+    if (el) el.textContent = data.stats[key] || 0;
+  });
+
+  document.getElementById('unanswered-title').textContent =
+    `Unanswered Questions (${data.unanswered_count || 0})`;
+
+  if (Array.isArray(data.recent)) {
+    renderRecent(data.recent);
+  }
+}
+
+async function loadLogs() {
   const r = await fetch('/api/logs/tail');
   document.getElementById('logbox').textContent = await r.text();
 }
+
+loadDashboardSnapshot();
 loadLogs();
+setInterval(loadDashboardSnapshot, 5000);
 setInterval(loadLogs, 5000);
 </script>
 {% endblock %}

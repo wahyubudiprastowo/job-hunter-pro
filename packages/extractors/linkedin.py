@@ -343,7 +343,7 @@ class LinkedInExtractor(BaseExtractor):
         except TimeoutException:
             desc = ""
         salary = self._safe_text(d, SELECTORS["detail_salary"])
-        already_applied = self._detect_already_applied(d)
+        already_applied = self._detect_already_applied(d, card)
 
         # PATCH 13: Multi-strategy Easy Apply detection
         is_easy = False if already_applied else self._detect_easy_apply(d)
@@ -356,34 +356,58 @@ class LinkedInExtractor(BaseExtractor):
             raw={"already_applied": already_applied},
         )
 
-    def _detect_already_applied(self, driver) -> bool:
-        """Detect LinkedIn jobs already applied to, so they aren't mislabeled as external."""
-        selectors = [
-            (By.XPATH, "//button[contains(.,'View application')]"),
-            (By.XPATH, "//button[contains(.,'Application submitted')]"),
-            (By.XPATH, "//*[contains(@class,'jobs-s-apply') and contains(.,'Applied')]"),
-            (By.XPATH, "//*[contains(@class,'jobs-apply-button') and contains(.,'Applied')]"),
-            (By.XPATH, "//*[contains(.,'Applied') and contains(.,'ago')]"),
+    def _detect_already_applied(self, driver, card=None) -> bool:
+        """Detect already-applied state only within the active card/detail scope."""
+        scoped_roots = []
+
+        if card and card.get("_element") is not None:
+            scoped_roots.append(card["_element"])
+
+        detail_scope_selectors = [
+            (By.CSS_SELECTOR, ".jobs-search__job-details--container"),
+            (By.CSS_SELECTOR, ".scaffold-layout__detail"),
+            (By.CSS_SELECTOR, ".jobs-details"),
+            (By.TAG_NAME, "main"),
         ]
-        for by, sel in selectors:
+        for by, sel in detail_scope_selectors:
             try:
-                elem = driver.find_element(by, sel)
-                if elem.is_displayed():
-                    logger.info("ðŸ” LinkedIn indicates this job was already applied.")
-                    return True
+                scoped_roots.append(driver.find_element(by, sel))
+                break
             except NoSuchElementException:
                 continue
             except Exception:
                 continue
 
-        try:
-            page_text = (driver.find_element(By.TAG_NAME, "body").text or "").lower()
-            for marker in ALREADY_APPLIED_TEXTS:
-                if marker.lower() in page_text:
-                    logger.info(f"ðŸ” Already-applied marker detected: {marker}")
-                    return True
-        except Exception:
-            pass
+        scoped_xpath_checks = [
+            ".//button[contains(.,'View application')]",
+            ".//button[contains(.,'Application submitted')]",
+            ".//*[contains(@class,'jobs-s-apply') and contains(.,'Applied')]",
+            ".//*[contains(@class,'jobs-apply-button') and contains(.,'Applied')]",
+            ".//*[contains(.,'Applied') and contains(.,'ago')]",
+        ]
+
+        for root in scoped_roots:
+            for sel in scoped_xpath_checks:
+                try:
+                    elem = root.find_element(By.XPATH, sel)
+                    if elem.is_displayed():
+                        logger.info("ðŸ” LinkedIn indicates this job was already applied.")
+                        return True
+                except NoSuchElementException:
+                    continue
+                except Exception:
+                    continue
+
+        for root in scoped_roots:
+            try:
+                scoped_text = (root.text or "").lower()
+                for marker in ALREADY_APPLIED_TEXTS:
+                    if marker.lower() in scoped_text:
+                        logger.info(f"ðŸ” Already-applied marker detected in scoped view: {marker}")
+                        return True
+            except Exception:
+                continue
+
         return False
 
     def _detect_easy_apply(self, driver) -> bool:

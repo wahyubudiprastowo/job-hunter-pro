@@ -23,7 +23,7 @@
           <td>{{ r.location }}</td>
           <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
           <td><small>{{ r.skip_reason or r.error_message or '' }}</small></td>
-          <td><small>{{ (r.created_at or '')[:19] }}</small></td>
+          <td><small>{{ r.created_at | localdt }}</small></td>
         </tr>
         {% endfor %}
       </tbody>

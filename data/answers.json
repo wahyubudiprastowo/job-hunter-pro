@@ -148,5 +148,11 @@
   "maitrise de l’infrastructure as code (terraform, ansible, docker, kubernetes).": "Yes",
   "do you have hands-on experience with grafana (setting up dashboards, alerts, etc.)": "Yes",
   "In quanto libero professionista in Partita Iva, qual è la sua desiderata giornaliera?": "320",
-  "Moet u nu of in de toekomst worden gesponsord voor een werkvisum?Required": "Ja"
+  "Moet u nu of in de toekomst worden gesponsord voor een werkvisum?Required": "Ja",
+  "wie viele jahre relevante berufserfahrung bringst du in der it‑systemadministration oder im it‑support mit?": "8",
+  "verfügst du über deutschkenntnisse auf mindestens c1‑niveau (in wort und schrift), sodass du technische themen sicher mit kunden und kolleg:innen besprechen kannst?": "No",
+  "hast du praktische erfahrung in der administration von windows‑servern inkl. active directory, gruppenrichtlinien, dns und dhcp?": "Yes",
+  "hast du bereits mit virtualisierungsumgebungen wie vmware oder hyper‑v gearbeitet?": "Yes",
+  "möchtest du grundsätzlich nicht an rufbereitschaften oder schichtdiensten teilnehmen?": "No",
+  "suchst du ausschließlich eine rolle ohne operativen it‑support und ohne ticketbearbeitung?": "Yes"
 }
