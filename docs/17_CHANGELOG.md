@@ -2,6 +2,22 @@
 
 Newest first.
 
+## 2026-06-24 - Patch 25
+
+- added `packages/stealth/captcha_solver.py`
+- added `test_captcha_solver.py`
+- initialized optional CAPTCHA solver in `apps/worker/runner.py`
+- integrated solver hook into `packages/extractors/indeed.py` with manual fallback preserved
+- added `captcha:` scaffold in `config.yaml` and explicit `requests` dependency
+- refreshed CAPTCHA-related docs conservatively: code integrated, live validation still pending
+
+## 2026-06-24 - Patch 22
+
+- added `packages/extractors/indeed.py`
+- registered Indeed as an optional extractor in `apps/worker/runner.py`
+- added disabled-by-default `platforms.indeed` scaffold to `config.yaml`
+- refreshed Patch 22 docs and PRD status conservatively: code integrated, live validation still pending
+
 ## 2026-06-24 - Patch 19
 
 - added `packages/extractors/rate_limiter.py`

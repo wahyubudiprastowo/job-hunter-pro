@@ -26,6 +26,8 @@ Phase 0 PoC
   -> Patch 17
   -> Patch 18
   -> Patch 19
+  -> Patch 22
+  -> Patch 25
 ```
 
 ## Summary By Group
@@ -42,6 +44,8 @@ Phase 0 PoC
 | 17 | fit scoring integration |
 | 18 | dashboard UX improvements |
 | 19 | smart rate limiter integration |
+| 22 | Indeed extractor integrated in code, disabled by default pending live validation |
+| 25 | CAPTCHA solver integrated in code, disabled by default pending live validation |
 
 ## Recent Patches
 
@@ -124,6 +128,38 @@ Key points:
 - Enforces per-platform daily cap across runs.
 - Adds dashboard visibility and reset control for limiter state.
 - Bundle self-test adapted and verified: 15/15 passed in `.venv`.
+
+### Patch 22
+
+| Field | Value |
+|---|---|
+| Date | 2026-06-24 |
+| Source | selective integration from external patch22 bundle |
+| Files | `packages/extractors/indeed.py`, `apps/worker/runner.py`, `config.yaml`, Patch 22 docs |
+| Outcome | Indeed extractor integrated additively with safe default-off config |
+
+Key points:
+
+- Adds `packages/extractors/indeed.py` implementing the `BaseExtractor` contract.
+- Registers Indeed in `EXTRACTOR_REGISTRY` only when the module imports successfully.
+- Adds a disabled-by-default `platforms.indeed` config scaffold for safe rollout.
+- Keeps current status conservative: code is integrated, but first live login/apply validation is still pending.
+
+### Patch 25
+
+| Field | Value |
+|---|---|
+| Date | 2026-06-24 |
+| Source | selective integration from external patch25 bundle |
+| Files | `packages/stealth/captcha_solver.py`, `test_captcha_solver.py`, `apps/worker/runner.py`, `packages/extractors/indeed.py`, `config.yaml`, `requirements.txt`, CAPTCHA docs |
+| Outcome | CAPTCHA solving integrated additively with safe default-off config |
+
+Key points:
+
+- Adds `packages/stealth/captcha_solver.py` for hCaptcha and reCAPTCHA v2 detection/solve flow.
+- Adds DB-backed `captcha_solves` logging inside the existing SQLite database.
+- Initializes solver optionally in the runner and passes it to the Indeed extractor.
+- Keeps current status conservative: code is integrated, but paid-provider and real-session validation are still pending.
 
 ## Imported v3.3 Context
 

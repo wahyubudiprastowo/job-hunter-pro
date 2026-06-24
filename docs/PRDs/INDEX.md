@@ -10,8 +10,8 @@
 | 3b | Health Score | planned | [PRD_3b_Health_Score.md](PRD_3b_Health_Score.md) |
 | 3c | Interview Prep | planned | [PRD_3c_Interview_Prep.md](PRD_3c_Interview_Prep.md) |
 | 3d | Scheduler + Notifications | planned | [PRD_3d_Scheduler_Notifications.md](PRD_3d_Scheduler_Notifications.md) |
-| 3e | CAPTCHA Solver | planned | [PRD_3e_Captcha_Solver.md](PRD_3e_Captcha_Solver.md) |
-| 4a | Indeed | planned | [PRD_4a_Indeed.md](PRD_4a_Indeed.md) |
+| 3e | CAPTCHA Solver | partial, code integrated | [PRD_3e_Captcha_Solver.md](PRD_3e_Captcha_Solver.md) |
+| 4a | Indeed | partial, code integrated | [PRD_4a_Indeed.md](PRD_4a_Indeed.md) |
 | 4b | Glassdoor | planned | [PRD_4b_Glassdoor.md](PRD_4b_Glassdoor.md) |
 | 4c | JobStreet | planned | [PRD_4c_JobStreet.md](PRD_4c_JobStreet.md) |
 | 4d | Wellfound | planned | [PRD_4d_Wellfound.md](PRD_4d_Wellfound.md) |

@@ -1,205 +1,276 @@
-# 🤖 Job-Hunter Pro — Phase 1
+# Job-Hunter Pro
 
-**Plugin-based LinkedIn Easy Apply bot** with a Flask web dashboard, SQLite history, 
-fuzzy answer bank, anti-detection (undetected-chromedriver), and a clean
-`BaseExtractor` interface so you can add Indeed / Glassdoor / JobStreet later
-just by **dropping in a new file**.
+LinkedIn Easy Apply automation bot with a local Flask dashboard, SQLite history, answer bank, AI-assisted resume tailoring, cover letter generation, fit scoring, and a DB-backed smart rate limiter.
 
-> ⚠️ **Disclaimer**: Automating LinkedIn may violate their [User Agreement § 8.2](https://www.linkedin.com/legal/user-agreement).
-> Use a throwaway account first. You assume all risk.
+This repository is no longer just "Phase 1". The active codebase already includes the core LinkedIn flow plus several Phase 2 and Patch 19 capabilities. The `docs/` folder is the canonical source of truth; this root README is the practical quick-start and feature summary.
+
+> Warning: Automating LinkedIn may violate their User Agreement. Use a test account first and accept the risk yourself.
 
 ---
 
-## 📦 What's Inside Phase 1
+## Current Status
 
-| Component | Status |
-|---|:---:|
-| `BaseExtractor` abstract interface | ✅ |
-| LinkedIn extractor (login → search → Easy Apply) | ✅ |
-| Filters (title/desc/company/salary/blacklist) | ✅ |
-| Fuzzy answer bank + unanswered question queue | ✅ |
-| SQLite + SQLAlchemy storage | ✅ |
-| Flask web dashboard (history, Q&A editor, controls) | ✅ |
-| 3 operating modes: `full_auto` / `semi_auto` / `safe_auto` | ✅ |
-| Pause / Resume / Stop signaling (file-based) | ✅ |
-| Anti-detection (undetected-chromedriver + humanizer) | ✅ |
-| Docker Compose | ✅ |
-| Native run scripts (Windows + Linux/macOS) | ✅ |
-| AI tailoring (resume + cover letter) | ⏭️ Phase 2 |
-| Indeed / Glassdoor / JobStreet extractors | ⏭️ Phase 4 |
+### Live in the repo now
+
+| Area | Status |
+|---|---|
+| Plugin-style extractor architecture | Done |
+| LinkedIn login -> search -> Easy Apply | Done |
+| Multi-language Easy Apply detection | Done |
+| Already-applied detection | Done |
+| External apply separation | Done |
+| Answer bank + unanswered queue | Done |
+| Resume tailoring | Done |
+| Cover letter generation | Done |
+| Cover letter upload when field exists | Done |
+| Fit scoring before apply | Integrated |
+| Dashboard controls + history + diagnostics | Done |
+| Latest Run live progress | Done |
+| Debug screenshot surfacing | Done |
+| Smart rate limiter + dashboard reset control | Integrated |
+| CSV export for applications | Done |
+
+### Not implemented yet
+
+| Area | Status |
+|---|---|
+| Indeed extractor | Integrated in code, disabled by default, live validation pending |
+| Glassdoor / JobStreet extractors | Planned |
+| Ghosting detector | Planned |
+| Health score backend | Planned |
+| Interview prep backend | Planned |
+| Notifications scheduler/channels | Planned |
+| CAPTCHA solver | Integrated in code, disabled by default, live validation pending |
 
 ---
 
-## 🚀 Quick Start — 3 Ways
+## Quick Start
 
-### Option A — Docker (recommended)
+### Option A - Docker
 
 ```bash
-# 1) Configure
+# 1) Configure secrets
 cp .env.example .env
-nano .env          # fill LINKEDIN_EMAIL, LINKEDIN_PASSWORD
 
-# 2) Edit your search preferences
-nano config.yaml   # queries, location, filters
+# 2) Review config
+nano config.yaml
 
-# 3) Drop your base resume PDF
-cp /path/to/your/resume.pdf resumes/base_resume.pdf
+# 3) Place your base resume
+cp /path/to/resume.pdf resumes/base_resume.pdf
 
-# 4) Run
+# 4) Start services
 docker compose up --build -d
-
-# 5) Open dashboard
-open http://localhost:5050
 ```
 
-Click **🚀 Start** in the dashboard.
+Open `http://localhost:5050`.
 
-> **First-time login**: LinkedIn often asks for 2FA or CAPTCHA. Set `HEADLESS=false`
-> in `.env` for the first run so you can solve it in the visible browser window.
-> After login, the session is cached in the `chrome-profile` Docker volume —
-> you can switch back to `HEADLESS=true` for subsequent runs.
+### Option B - Native Windows / PowerShell
 
-### Option B — Native Python (Linux/macOS)
+Use the project venv, not your global Python:
+
+```powershell
+.\scripts\run_local.ps1
+```
+
+Or manually:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python run_web.py
+```
+
+### Option C - Native Linux/macOS
 
 ```bash
 chmod +x scripts/run_local.sh
 ./scripts/run_local.sh
 ```
 
-### Option C — Native Python (Windows / PowerShell)
+### Important interpreter note
+
+If `python run_web.py` fails with missing modules such as `loguru`, you are probably using your global interpreter instead of `.venv`.
+
+Use:
 
 ```powershell
-.\scripts\run_local.ps1
+.\.venv\Scripts\python run_web.py
 ```
 
 ---
 
-## 🎛️ The 3 Operating Modes
+## Main Workflow
 
-Set `mode:` in `config.yaml`:
-
-| Mode | Behavior | When to use |
-|---|---|---|
-| `full_auto` | Bot submits without any pause. | After you've tested + trust your answer bank. |
-| `semi_auto` ⭐ | Bot pauses (closes modal) on any **unknown screener question**. Question is added to the dashboard for you to answer; next time bot reuses it. | **Recommended default.** |
-| `safe_auto` | Bot pauses in the **terminal** before clicking Submit — you press ENTER to confirm. | First runs, important accounts. |
-
----
-
-## 🌐 Web Dashboard
-
-Visit `http://localhost:5050`:
-
-- **Dashboard**: stats, live logs, pause/resume controls, unanswered queue
-- **Applications**: filterable history of every job (applied / skipped / failed)
-- **Application detail**: full Q&A trail for each job
-- **Questions**: edit your answer bank, resolve unanswered questions
+1. Load config, credentials, and base resume.
+2. Login to LinkedIn with cached browser profile support.
+3. Search jobs using configured filters.
+4. Reject jobs by title/company/description/salary/already-applied checks.
+5. Optionally score fit before spending more AI work.
+6. Optionally tailor resume and generate cover letter.
+7. Walk Easy Apply modal and answer questions from:
+   - saved answers
+   - fuzzy matching
+   - AI fallback
+   - unanswered queue if still unknown
+8. Persist every result to SQLite and update the dashboard.
 
 ---
 
-## 🧠 How It Works (One Slide)
+## Operating Modes
 
-```
-config.yaml ──┐
-              ├──► CandidateProfile ──┐
-.env ─────────┤                       │
-              ├──► LinkedInExtractor ─┤
-answers.json ─┘                       ├──► Orchestrator
-                                      │       │
-        ┌──── BaseExtractor ────┐     │       ▼
-        │ login() / search() /  │     │   SQLite
-        │ collect_job_cards() / │     │       │
-        │ open_job_detail() /   │     │       ▼
-        │ apply()               │     │   Flask UI
-        └───────────────────────┘     │
-                                      │
-                Drop a new file ──────┘
-                here for Indeed,
-                Glassdoor, etc.
-```
+Set `mode:` in `config.yaml`.
 
-See [docs/02_ARCHITECTURE.md](docs/02_ARCHITECTURE.md) for the deep dive.
-
----
-
-## 🔌 Adding a New Platform
-
-See [docs/PLUGIN_GUIDE.md](docs/PLUGIN_GUIDE.md). TL;DR:
-
-```python
-# packages/extractors/indeed.py
-from packages.extractors.base import BaseExtractor
-
-class IndeedExtractor(BaseExtractor):
-    name = "indeed"
-    base_url = "https://www.indeed.com"
-
-    def login(self, email, password, totp_secret=""): ...
-    def search(self, filters): ...
-    def collect_job_cards(self, max_cards=50): ...
-    def open_job_detail(self, card): ...
-    def can_auto_apply(self, job): ...
-    def apply(self, job, resume_path, mode="semi_auto"): ...
-```
-
-Then register in `apps/worker/runner.py`:
-
-```python
-EXTRACTOR_REGISTRY = {
-    "linkedin": LinkedInExtractor,
-    "indeed": IndeedExtractor,    # ← new
-}
-```
-
-Zero changes to the orchestrator, filters, storage, or UI.
-
----
-
-## 📁 Project Structure
-
-```
-job-hunter-pro/
-├── config.yaml              # All your preferences
-├── .env / .env.example      # Secrets
-├── data/
-│   ├── applications.db      # SQLite (auto-created)
-│   ├── answers.json         # Answer bank
-│   ├── unanswered.json      # Queue of new questions
-│   └── logs/bot.log         # Rotating log file
-├── resumes/
-│   └── base_resume.pdf      # Put your resume here
-├── packages/
-│   ├── core/                # Models, exceptions, filters
-│   ├── extractors/
-│   │   ├── base.py          # Abstract BaseExtractor
-│   │   └── linkedin.py      # LinkedIn implementation
-│   ├── stealth/             # Browser + humanizer
-│   └── storage/             # DB + answer bank
-├── apps/
-│   ├── worker/runner.py     # Orchestrator
-│   ├── worker/control.py    # Pause/Resume/Stop
-│   └── web/app.py           # Flask dashboard
-├── docs/                    # Indexed project documentation
-└── docker-compose.yml
-```
-
----
-
-## 📚 Documentation Index
-
-| Doc | Purpose |
+| Mode | Behavior |
 |---|---|
-| [docs/02_ARCHITECTURE.md](docs/02_ARCHITECTURE.md) | System design + data flow |
-| [docs/PLUGIN_GUIDE.md](docs/PLUGIN_GUIDE.md) | How to add Indeed/Glassdoor/JobStreet |
-| [docs/SETUP.md](docs/SETUP.md) | Step-by-step install (Win/Mac/Linux/Docker) |
-| [docs/16_TROUBLESHOOTING.md](docs/16_TROUBLESHOOTING.md) | Common errors + fixes |
-| [docs/12_PHASE_ROADMAP.md](docs/12_PHASE_ROADMAP.md) | Phase 2 → Phase 5 plan |
+| `full_auto` | Submits automatically. |
+| `semi_auto` | Stops when unknown questions need human answers. |
+| `safe_auto` | Waits for manual confirmation before final submit. |
 
 ---
 
-## 🛡️ Privacy
+## AI Features
 
-- 100% local — no telemetry, no analytics
-- Credentials only in `.env` and the Docker volume `chrome-profile`
-- Database is plain SQLite — back it up however you like
-- OpenAI API (Phase 2) is the only outbound call, and only if you enable it
+Configured under `ai:` in `config.yaml`.
+
+Current AI-backed capabilities:
+
+- question fallback
+- resume tailoring
+- tailored PDF generation
+- cover letter generation (`txt` + `pdf`)
+- cover letter upload if the LinkedIn form exposes a field
+- fit scoring with threshold-based skip
+- validation and anti-hallucination checks
+
+Important toggles:
+
+- `ai.enabled`
+- `ai.resume_tailoring`
+- `ai.cover_letter`
+- `ai.fit_scoring`
+- `ai.validator_strict`
+- `ai.cover_letter_strict`
+
+Environment values such as `AI_API_KEY` and `AI_BASE_URL` should live in `.env`.
+
+---
+
+## Dashboard
+
+Visit `http://localhost:5050`.
+
+Current pages:
+
+- `Dashboard`
+  - start / pause / resume / stop
+  - test AI
+  - reset state
+  - rate limit status + reset limiter
+  - KPI cards
+  - latest run
+  - live logs
+  - debug screenshot summary
+  - unanswered question summary
+  - recent applications
+- `Applications`
+  - status filters
+  - platform filter scaffold
+  - CSV export
+  - paginated history
+  - fit score column
+- `Application detail`
+  - platform link
+  - generated files
+  - fit reasoning
+  - Q&A trail
+- `Questions`
+  - unanswered queue
+  - manual answer entry
+  - saved answer bank maintenance
+
+Note: some UI entries like Health Score, Interview Prep, and Notifications are visual scaffolds only right now; their backends are not active yet.
+
+---
+
+## Smart Rate Limiter
+
+Patch 19 introduced a DB-backed limiter that tracks daily usage across runs.
+
+Current behavior:
+
+- daily cap awareness
+- cooldown tracking
+- adaptive throttle config
+- dashboard visibility
+- manual limiter reset from dashboard
+
+Configured under `global_limits:` in `config.yaml`.
+
+---
+
+## Project Structure
+
+```text
+job-hunter-pro/
+├── apps/
+│   ├── web/                  # Flask dashboard
+│   └── worker/               # bot runner + control plane
+├── packages/
+│   ├── ai/                   # provider, tailoring, cover letter, scoring
+│   ├── core/                 # models, filters, exceptions
+│   ├── extractors/           # base + linkedin + rate limiter
+│   ├── stealth/              # browser + humanized actions
+│   └── storage/              # SQLite + answer persistence
+├── data/                     # SQLite, logs, unanswered queue, screenshots
+├── resumes/                  # base and generated resumes
+├── cover_letters/            # generated cover letters
+├── docs/                     # canonical documentation
+├── config.yaml
+├── requirements.txt
+└── run_web.py
+```
+
+---
+
+## Documentation
+
+Start with:
+
+- [docs/README.md](docs/README.md)
+- [docs/00_MASTER_CONTINUITY.md](docs/00_MASTER_CONTINUITY.md)
+- [docs/CURRENT_STATE_SNAPSHOT.md](docs/CURRENT_STATE_SNAPSHOT.md)
+- [docs/FEATURE_CHECKLIST.md](docs/FEATURE_CHECKLIST.md)
+- [docs/NEXT_STEPS_ROADMAP.md](docs/NEXT_STEPS_ROADMAP.md)
+
+Useful deep dives:
+
+- [docs/02_ARCHITECTURE.md](docs/02_ARCHITECTURE.md)
+- [docs/PLUGIN_GUIDE.md](docs/PLUGIN_GUIDE.md)
+- [docs/16_TROUBLESHOOTING.md](docs/16_TROUBLESHOOTING.md)
+- [docs/PRDs/PRD_2d_Fit_Scoring.md](docs/PRDs/PRD_2d_Fit_Scoring.md)
+- [docs/PRDs/PRD_SmartRateLimiter.md](docs/PRDs/PRD_SmartRateLimiter.md)
+
+---
+
+## Adding Another Platform
+
+The orchestrator is still extractor-based. LinkedIn remains the active default flow, and the Indeed extractor is now integrated in code but disabled by default until `.env` credentials and a first manual login/captcha smoke test are completed.
+
+Any additional platform after that should still follow `BaseExtractor` under `packages/extractors/`, then be registered in `apps/worker/runner.py`.
+
+---
+
+## Privacy
+
+- local SQLite storage
+- local logs
+- local browser profile persistence
+- no telemetry built into the app
+- outbound AI calls only if AI is enabled
+
+---
+
+## Practical Reminder
+
+If root docs and `docs/` ever disagree, prefer `docs/` and the current code.

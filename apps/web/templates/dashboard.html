@@ -39,45 +39,148 @@
 {% endblock %}
 
 {% block content %}
-{% if rate_limit_status %}
-<div id="rate-limit-card" class="rate-limit-card {% if rate_limit_status.is_blocked %}danger{% elif rate_limit_status.utilization_pct >= 80 %}warning{% endif %}">
-  <div class="d-flex justify-content-between align-items-center">
-    <div class="flex-1">
-      <div class="fw-bold" id="rate-title">
-        {% if rate_limit_status.is_blocked %}
-          <i class="bi bi-shield-exclamation text-danger"></i> Rate Limit Active
-        {% elif rate_limit_status.cap_reduction_active %}
-          <i class="bi bi-shield-fill-check text-warning"></i> Adaptive Throttle
-        {% elif rate_limit_status.utilization_pct >= 80 %}
-          <i class="bi bi-exclamation-triangle text-warning"></i> Approaching Limit
-        {% else %}
-          <i class="bi bi-shield-fill-check text-success"></i> Rate Limit OK
-        {% endif %}
-        — <span id="rate-platform">{{ rate_limit_status.platform|upper }}</span>
+{% if rate_limit_statuses %}
+<div id="rate-limit-cards">
+  {% for rate_limit_status in rate_limit_statuses %}
+  <div class="rate-limit-card {% if rate_limit_status.is_blocked %}danger{% elif rate_limit_status.utilization_pct >= 80 %}warning{% endif %}">
+    <div class="d-flex justify-content-between align-items-center">
+      <div class="flex-1">
+        <div class="fw-bold">
+          {% if rate_limit_status.is_blocked %}
+            <i class="bi bi-shield-exclamation text-danger"></i> Rate Limit Active
+          {% elif rate_limit_status.cap_reduction_active %}
+            <i class="bi bi-shield-fill-check text-warning"></i> Adaptive Throttle
+          {% elif rate_limit_status.utilization_pct >= 80 %}
+            <i class="bi bi-exclamation-triangle text-warning"></i> Approaching Limit
+          {% else %}
+            <i class="bi bi-shield-fill-check text-success"></i> Rate Limit OK
+          {% endif %}
+          — {{ rate_limit_status.platform|upper }}
+        </div>
+        <div class="small text-muted">
+          {{ rate_limit_status.count_today }} / {{ rate_limit_status.cap_today }} applied today
+          ({{ rate_limit_status.remaining_today }} remaining)
+          {% if rate_limit_status.is_blocked %}· Cooldown {{ rate_limit_status.cooldown_remaining_hours }}h{% endif %}
+        </div>
       </div>
-      <div class="small text-muted" id="rate-detail">
-        {{ rate_limit_status.count_today }} / {{ rate_limit_status.cap_today }} applied today
-        ({{ rate_limit_status.remaining_today }} remaining)
-        {% if rate_limit_status.is_blocked %}· Cooldown {{ rate_limit_status.cooldown_remaining_hours }}h{% endif %}
+      <div class="d-flex align-items-center gap-2">
+        <div class="fw-bold fs-3">{{ rate_limit_status.utilization_pct }}%</div>
+        <form method="post" action="/control/rate_limit/reset" style="display:inline"
+              onsubmit="return confirm('Reset rate limiter? Only do this if you confirmed the limit is released.');">
+          <input type="hidden" name="platform" value="{{ rate_limit_status.platform }}">
+          <button class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-clockwise"></i> Reset Limiter
+          </button>
+        </form>
       </div>
     </div>
-    <div class="d-flex align-items-center gap-2">
-      <div class="fw-bold fs-3" id="rate-pct">{{ rate_limit_status.utilization_pct }}%</div>
-      <form method="post" action="/control/rate_limit/reset" style="display:inline"
-            onsubmit="return confirm('Reset rate limiter? Only do this if you confirmed the limit is released.');">
-        <input type="hidden" name="platform" value="{{ rate_limit_status.platform }}">
-        <button class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-arrow-clockwise"></i> Reset Limiter
-        </button>
-      </form>
+    <div class="rate-limit-meter">
+      <div class="rate-limit-meter-bar {% if rate_limit_status.utilization_pct >= 80 %}danger{% elif rate_limit_status.utilization_pct >= 60 %}warn{% else %}safe{% endif %}"
+        style="width: {{ rate_limit_status.utilization_pct }}%"></div>
     </div>
   </div>
-  <div class="rate-limit-meter">
-    <div id="rate-progress" class="rate-limit-meter-bar {% if rate_limit_status.utilization_pct >= 80 %}danger{% elif rate_limit_status.utilization_pct >= 60 %}warn{% else %}safe{% endif %}"
-      style="width: {{ rate_limit_status.utilization_pct }}%"></div>
-  </div>
+  {% endfor %}
 </div>
 {% endif %}
+
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-collection-play"></i> Platform Control</span>
+    <div id="platform-state-badges" style="display: flex; gap: 8px; flex-wrap: wrap;">
+      {% for platform, state_info in platform_states.items() %}
+        <span class="state-badge state-{{ state_info.state or 'idle' }}">
+          <span class="state-dot"></span>{{ platform|upper }}: {{ (state_info.state or 'idle')|upper }}
+        </span>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card-body">
+    {% if config_error %}
+      <div class="alert alert-warning mb-3">
+        <strong>Config error:</strong> <code>{{ config_error }}</code>
+      </div>
+    {% endif %}
+    <p id="platform-control-running-note" class="text-muted mb-0 {% if state not in ['running', 'paused'] %}d-none{% endif %}">
+        <i class="bi bi-info-circle"></i> Bot is {{ state }}. Stop or finish the current run before changing platform selection.
+      </p>
+      <div id="platform-control-actions" class="{% if state in ['running', 'paused'] %}d-none{% endif %}" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+        <form method="post" action="/control/start_platform" style="display:inline">
+          <input type="hidden" name="platforms" value="all">
+          <button class="btn btn-success btn-sm">
+            <i class="bi bi-play-circle-fill"></i> Start All Platforms
+          </button>
+        </form>
+
+        <span class="text-muted">|</span>
+
+        {% for p in enabled_platforms %}
+          <form method="post" action="/control/start_platform" style="display:inline">
+            <input type="hidden" name="platforms" value="{{ p.name }}">
+            <input type="hidden" name="mode" value="sequential">
+            <button class="btn btn-outline-primary btn-sm"
+                    {% if not p.enabled %}disabled title="Disabled in config"{% endif %}>
+              {% if p.name == 'linkedin' %}
+                <i class="bi bi-linkedin"></i>
+              {% elif p.name == 'indeed' %}
+                <i class="bi bi-briefcase"></i>
+              {% else %}
+                <i class="bi bi-box"></i>
+              {% endif %}
+              {{ p.name|upper }} only
+              <span class="badge bg-secondary ms-2">{{ p.max_apply }}/run</span>
+            </button>
+          </form>
+        {% endfor %}
+
+        <span class="text-muted">|</span>
+
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleCustomSelect()">
+          <i class="bi bi-gear"></i> Custom...
+        </button>
+      </div>
+
+      <div id="custom-select-panel" class="d-none{% if state in ['running', 'paused'] %} d-none{% endif %}" style="margin-top: 16px; padding: 16px; background: var(--color-bg); border-radius: var(--radius-sm);">
+        <form method="post" action="/control/start_platform" onsubmit="return prepareCustomStart()">
+          <div class="mb-3">
+            <label class="small text-muted mb-2 d-block">Select platforms:</label>
+            {% if not enabled_platforms %}
+              <div class="small text-muted">No platforms available from current config.</div>
+            {% endif %}
+            {% set preferred_platforms = preferred_selection.platforms if preferred_selection and preferred_selection.platforms else [] %}
+            {% for p in enabled_platforms %}
+              <label style="display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; margin-bottom: 8px;">
+                <input type="checkbox" name="platforms_checks" value="{{ p.name }}"
+                       {% if preferred_platforms %}{% if p.name in preferred_platforms %}checked{% endif %}{% elif p.enabled %}checked{% endif %}>
+                <span>{{ p.name|upper }}</span>
+                <small class="text-muted">({{ p.max_apply }}/run)</small>
+                {% if not p.credentials_ready %}
+                  <small class="text-warning">will use browser session if available</small>
+                {% endif %}
+              </label>
+            {% endfor %}
+          </div>
+          <div class="mb-3">
+            <label class="small text-muted mb-2 d-block">Execution mode:</label>
+            <label style="display: inline-flex; align-items: center; gap: 6px; margin-right: 16px;">
+              <input type="radio" name="mode" value="sequential" checked>
+              <span class="small">Sequential (one after another)</span>
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 6px;">
+              <input type="radio" name="mode" value="parallel" disabled title="Future feature">
+              <span class="small text-muted">Parallel (coming soon)</span>
+            </label>
+          </div>
+          <input type="hidden" name="platforms" id="custom-platforms-input" value="">
+          <button type="submit" class="btn btn-success btn-sm">
+            <i class="bi bi-play-fill"></i> Start Custom Selection
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleCustomSelect()">
+            Cancel
+          </button>
+        </form>
+      </div>
+  </div>
+</div>
 
 <div class="kpi-grid">
   <div class="kpi-card green">
@@ -153,7 +256,7 @@
   <div class="card">
     <div class="card-header">
       <span><i class="bi bi-arrow-clockwise"></i> Current Run</span>
-      <span class="state-badge state-{{ state or 'idle' }}">{{ (state or 'idle')|upper }}</span>
+      <span id="current-run-state" class="state-badge state-{{ state or 'idle' }}">{{ (state or 'idle')|upper }}</span>
     </div>
     <div class="card-body" style="display: flex; flex-direction: column; align-items: center;">
       <div id="run-donut" style="width: 220px; height: 220px;"></div>
@@ -173,7 +276,7 @@
       {% else %}
         <div class="text-muted">
           <i class="bi bi-pause-circle"></i> Bot is {{ state or 'idle' }}.
-          {% if rate_limit_status and rate_limit_status.is_blocked %}
+          {% if rate_limit_statuses and rate_limit_statuses[0].is_blocked %}
             Cooldown until rate limit released.
           {% else %}
             Click Start to begin a new run.
@@ -557,31 +660,99 @@ function renderLatestRun(run) {
   renderRunDonut(run.applied || 0, total || 0);
 }
 
-function renderRateLimitStatus(status) {
-  const card = document.getElementById('rate-limit-card');
-  if (!card || !status) return;
-  const title = document.getElementById('rate-title');
-  const platform = document.getElementById('rate-platform');
-  const detail = document.getElementById('rate-detail');
-  const pct = document.getElementById('rate-pct');
-  const progress = document.getElementById('rate-progress');
-  if (platform) platform.textContent = (status.platform || 'linkedin').toUpperCase();
-  if (pct) pct.textContent = `${status.utilization_pct || 0}%`;
-  if (detail) {
-    detail.textContent = `${status.count_today || 0} / ${status.cap_today || 0} applied today (${status.remaining_today || 0} remaining)` +
-      (status.is_blocked ? ` · Cooldown ${status.cooldown_remaining_hours || 0}h` : '');
-  }
-  if (title) {
+function renderRateLimitStatuses(statuses) {
+  const container = document.getElementById('rate-limit-cards');
+  if (!container || !Array.isArray(statuses) || !statuses.length) return;
+  container.innerHTML = statuses.map(status => {
     let label = 'Rate Limit OK';
-    if (status.is_blocked) label = 'Rate Limit Active';
-    else if (status.cap_reduction_active) label = 'Adaptive Throttle';
-    else if ((status.utilization_pct || 0) >= 80) label = 'Approaching Limit';
-    title.innerHTML = `${label} — <span id="rate-platform">${(status.platform || 'linkedin').toUpperCase()}</span>`;
+    let icon = '<i class="bi bi-shield-fill-check text-success"></i>';
+    let cardClass = '';
+    if (status.is_blocked) {
+      label = 'Rate Limit Active';
+      icon = '<i class="bi bi-shield-exclamation text-danger"></i>';
+      cardClass = 'danger';
+    } else if (status.cap_reduction_active) {
+      label = 'Adaptive Throttle';
+      icon = '<i class="bi bi-shield-fill-check text-warning"></i>';
+    } else if ((status.utilization_pct || 0) >= 80) {
+      label = 'Approaching Limit';
+      icon = '<i class="bi bi-exclamation-triangle text-warning"></i>';
+      cardClass = 'warning';
+    }
+    const barClass = (status.utilization_pct || 0) >= 80 ? 'danger' : ((status.utilization_pct || 0) >= 60 ? 'warn' : 'safe');
+    return `
+      <div class="rate-limit-card ${cardClass}">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="flex-1">
+            <div class="fw-bold">
+              ${icon} ${label} — ${(status.platform || 'linkedin').toUpperCase()}
+            </div>
+            <div class="small text-muted">
+              ${status.count_today || 0} / ${status.cap_today || 0} applied today (${status.remaining_today || 0} remaining)
+              ${status.is_blocked ? `· Cooldown ${status.cooldown_remaining_hours || 0}h` : ''}
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <div class="fw-bold fs-3">${status.utilization_pct || 0}%</div>
+            <form method="post" action="/control/rate_limit/reset" style="display:inline" onsubmit="return confirm('Reset rate limiter? Only do this if you confirmed the limit is released.');">
+              <input type="hidden" name="platform" value="${status.platform || 'linkedin'}">
+              <button class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-clockwise"></i> Reset Limiter
+              </button>
+            </form>
+          </div>
+        </div>
+        <div class="rate-limit-meter">
+          <div class="rate-limit-meter-bar ${barClass}" style="width: ${status.utilization_pct || 0}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderTopControls(state) {
+  const actions = document.getElementById('top-action-buttons');
+  const currentRunState = document.getElementById('current-run-state');
+  if (actions) {
+    let html = '';
+    if (state === 'running') {
+      html += `
+        <form method="post" action="/control/pause" style="display:inline">
+          <button type="submit" class="btn btn-warning btn-sm"><i class="bi bi-pause-fill"></i> Pause</button>
+        </form>
+        <form method="post" action="/control/stop" style="display:inline">
+          <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-stop-fill"></i> Stop</button>
+        </form>
+      `;
+    } else if (state === 'paused') {
+      html += `
+        <form method="post" action="/control/resume" style="display:inline">
+          <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-play-fill"></i> Resume</button>
+        </form>
+        <form method="post" action="/control/stop" style="display:inline">
+          <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-stop-fill"></i> Stop</button>
+        </form>
+      `;
+    } else {
+      html += `
+        <form method="post" action="/control/start" style="display:inline">
+          <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-play-fill"></i> Start</button>
+        </form>
+      `;
+    }
+    html += `
+      <form method="post" action="/control/reset" style="display:inline" onsubmit="return confirm('Force-reset all state files? Use only if bot is stuck.');">
+        <button type="submit" class="btn btn-outline-dark btn-sm" title="Reset State"><i class="bi bi-arrow-clockwise"></i> Reset</button>
+      </form>
+      <form method="post" action="/control/ai-test" style="display:inline">
+        <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-cpu"></i> Test AI</button>
+      </form>
+    `;
+    actions.innerHTML = html;
   }
-  if (progress) {
-    progress.style.width = `${status.utilization_pct || 0}%`;
-    progress.className = 'rate-limit-meter-bar';
-    progress.classList.add((status.utilization_pct || 0) >= 80 ? 'danger' : ((status.utilization_pct || 0) >= 60 ? 'warn' : 'safe'));
+  if (currentRunState) {
+    currentRunState.className = `state-badge state-${state || 'idle'}`;
+    currentRunState.textContent = (state || 'idle').toUpperCase();
   }
 }
 
@@ -598,16 +769,87 @@ function renderLatestScreenshot(shot) {
   if (modified && shot && shot.modified_at) modified.textContent = shot.modified_at;
 }
 
+function renderPlatformStates(states) {
+  const container = document.getElementById('platform-state-badges');
+  if (!container) return;
+  const entries = Object.entries(states || {});
+  if (!entries.length) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = entries.map(([platform, info]) => `
+    <span class="state-badge state-${info.state || 'idle'}">
+      <span class="state-dot"></span>${platform.toUpperCase()}: ${(info.state || 'idle').toUpperCase()}
+    </span>
+  `).join('');
+}
+
+function renderPlatformControlState(state) {
+  const runningNote = document.getElementById('platform-control-running-note');
+  const actions = document.getElementById('platform-control-actions');
+  const customPanel = document.getElementById('custom-select-panel');
+
+  const isBusy = state === 'running' || state === 'paused';
+  if (runningNote) {
+    runningNote.classList.toggle('d-none', !isBusy);
+    runningNote.innerHTML = `<i class="bi bi-info-circle"></i> Bot is ${state || 'idle'}. Stop or finish the current run before changing platform selection.`;
+  }
+  if (actions) {
+    actions.classList.toggle('d-none', isBusy);
+  }
+  if (customPanel && isBusy) {
+    customPanel.classList.add('d-none');
+  }
+}
+
+function toggleCustomSelect() {
+  const panel = document.getElementById('custom-select-panel');
+  if (!panel) return;
+  const actions = document.getElementById('platform-control-actions');
+  if (actions && actions.classList.contains('d-none')) return;
+  panel.classList.toggle('d-none');
+}
+
+function prepareCustomStart() {
+  const input = document.getElementById('custom-platforms-input');
+  const checks = document.querySelectorAll('input[name="platforms_checks"]:checked');
+  const platforms = Array.from(checks).map(el => el.value);
+  if (!input) return false;
+  input.value = platforms.join(',');
+  if (!platforms.length) {
+    alert('Select at least one platform.');
+    return false;
+  }
+  return true;
+}
+
+function deriveEffectiveState(state, platformStates) {
+  const normalized = state || 'idle';
+  if (normalized === 'running' || normalized === 'paused') {
+    return normalized;
+  }
+  const entries = Object.values(platformStates || {});
+  if (entries.some(info => (info.state || '') === 'running')) {
+    return 'running';
+  }
+  if (entries.some(info => (info.state || '') === 'paused')) {
+    return 'paused';
+  }
+  return normalized;
+}
+
 async function loadDashboardSnapshot() {
   try {
     const r = await fetch('/api/dashboard');
     const data = await r.json();
-    const state = data.state || 'idle';
+    const state = deriveEffectiveState(data.state || 'idle', data.platform_states || {});
     const statePill = document.getElementById('state-pill');
     if (statePill) {
       statePill.className = `state-badge state-${state}`;
       statePill.innerHTML = `<span class="state-dot"></span>${state.toUpperCase()}`;
     }
+    renderTopControls(state);
+    renderPlatformControlState(state);
     if (document.getElementById('kpi-applied')) document.getElementById('kpi-applied').textContent = data.stats?.applied || 0;
     if (document.getElementById('kpi-skipped')) document.getElementById('kpi-skipped').textContent = data.stats?.skipped || 0;
     if (document.getElementById('kpi-needs')) document.getElementById('kpi-needs').textContent = data.stats?.needs_answers || 0;
@@ -637,7 +879,8 @@ async function loadDashboardSnapshot() {
     }
     renderLatestRun(data.latest_run || null);
     renderLatestScreenshot(data.latest_screenshot || null);
-    renderRateLimitStatus(data.rate_limit_status || null);
+    renderRateLimitStatuses(data.rate_limit_statuses || []);
+    renderPlatformStates(data.platform_states || {});
     if (Array.isArray(data.recent)) renderRecent(data.recent);
   } catch (e) {
     console.error('Dashboard refresh failed:', e);

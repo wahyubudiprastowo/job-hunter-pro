@@ -206,6 +206,8 @@ class LinkedInExtractor(BaseExtractor):
         if "feed" in d.current_url or "/in/" in d.current_url:
             logger.info("Already logged in.")
             return True
+        if not email or not password:
+            raise LoginError("LinkedIn credentials missing and no active session found")
         try:
             email_el = WebDriverWait(d, 15).until(
                 EC.presence_of_element_located(SELECTORS["login_email"]))

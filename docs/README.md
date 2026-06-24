@@ -23,6 +23,8 @@ This `docs/` folder is the active source of truth for the project.
 
 - PRD index: [PRDs/INDEX.md](PRDs/INDEX.md)
 - Fit scoring: [PRDs/PRD_2d_Fit_Scoring.md](PRDs/PRD_2d_Fit_Scoring.md)
+- CAPTCHA solver: [PRDs/PRD_3e_Captcha_Solver.md](PRDs/PRD_3e_Captcha_Solver.md)
+- Indeed extractor: [PRDs/PRD_4a_Indeed.md](PRDs/PRD_4a_Indeed.md)
 - Smart rate limiter: [PRDs/PRD_SmartRateLimiter.md](PRDs/PRD_SmartRateLimiter.md)
 
 ## Repositories

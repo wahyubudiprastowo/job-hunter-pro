@@ -1,6 +1,6 @@
 # Feature Checklist - Full Project Progress
 
-Last updated: 2026-06-24 post-Patch 19 integration.
+Last updated: 2026-06-24 post-Patch 25 integration.
 
 Comprehensive view of every feature: done, partial, planned.
 
@@ -252,21 +252,30 @@ Comprehensive view of every feature: done, partial, planned.
 
 ---
 
-## Phase 3e - CAPTCHA Solver (0%)
+## Phase 3e - CAPTCHA Solver (70% partial)
 
-- [ ] Detection logic
-- [ ] 2Captcha integration
-- [ ] Manual UI fallback
-- [ ] Pause-on-captcha mechanism
+- [x] Detection logic
+- [x] 2Captcha integration
+- [x] Anti-Captcha integration
+- [x] Manual fallback mode
+- [x] DB-backed `captcha_solves` logging
+- [x] Cost tracking helpers
+- [x] Self-test script added
+- [ ] Real paid-provider validation
+- [ ] Dashboard/UI surfacing
 
 ---
 
-## Phase 4 - Multi-Platform (0%)
+## Phase 4 - Multi-Platform (10% partial)
 
 ### 4a Indeed
-- [ ] `packages/extractors/indeed.py`
-- [ ] Login + 2FA + hCaptcha
-- [ ] Plugin registered
+- [x] `packages/extractors/indeed.py`
+- [x] Plugin registered
+- [x] Config scaffold added in `config.yaml`
+- [x] CAPTCHA solver hook integrated with manual fallback preserved
+- [ ] Live login validation with real credentials
+- [ ] Search returns >= 5 cards in a smoke run
+- [ ] First successful Indeed apply
 
 ### 4b Glassdoor
 - [ ] `packages/extractors/glassdoor.py`
@@ -345,8 +354,8 @@ Comprehensive view of every feature: done, partial, planned.
 | Phase 2c Cover Letter | 100% | 10, 16, 16.1 |
 | Phase 2d Fit Scoring | 80% | 17 |
 | Patch 19 Smart Rate Limiter | 85% | 19 |
-| Phase 3 Differentiators | 0% | pending |
-| Phase 4 Multi-Platform | 0% | pending |
+| Phase 3 Differentiators | 10% | 25 |
+| Phase 4 Multi-Platform | 10% | 22 |
 | Phase 5 Enterprise | 0% | pending |
 
 Total completion is still approximate and intentionally conservative.

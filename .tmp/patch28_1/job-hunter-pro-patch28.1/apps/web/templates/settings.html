@@ -1,0 +1,400 @@
+{% extends 'base.html' %}
+
+{% block title %}Settings — Job-Hunter Pro{% endblock %}
+
+{% block content %}
+
+<div class='page-header'>
+  <h1 class='page-title'>Settings</h1>
+  <p class='page-subtitle'>Edit your bot configuration. Changes saved to config.yaml and .env with auto-backup.</p>
+</div>
+
+{% if warnings %}
+<div class='alert alert-warning mb-3'>
+  <strong><i class='bi bi-exclamation-triangle'></i> Validation Warnings:</strong>
+  <ul class='mb-0 mt-2'>
+    {% for w in warnings %}<li>{{ w }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<!-- Tab Navigation -->
+<div class='filter-pills mb-4'>
+  <a href='?section=search' class='filter-pill {% if active_section == "search" %}active{% endif %}'>
+    <i class='bi bi-search'></i> Search & Filters
+  </a>
+  <a href='?section=personal' class='filter-pill {% if active_section == "personal" %}active{% endif %}'>
+    <i class='bi bi-person'></i> Personal Info
+  </a>
+  <a href='?section=behavior' class='filter-pill {% if active_section == "behavior" %}active{% endif %}'>
+    <i class='bi bi-gear'></i> AI & Behavior
+  </a>
+  <a href='?section=credentials' class='filter-pill {% if active_section == "credentials" %}active{% endif %}'>
+    <i class='bi bi-key'></i> Credentials
+  </a>
+</div>
+
+{% if active_section == 'search' %}
+<!-- SEARCH SECTION -->
+<form method='post' action='/settings/save/search'>
+  <div class='card'>
+    <div class='card-header'>
+      <span><i class='bi bi-search'></i> Search Filters</span>
+    </div>
+    <div class='card-body'>
+      <div class='mb-3'>
+        <label class='small text-muted'>JOB TITLE QUERIES (one per line or comma-separated)</label>
+        {% set queries = config.platforms.linkedin.search.queries if config.platforms.linkedin.search.queries else [] %}
+        <textarea name='queries' class='search-input' style='width:100%; height:120px; padding:8px;'>{{ queries|join('\n') }}</textarea>
+        <small class='text-muted'>e.g. Cloud Infrastructure Engineer, DevOps Engineer</small>
+      </div>
+
+      <div class='mb-3'>
+        <label class='small text-muted'>LOCATION</label>
+        <input type='text' name='location' value='{{ config.platforms.linkedin.search.location or "" }}' class='search-input' style='width:100%; padding:8px;'>
+      </div>
+
+      <div class='mb-3'>
+        <label class='small text-muted'>INCLUDE KEYWORDS in title (comma-separated)</label>
+        {% set incl = config.filters.title_keywords_include if config.filters.title_keywords_include else [] %}
+        <input type='text' name='title_include' value='{{ incl|join(", ") }}' class='search-input' style='width:100%; padding:8px;'>
+      </div>
+
+      <div class='mb-3'>
+        <label class='small text-muted'>EXCLUDE KEYWORDS in title (comma-separated)</label>
+        {% set excl = config.filters.title_keywords_exclude if config.filters.title_keywords_exclude else [] %}
+        <input type='text' name='title_exclude' value='{{ excl|join(", ") }}' class='search-input' style='width:100%; padding:8px;'>
+      </div>
+
+      <div class='mb-3'>
+        <label class='small text-muted'>EXCLUDE KEYWORDS in description (comma-separated)</label>
+        {% set dexcl = config.filters.description_keywords_exclude if config.filters.description_keywords_exclude else [] %}
+        <textarea name='description_exclude' class='search-input' style='width:100%; height:80px; padding:8px;'>{{ dexcl|join(', ') }}</textarea>
+      </div>
+
+      <div class='mb-3'>
+        <label class='small text-muted'>BLACKLISTED COMPANIES (comma-separated)</label>
+        {% set blacklist = config.filters.company_blacklist if config.filters.company_blacklist else [] %}
+        <input type='text' name='company_blacklist' value='{{ blacklist|join(", ") }}' class='search-input' style='width:100%; padding:8px;'>
+      </div>
+
+      <hr>
+      <h6>Limits</h6>
+      <div class='d-grid' style='grid-template-columns: 1fr 1fr 1fr; gap: 16px;'>
+        <div>
+          <label class='small text-muted'>MAX APPLICATIONS PER RUN</label>
+          <input type='number' name='max_apply_per_run' value='{{ config.platforms.linkedin.max_apply_per_run or 5 }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>MIN SALARY (USD)</label>
+          <input type='number' name='min_salary' value='{{ config.filters.min_salary or 0 }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted d-block'>OPTIONS</label>
+          <label style='display:inline-flex; align-items:center; gap:6px;'>
+            <input type='checkbox' name='skip_already_applied' {% if config.filters.skip_already_applied %}checked{% endif %}>
+            <span>Skip Already Applied</span>
+          </label>
+        </div>
+      </div>
+
+      <div class='mt-4 text-end'>
+        <button type='submit' class='btn btn-success'>
+          <i class='bi bi-save'></i> Save Search Settings
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% elif active_section == 'personal' %}
+<!-- PERSONAL SECTION -->
+<form method='post' action='/settings/save/personal'>
+  <div class='card'>
+    <div class='card-header'><span><i class='bi bi-person'></i> Personal Information</span></div>
+    <div class='card-body'>
+      <div class='d-grid' style='grid-template-columns: 1fr 1fr; gap: 16px;'>
+        <div>
+          <label class='small text-muted'>FIRST NAME</label>
+          <input type='text' name='first_name' value='{{ config.personal.first_name or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>LAST NAME</label>
+          <input type='text' name='last_name' value='{{ config.personal.last_name or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>EMAIL</label>
+          <input type='email' name='email' value='{{ config.personal.email or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>PHONE</label>
+          <input type='text' name='phone' value='{{ config.personal.phone or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>PHONE COUNTRY CODE</label>
+          <input type='text' name='phone_country_code' value='{{ config.personal.phone_country_code or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>CITY</label>
+          <input type='text' name='city' value='{{ config.personal.city or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>COUNTRY</label>
+          <input type='text' name='country' value='{{ config.personal.country or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>LINKEDIN URL</label>
+          <input type='url' name='linkedin_url' value='{{ config.personal.linkedin_url or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>GITHUB URL</label>
+          <input type='url' name='github_url' value='{{ config.personal.github_url or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>PORTFOLIO URL</label>
+          <input type='url' name='portfolio_url' value='{{ config.personal.portfolio_url or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+      </div>
+
+      <hr>
+      <h6>Work Info</h6>
+      <div class='d-grid' style='grid-template-columns: 1fr 1fr; gap: 16px;'>
+        <div>
+          <label class='small text-muted'>YEARS EXPERIENCE</label>
+          <input type='text' name='years_experience' value='{{ config.personal.years_experience or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>CURRENT COMPANY</label>
+          <input type='text' name='current_company' value='{{ config.personal.current_company or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>CURRENT TITLE</label>
+          <input type='text' name='current_title' value='{{ config.personal.current_title or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>HIGHEST EDUCATION</label>
+          <input type='text' name='highest_education' value='{{ config.personal.highest_education or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>EXPECTED SALARY (USD)</label>
+          <input type='text' name='expected_salary' value='{{ config.personal.expected_salary or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>CURRENT SALARY (USD)</label>
+          <input type='text' name='current_salary' value='{{ config.personal.current_salary or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>NOTICE PERIOD (days)</label>
+          <input type='text' name='notice_period_days' value='{{ config.personal.notice_period_days or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>AUTHORIZED TO WORK</label>
+          <select name='authorized_to_work' class='search-input' style='width:100%; padding:8px;'>
+            <option value='Yes' {% if config.personal.authorized_to_work == 'Yes' %}selected{% endif %}>Yes</option>
+            <option value='No' {% if config.personal.authorized_to_work == 'No' %}selected{% endif %}>No</option>
+          </select>
+        </div>
+        <div>
+          <label class='small text-muted'>REQUIRE SPONSORSHIP</label>
+          <select name='require_sponsorship' class='search-input' style='width:100%; padding:8px;'>
+            <option value='Yes' {% if config.personal.require_sponsorship == 'Yes' %}selected{% endif %}>Yes</option>
+            <option value='No' {% if config.personal.require_sponsorship == 'No' %}selected{% endif %}>No</option>
+          </select>
+        </div>
+        <div>
+          <label class='small text-muted'>WILLING TO RELOCATE</label>
+          <select name='willing_to_relocate' class='search-input' style='width:100%; padding:8px;'>
+            <option value='Yes' {% if config.personal.willing_to_relocate == 'Yes' %}selected{% endif %}>Yes</option>
+            <option value='No' {% if config.personal.willing_to_relocate == 'No' %}selected{% endif %}>No</option>
+          </select>
+        </div>
+      </div>
+
+      <div class='mt-4 text-end'>
+        <button type='submit' class='btn btn-success'>
+          <i class='bi bi-save'></i> Save Personal Info
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% elif active_section == 'behavior' %}
+<!-- BEHAVIOR SECTION -->
+<form method='post' action='/settings/save/behavior'>
+  <div class='card'>
+    <div class='card-header'><span><i class='bi bi-gear'></i> Bot Behavior</span></div>
+    <div class='card-body'>
+      <h6>Stealth (Humanizer Delays)</h6>
+      <div class='d-grid' style='grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px;'>
+        <div>
+          <label class='small text-muted'>MIN DELAY (seconds)</label>
+          <input type='number' step='0.1' name='min_delay_sec' value='{{ config.stealth.min_delay_sec or 2 }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>MAX DELAY (seconds)</label>
+          <input type='number' step='0.1' name='max_delay_sec' value='{{ config.stealth.max_delay_sec or 4.5 }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>PAUSE EVERY N APPLIES</label>
+          <input type='number' name='pause_every_n' value='{{ config.stealth.pause_every_n_applications or 5 }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>PAUSE DURATION (seconds)</label>
+          <input type='number' name='pause_seconds' value='{{ config.stealth.pause_seconds or 60 }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+      </div>
+
+      <hr>
+      <h6>AI Configuration</h6>
+      <div class='mb-3'>
+        <label style='display:inline-flex; align-items:center; gap:8px;'>
+          <input type='checkbox' name='ai_enabled' {% if config.ai.enabled %}checked{% endif %}>
+          <span><strong>AI Enabled</strong></span>
+        </label>
+      </div>
+      <div class='d-grid' style='grid-template-columns: 1fr 1fr; gap: 16px;'>
+        <div>
+          <label class='small text-muted'>AI MODEL</label>
+          <input type='text' name='ai_model' value='{{ config.ai.model or "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>PROVIDER</label>
+          <input type='text' name='ai_provider' value='{{ config.ai.provider or "" }}' class='search-input' style='width:100%; padding:8px;' readonly>
+          <small class='text-muted'>Set via .env AI_BASE_URL</small>
+        </div>
+      </div>
+      <div class='mt-3 d-grid' style='grid-template-columns: 1fr 1fr 1fr; gap: 16px;'>
+        <label style='display:inline-flex; align-items:center; gap:8px;'>
+          <input type='checkbox' name='resume_tailoring' {% if config.ai.resume_tailoring %}checked{% endif %}>
+          <span>Resume Tailoring</span>
+        </label>
+        <label style='display:inline-flex; align-items:center; gap:8px;'>
+          <input type='checkbox' name='cover_letter' {% if config.ai.cover_letter %}checked{% endif %}>
+          <span>Generate Cover Letter</span>
+        </label>
+        <label style='display:inline-flex; align-items:center; gap:8px;'>
+          <input type='checkbox' name='fit_scoring' {% if config.ai.fit_scoring %}checked{% endif %}>
+          <span>Fit Scoring (Patch 17)</span>
+        </label>
+      </div>
+
+      <hr>
+      <h6>Browser</h6>
+      <label style='display:inline-flex; align-items:center; gap:8px;'>
+        <input type='checkbox' name='headless' {% if env_display.HEADLESS and env_display.HEADLESS.value == 'true' %}checked{% endif %}>
+        <span><strong>Headless Mode</strong> (run without visible Chrome window)</span>
+      </label>
+
+      <div class='mt-4 text-end'>
+        <button type='submit' class='btn btn-success'>
+          <i class='bi bi-save'></i> Save Behavior Settings
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% elif active_section == 'credentials' %}
+<!-- CREDENTIALS SECTION -->
+<form method='post' action='/settings/save/credentials'>
+  <div class='card'>
+    <div class='card-header'><span><i class='bi bi-key'></i> Credentials (.env)</span></div>
+    <div class='card-body'>
+      <div class='alert alert-info mb-3'>
+        <i class='bi bi-info-circle'></i> <strong>Security:</strong> Passwords are masked. Leave blank to keep existing value. Type new value to update.
+      </div>
+
+      <h6>LinkedIn</h6>
+      <div class='d-grid' style='grid-template-columns: 1fr 1fr; gap: 16px;'>
+        <div>
+          <label class='small text-muted'>LINKEDIN EMAIL</label>
+          <input type='email' name='linkedin_email' value='{{ env_display.LINKEDIN_EMAIL.value if env_display.LINKEDIN_EMAIL else "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>LINKEDIN PASSWORD</label>
+          <input type='password' name='linkedin_password' placeholder='{{ env_display.LINKEDIN_PASSWORD.value if env_display.LINKEDIN_PASSWORD else "Not set" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+      </div>
+      <div class='mt-3'>
+        <label class='small text-muted'>LINKEDIN TOTP SECRET (optional, for 2FA)</label>
+        <input type='password' name='linkedin_totp_secret' placeholder='{{ "Set" if env_display.LINKEDIN_TOTP_SECRET and env_display.LINKEDIN_TOTP_SECRET.has_value else "Not set" }}' class='search-input' style='width:100%; padding:8px;'>
+      </div>
+
+      <hr>
+      <h6>Indeed</h6>
+      <div class='d-grid' style='grid-template-columns: 1fr 1fr; gap: 16px;'>
+        <div>
+          <label class='small text-muted'>INDEED EMAIL</label>
+          <input type='email' name='indeed_email' value='{{ env_display.INDEED_EMAIL.value if env_display.INDEED_EMAIL else "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>INDEED PASSWORD</label>
+          <input type='password' name='indeed_password' placeholder='{{ env_display.INDEED_PASSWORD.value if env_display.INDEED_PASSWORD else "Not set" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+      </div>
+
+      <hr>
+      <h6>AI Provider</h6>
+      <div class='d-grid' style='grid-template-columns: 1fr 1fr; gap: 16px;'>
+        <div>
+          <label class='small text-muted'>AI API KEY</label>
+          <input type='password' name='ai_api_key' placeholder='{{ env_display.AI_API_KEY.value if env_display.AI_API_KEY else "Not set" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>AI BASE URL</label>
+          <input type='url' name='ai_base_url' value='{{ env_display.AI_BASE_URL.value if env_display.AI_BASE_URL else "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+      </div>
+
+      <hr>
+      <h6>Telegram (Patch 28)</h6>
+      <div class='d-grid' style='grid-template-columns: 1fr 1fr; gap: 16px;'>
+        <div>
+          <label class='small text-muted'>BOT TOKEN</label>
+          <input type='password' name='telegram_bot_token' placeholder='{{ env_display.TELEGRAM_BOT_TOKEN.value if env_display.TELEGRAM_BOT_TOKEN else "Not set" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>CHAT ID</label>
+          <input type='text' name='telegram_chat_id' value='{{ env_display.TELEGRAM_CHAT_ID.value if env_display.TELEGRAM_CHAT_ID else "" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+      </div>
+
+      <hr>
+      <h6>Other</h6>
+      <div class='d-grid' style='grid-template-columns: 1fr 1fr; gap: 16px;'>
+        <div>
+          <label class='small text-muted'>CAPTCHA API KEY (2Captcha)</label>
+          <input type='password' name='captcha_api_key' placeholder='{{ env_display.CAPTCHA_API_KEY.value if env_display.CAPTCHA_API_KEY else "Not set" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>FLASK SECRET KEY</label>
+          <input type='password' name='flask_secret_key' placeholder='{{ env_display.FLASK_SECRET_KEY.value if env_display.FLASK_SECRET_KEY else "Not set" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>WEB HOST</label>
+          <input type='text' name='web_host' value='{{ env_display.WEB_HOST.value if env_display.WEB_HOST else "0.0.0.0" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+        <div>
+          <label class='small text-muted'>WEB PORT</label>
+          <input type='number' name='web_port' value='{{ env_display.WEB_PORT.value if env_display.WEB_PORT else "5050" }}' class='search-input' style='width:100%; padding:8px;'>
+        </div>
+      </div>
+
+      <div class='mt-4 text-end'>
+        <button type='submit' class='btn btn-success'>
+          <i class='bi bi-save'></i> Save Credentials
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+{% endif %}
+
+<div class='card mt-3' style='background: var(--color-bg);'>
+  <div class='card-body small text-muted'>
+    <i class='bi bi-shield-fill-check'></i> All changes auto-backed up to <code>data/.settings_backups/</code> before write.
+  </div>
+</div>
+
+{% endblock %}

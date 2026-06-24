@@ -14,7 +14,7 @@ from loguru import logger
 
 
 def build_driver(headless: bool = False, user_data_dir: str = None,
-                 version_main: int = None):
+                 version_main: int = None, profile_directory: str = None):
     """Build undetected Chrome driver with speed optimizations."""
     import undetected_chromedriver as uc
 
@@ -42,6 +42,8 @@ def build_driver(headless: bool = False, user_data_dir: str = None,
     if user_data_dir:
         Path(user_data_dir).mkdir(parents=True, exist_ok=True)
         options.add_argument(f"--user-data-dir={Path(user_data_dir).absolute()}")
+    if profile_directory:
+        options.add_argument(f"--profile-directory={profile_directory}")
 
     kwargs = {"options": options, "use_subprocess": False}
     if version_main:
@@ -53,5 +55,8 @@ def build_driver(headless: bool = False, user_data_dir: str = None,
         driver = uc.Chrome(**kwargs)
 
     driver.set_page_load_timeout(30)
-    logger.info(f"Launching Chrome (headless={headless}, profile={user_data_dir})")
+    logger.info(
+        f"Launching Chrome (headless={headless}, profile={user_data_dir}, "
+        f"profile_dir={profile_directory or 'Default'})"
+    )
     return driver

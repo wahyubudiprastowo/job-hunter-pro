@@ -9,6 +9,8 @@ Last updated: 2026-06-24
 - Patch 17: Phase 2d Fit Scoring integrated in code
 - Patch 18: Dashboard UX improvements
 - Patch 19: Smart Rate Limiter integrated in code
+- Patch 22: Indeed extractor integrated in code (disabled by default)
+- Patch 25: CAPTCHA solver integrated in code (disabled by default)
 
 ## Important Operational Context
 
@@ -60,6 +62,30 @@ Actions:
 3. Confirm dashboard card shows current state correctly.
 4. Confirm no regression in normal apply flow.
 
+#### A4. Patch 22 Indeed Smoke Validation
+Status: ready, awaiting first safe Indeed login/apply test  
+Estimate: 30-60 minutes  
+Risk: high
+
+Actions:
+
+1. Add `INDEED_EMAIL` and `INDEED_PASSWORD` to `.env`.
+2. Enable Indeed only for a tiny smoke run.
+3. Start with `max_apply_per_run: 1`.
+4. Verify login, card collection, and at least one real form open before trusting larger runs.
+
+#### A5. Patch 25 CAPTCHA Solver Validation
+Status: ready, awaiting local/manual then paid-provider validation  
+Estimate: 30-60 minutes  
+Risk: medium
+
+Actions:
+
+1. Run `python test_captcha_solver.py`.
+2. Test `captcha.provider: "manual"` first.
+3. Add `CAPTCHA_API_KEY` only after manual mode is clean.
+4. Verify `captcha_solves` rows are written and failures degrade gracefully.
+
 ### Tier 2 - Phase 3a Ghosting Detector
 
 #### Patch 20 - Ghosting Detector
@@ -86,15 +112,15 @@ Why later:
 ### Tier 4 - Multi-Platform Expansion
 
 #### Patch 22 - Indeed Extractor
-Status: after Patch 21  
-Estimate: 1-2 weeks  
+Status: code integrated, first live validation pending  
+Estimate: 30-60 minutes smoke test + follow-up tuning  
 Risk: high
 
 Dependencies:
 
-- stable LinkedIn behavior
-- rate-limiter guardrails
-- enough bandwidth to support another platform safely
+- valid Indeed credentials
+- first captcha/login verification
+- rate-limiter guardrails still in place
 
 ## Timeline
 
@@ -103,13 +129,15 @@ Now:
   - verify Patch 17 on a small run
   - verify latest LinkedIn external/apply fixes
   - validate Patch 19 in a short real run
+  - smoke-test Patch 22 on Indeed with cap=1
+  - validate Patch 25 in manual mode before enabling paid solving
 
 Next:
   - Patch 20 Ghosting Detector
   - Patch 21 UI Modernization
 
 Later:
-  - Patch 22 Indeed Extractor
+  - expand multi-platform only after Indeed smoke validation is stable
 ```
 
 ## Decision Framework
@@ -121,7 +149,10 @@ Trigger: one safe test run available and current LinkedIn state looks stable.
 Trigger: immediately after Patch 17 smoke test, or in parallel as planning if runtime validation must wait.
 
 ### When to add Indeed?
-Trigger: LinkedIn flow stable for at least several runs and Smart Rate Limiter is in place.
+Trigger: after credentials are set, first captcha/login verification succeeds, and one small Indeed smoke test is clean.
+
+### When to enable paid CAPTCHA solving?
+Trigger: after `test_captcha_solver.py` passes and manual fallback mode behaves cleanly in one real session.
 
 ## Related
 

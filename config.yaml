@@ -7,7 +7,8 @@ mode: "full_auto"
 platforms:
   linkedin:
     enabled: true
-    max_apply_per_run: 100
+    max_apply_per_run: 5
+    scroll_count: 15
     search:
       # PATCH 11: De-duplicated, prioritized queries
       queries:
@@ -21,14 +22,40 @@ platforms:
         - "Hybrid Cloud Engineer"
         - "Site Reliability Engineer"
         - "Platform Engineer"
-        - "DevOps Engineer"
-      location: "riyadh"
+      location: "europan union"
       remote: true
       hybrid: true
       date_posted: "past_week"
       experience_levels:
         - "Mid-Senior level"
         - "Associate"
+      job_type: "Full-time"
+      easy_apply_only: true
+
+  indeed:
+    enabled: true   # PATCH 22: keep off until credentials + first manual login/captcha verification
+    max_apply_per_run: 5
+    scroll_count: 15
+    region: "global"      # use global Indeed domain; target market comes from search.location
+    search:
+      queries:
+        - "Cloud Infrastructure Engineer"
+        - "Azure Cloud Engineer"
+        - "Azure DevOps Engineer"
+        - "IT Infrastructure Specialist"
+        - "Senior System Administrator"
+        - "Linux System Administrator"
+        - "Cloud Platform Engineer"
+        - "Hybrid Cloud Engineer"
+        - "Site Reliability Engineer"
+        - "Platform Engineer"
+      location: "singapore"
+      remote: true
+      hybrid: true
+      date_posted: "past_week"
+      experience_levels:
+        - "Mid level"
+        - "Senior level"
       job_type: "Full-time"
       easy_apply_only: true
 
@@ -50,7 +77,7 @@ filters:
     - "hybrid"
     - "linux"
     - "operations"
-    - "devops"
+    - "vmware"
     - "kubernetes"
     - "container"
     - "ops"
@@ -137,9 +164,7 @@ ai:
   cover_letter: true            # PATCH 10
   cover_letter_strict: true    # PATCH 11: false for tolerance
   cover_letter_output_dir: "cover_letters/generated"
-  fit_scoring: false
-  fit_threshold: 60
-  fit_score_output_dir: "data/fit_scores"
+  fit_scoring: true
 
   provider: "omnirouter"
   model: "antigravity/gemini-3.5-flash-medium"
@@ -190,17 +215,31 @@ ai:
     CANDIDATE FACTS:
     {candidate_facts}
 
+captcha:
+  enabled: true
+  provider: "manual"          # manual | 2captcha | anticaptcha
+  timeout_seconds: 180
+  cost_alert_usd: 5.0
+
+orchestration:
+  mode: "sequential"          # sequential | hybrid
+  hybrid:
+    applies_per_round: 3
+    max_rounds: 5
+    pause_between_platforms: 30
+    pause_between_rounds: 60
+    stop_on_rate_limit: true
+
 stealth:
-  min_delay_sec: 1.5
+  min_delay_sec: 2
   max_delay_sec: 4.5
   typing_min_delay: 0.05
   typing_max_delay: 0.15
   pause_every_n_applications: 5
   pause_seconds: 60
-  jitter_pause_pct: 0
 
 global_limits:
-  total_apply_per_day: 25
+  total_apply_per_day: 100
   total_apply_per_run: 20
   adaptive_throttle: true
   cooldown_hours_on_limit: 24

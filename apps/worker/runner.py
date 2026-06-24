@@ -30,6 +30,12 @@ from packages.storage.answers import (
     load_answers, save_answers, add_unanswered
 )
 from packages.extractors.linkedin import LinkedInExtractor
+try:
+    from packages.extractors.indeed import IndeedExtractor
+    _HAS_INDEED = True
+except ImportError:
+    IndeedExtractor = None
+    _HAS_INDEED = False
 
 try:
     from packages.ai.provider import AIProvider
@@ -55,11 +61,54 @@ except ImportError:
     detect_rate_limit_in_driver = None
     _HAS_RATE_LIMITER = False
 
+try:
+    from packages.stealth.captcha_solver import CaptchaSolver
+    _HAS_CAPTCHA_SOLVER = True
+except ImportError:
+    CaptchaSolver = None
+    _HAS_CAPTCHA_SOLVER = False
+
+try:
+    from packages.core.orchestrator import HybridOrchestrator
+    _HAS_ORCHESTRATOR = True
+except ImportError:
+    HybridOrchestrator = None
+    _HAS_ORCHESTRATOR = False
+
+try:
+    from apps.worker.control_platforms import (
+        set_platform_state, clear_platform_states,
+        get_session_platforms, clear_session_override,
+    )
+    _HAS_PLATFORM_CONTROL = True
+except ImportError:
+    set_platform_state = lambda *a, **k: None
+    clear_platform_states = lambda: None
+    get_session_platforms = lambda: None
+    clear_session_override = lambda: None
+    _HAS_PLATFORM_CONTROL = False
+
+try:
+    from packages.notifications import NotificationCategory, NotificationLevel, NotificationManager
+    from packages.notifications.manager import notify
+    _HAS_NOTIFICATIONS = True
+except ImportError:
+    NotificationCategory = None
+    NotificationLevel = None
+    NotificationManager = None
+    _HAS_NOTIFICATIONS = False
+
+    def notify(*args, **kwargs):
+        return None
+
 from apps.worker.control import controller
 
 EXTRACTOR_REGISTRY = {
     "linkedin": LinkedInExtractor,
 }
+
+if _HAS_INDEED:
+    EXTRACTOR_REGISTRY["indeed"] = IndeedExtractor
 
 
 def load_config(path: str = "config.yaml") -> dict:
@@ -81,10 +130,38 @@ def _validate_ai_config(ai_cfg: dict) -> tuple[bool, str]:
     return True, "AI config OK"
 
 
+def _resolve_browser_profile(session_platforms: list[str] | None) -> tuple[str, str | None]:
+    """
+    Resolve browser profile path for the current run.
+
+    If exactly one platform is selected, allow a platform-specific Chrome profile
+    so cached login sessions can be reused without affecting other platforms.
+    """
+    default_user_data_dir = os.getenv("USER_DATA_DIR", "./.chrome-profile")
+    default_profile_dir = (os.getenv("CHROME_PROFILE_DIRECTORY") or "").strip() or None
+
+    if not session_platforms or len(session_platforms) != 1:
+        return default_user_data_dir, default_profile_dir
+
+    platform = session_platforms[0].strip().upper()
+    platform_user_data_dir = (os.getenv(f"{platform}_USER_DATA_DIR") or "").strip()
+    platform_profile_dir = (os.getenv(f"{platform}_CHROME_PROFILE_DIRECTORY") or "").strip()
+
+    return (
+        platform_user_data_dir or default_user_data_dir,
+        platform_profile_dir or default_profile_dir,
+    )
+
+
 def run_bot(config_path: str = "config.yaml"):
     load_dotenv()
     store.init_db()
     config = load_config(config_path)
+    orchestration_cfg = config.get("orchestration", {}) or {}
+
+    session = get_session_platforms()
+    session_platforms = session.get("platforms") if session else None
+    clear_platform_states()
 
     answers = load_answers()
     profile = CandidateProfile(**config["personal"])
@@ -93,12 +170,22 @@ def run_bot(config_path: str = "config.yaml"):
     global_limits_cfg = config.get("global_limits", {}) or {}
     run_cap = int(global_limits_cfg.get("total_apply_per_run", 20))
     ai_cfg = config.get("ai", {}) or {}
+    captcha_cfg = config.get("captcha", {}) or {}
+    notif_manager = None
 
     Path("data/logs").mkdir(parents=True, exist_ok=True)
     logger.add("data/logs/bot.log", rotation="5 MB",
                level=os.getenv("LOG_LEVEL", "INFO"))
 
-    controller.reset()
+    if _HAS_NOTIFICATIONS and NotificationManager:
+        try:
+            notif_manager = NotificationManager.from_config(config, db_path=str(store.DB_PATH))
+        except Exception as e:
+            logger.warning(f"Notification manager init failed: {e}")
+
+    # Keep the pre-start state written by the web controller so the dashboard
+    # does not briefly fall back to IDLE while the worker thread boots.
+    controller.clear_command()
     controller.set_state("running")
     controller.beat()
 
@@ -154,10 +241,23 @@ def run_bot(config_path: str = "config.yaml"):
     if fit_scoring_enabled:
         logger.success(f"🎯 Fit scoring ENABLED — threshold: {fit_threshold}")
 
+    captcha_solver = None
+    if _HAS_CAPTCHA_SOLVER and CaptchaSolver:
+        try:
+            captcha_solver = CaptchaSolver(captcha_cfg, db_path=str(store.DB_PATH))
+            if captcha_solver.enabled:
+                logger.info(f"CAPTCHA solver enabled: provider={captcha_solver.provider}")
+        except Exception as e:
+            logger.warning(f"CAPTCHA solver init failed: {e}")
+            captcha_solver = None
+
+    browser_user_data_dir, browser_profile_dir = _resolve_browser_profile(session_platforms)
+
     driver = build_driver(
         headless=os.getenv("HEADLESS", "false").lower() == "true",
-        user_data_dir=os.getenv("USER_DATA_DIR", "./.chrome-profile"),
+        user_data_dir=browser_user_data_dir,
         version_main=int(os.getenv("CHROME_VERSION_MAIN") or 0) or None,
+        profile_directory=browser_profile_dir,
     )
 
     run_id = store.start_run()
@@ -184,11 +284,42 @@ def run_bot(config_path: str = "config.yaml"):
             counters["needs"],
         )
 
+    current_platform_name = None
+    current_platform_applied = 0
+    current_platform_skipped = 0
+
     try:
         for platform_name, pcfg in config["platforms"].items():
-            if not pcfg.get("enabled"):
+            current_platform_name = platform_name
+            if session_platforms:
+                if platform_name not in session_platforms:
+                    continue
+            elif not pcfg.get("enabled"):
                 continue
+
+            platform_applied = 0
+            platform_skipped = 0
+            platform_final_state = "idle"
+            platform_final_extra = {}
+            extractor = None
+            current_platform_applied = 0
+            current_platform_skipped = 0
+
+            set_platform_state(platform_name, "running", {
+                "started_at": int(time.time()),
+                "applied": 0,
+                "skipped": 0,
+            })
+
             if platform_name not in EXTRACTOR_REGISTRY:
+                platform_final_state = "error"
+                platform_final_extra = {"error_message": "extractor not available"}
+                set_platform_state(platform_name, platform_final_state, {
+                    "applied": platform_applied,
+                    "skipped": platform_skipped,
+                    "finished_at": int(time.time()),
+                    **platform_final_extra,
+                })
                 continue
 
             extractor_cls = EXTRACTOR_REGISTRY[platform_name]
@@ -196,6 +327,7 @@ def run_bot(config_path: str = "config.yaml"):
                 extractor = extractor_cls(
                     driver, pcfg, profile, answers, stealth_cfg,
                     ai_provider=ai_provider, ai_config=ai_cfg, cv_text=cv_text,
+                    captcha_solver=captcha_solver,
                 )
             except TypeError:
                 try:
@@ -206,17 +338,30 @@ def run_bot(config_path: str = "config.yaml"):
                 except TypeError:
                     extractor = extractor_cls(driver, pcfg, profile, answers, stealth_cfg)
 
-            email = os.getenv(f"{platform_name.upper()}_EMAIL")
-            password = os.getenv(f"{platform_name.upper()}_PASSWORD")
+            email = (os.getenv(f"{platform_name.upper()}_EMAIL") or "").strip()
+            password = (os.getenv(f"{platform_name.upper()}_PASSWORD") or "").strip()
             totp = os.getenv(f"{platform_name.upper()}_TOTP_SECRET", "")
             if not email or not password:
-                logger.error(f"Missing credentials for {platform_name}.")
-                continue
+                logger.warning(
+                    f"Credentials incomplete for {platform_name} - trying existing browser session."
+                )
 
             try:
                 extractor.login(email, password, totp)
             except Exception as e:
                 logger.error(f"Login failed: {e}")
+                platform_final_state = "error"
+                platform_final_extra = {"error_message": f"login failed: {e}"}
+                set_platform_state(platform_name, platform_final_state, {
+                    "applied": platform_applied,
+                    "skipped": platform_skipped,
+                    "finished_at": int(time.time()),
+                    **platform_final_extra,
+                })
+                try:
+                    extractor.close()
+                except Exception:
+                    pass
                 continue
 
             limiter = None
@@ -229,12 +374,39 @@ def run_bot(config_path: str = "config.yaml"):
                             f"Rate limiter blocks {platform_name} - "
                             f"{limiter_status.cooldown_remaining_hours}h remaining"
                         )
+                        platform_final_state = "paused"
+                        platform_final_extra = {
+                            "note": "rate limit active",
+                            "cooldown_remaining_hours": limiter_status.cooldown_remaining_hours,
+                        }
+                        set_platform_state(platform_name, platform_final_state, {
+                            "applied": platform_applied,
+                            "skipped": platform_skipped,
+                            "finished_at": int(time.time()),
+                            **platform_final_extra,
+                        })
+                        try:
+                            extractor.close()
+                        except Exception:
+                            pass
                         continue
                     if limiter_status.is_at_cap:
                         logger.warning(
                             f"Daily cap already reached for {platform_name} "
                             f"({limiter_status.count_today}/{limiter_status.cap_today})"
                         )
+                        platform_final_state = "paused"
+                        platform_final_extra = {"note": "daily cap reached"}
+                        set_platform_state(platform_name, platform_final_state, {
+                            "applied": platform_applied,
+                            "skipped": platform_skipped,
+                            "finished_at": int(time.time()),
+                            **platform_final_extra,
+                        })
+                        try:
+                            extractor.close()
+                        except Exception:
+                            pass
                         continue
                     logger.info(
                         f"Rate limiter ready for {platform_name}: "
@@ -274,6 +446,7 @@ def run_bot(config_path: str = "config.yaml"):
                     if not ok:
                         _record_skip(card, platform_name, SkipReason.BLACKLISTED_COMPANY, reason)
                         counters["skipped"] += 1
+                        platform_skipped += 1
                         _sync_run_progress()
                         continue
                     ok, reason = title_passes(card["title"],
@@ -282,11 +455,13 @@ def run_bot(config_path: str = "config.yaml"):
                     if not ok:
                         _record_skip(card, platform_name, SkipReason.BLACKLISTED_TITLE, reason)
                         counters["skipped"] += 1
+                        platform_skipped += 1
                         _sync_run_progress()
                         continue
                     if config["filters"]["skip_already_applied"] and store.already_applied(job_id):
                         _record_skip(card, platform_name, SkipReason.DUPLICATE, "already applied")
                         counters["skipped"] += 1
+                        platform_skipped += 1
                         _sync_run_progress()
                         continue
 
@@ -303,17 +478,20 @@ def run_bot(config_path: str = "config.yaml"):
                     if not ok:
                         _record_skip_full(job, SkipReason.EXCLUDED_KEYWORD, reason)
                         counters["skipped"] += 1
+                        platform_skipped += 1
                         _sync_run_progress()
                         continue
                     ok, reason = salary_passes(job.salary, config["filters"]["min_salary"])
                     if not ok:
                         _record_skip_full(job, SkipReason.SALARY_TOO_LOW, reason)
                         counters["skipped"] += 1
+                        platform_skipped += 1
                         _sync_run_progress()
                         continue
                     if job.raw.get("already_applied"):
                         _record_skip_full(job, SkipReason.DUPLICATE, "already applied on LinkedIn")
                         counters["skipped"] += 1
+                        platform_skipped += 1
                         _sync_run_progress()
                         continue
                     if not extractor.can_auto_apply(job):
@@ -324,6 +502,7 @@ def run_bot(config_path: str = "config.yaml"):
                             status=ApplyStatus.EXTERNAL,
                         )
                         counters["skipped"] += 1
+                        platform_skipped += 1
                         _sync_run_progress()
                         continue
 
@@ -337,8 +516,11 @@ def run_bot(config_path: str = "config.yaml"):
                             )
                             counters["cap_reached"] += 1
                             counters["skipped"] += 1
+                            platform_skipped += 1
                             _sync_run_progress()
                             logger.warning(f"Daily cap reached for {platform_name} - stopping run gracefully")
+                            platform_final_state = "paused"
+                            platform_final_extra = {"note": reason}
                             stop_platform_processing = True
                             break
 
@@ -365,6 +547,7 @@ def run_bot(config_path: str = "config.yaml"):
                                     )
                                     counters["fit_skipped"] += 1
                                     counters["skipped"] += 1
+                                    platform_skipped += 1
                                     _sync_run_progress()
                                     continue
                         except Exception as e:
@@ -428,14 +611,24 @@ def run_bot(config_path: str = "config.yaml"):
 
                     if result.status == ApplyStatus.APPLIED:
                         counters["applied"] += 1
+                        platform_applied += 1
+                        current_platform_applied = platform_applied
                         if limiter:
                             limiter.increment()
                         if result.cover_letter_path:
                             counters["cover_letters_uploaded"] += 1
+                        set_platform_state(platform_name, "running", {
+                            "started_at": int(time.time()),
+                            "applied": platform_applied,
+                            "skipped": platform_skipped,
+                            "current_job": f"{job.title} @ {job.company}",
+                        })
                         suffix = " (tailored)" if effective_resume != resume_path else ""
                         logger.success(f"✅ APPLIED{suffix} [{job.title} @ {job.company}]")
                     elif result.status == ApplyStatus.SKIPPED:
                         counters["skipped"] += 1
+                        platform_skipped += 1
+                        current_platform_skipped = platform_skipped
                         logger.debug(
                             f"⏭️  Apply returned SKIPPED — check if double-count: {result.error_message}"
                         )
@@ -456,6 +649,8 @@ def run_bot(config_path: str = "config.yaml"):
                             logger.warning(
                                 f"Rate limit detected for {platform_name} - stopping run after current record"
                             )
+                            platform_final_state = "paused"
+                            platform_final_extra = {"note": matched_phrase}
                             stop_platform_processing = True
                             break
 
@@ -472,8 +667,22 @@ def run_bot(config_path: str = "config.yaml"):
             except Exception:
                 pass
 
+            set_platform_state(platform_name, platform_final_state, {
+                "applied": platform_applied,
+                "skipped": platform_skipped,
+                "finished_at": int(time.time()),
+                **platform_final_extra,
+            })
+
         logger.info(f"🎉 Run done. Counters: {counters}")
     except Exception as e:
+        if current_platform_name:
+            set_platform_state(current_platform_name, "error", {
+                "applied": current_platform_applied,
+                "skipped": current_platform_skipped,
+                "finished_at": int(time.time()),
+                "error_message": str(e),
+            })
         logger.exception(f"Run crashed: {e}")
     finally:
         store.finish_run(run_id, counters["applied"], counters["skipped"],
@@ -481,6 +690,7 @@ def run_bot(config_path: str = "config.yaml"):
         hb_stop.set()
         controller.set_state("idle")
         controller.clear_command()
+        clear_session_override()
         time.sleep(2)
         try:
             driver.quit()

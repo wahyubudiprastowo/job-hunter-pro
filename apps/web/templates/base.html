@@ -83,12 +83,12 @@
     <main class="main-content">
       <header class="top-bar">
         <div>{% block top_left %}{% endblock %}</div>
-        <div class="top-bar-controls">
+        <div id="top-controls" class="top-bar-controls">
           <span id="state-pill" class="state-badge state-{{ state or 'idle' }}">
             <span class="state-dot"></span>
             {{ (state or 'idle')|upper }}
           </span>
-          {% block top_controls %}{% endblock %}
+          <span id="top-action-buttons">{% block top_controls %}{% endblock %}</span>
         </div>
       </header>
 

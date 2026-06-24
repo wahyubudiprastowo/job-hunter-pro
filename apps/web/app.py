@@ -19,7 +19,32 @@ from packages.storage.answers import (
 )
 from packages.extractors.rate_limiter import get_status_for_dashboard, SmartRateLimiter
 from apps.worker.control import controller
+from apps.worker.control_platforms import (
+    get_all_platform_states,
+    set_session_platforms,
+    get_session_platforms,
+    clear_session_override,
+    set_preferred_platforms,
+    get_preferred_platforms,
+    clear_preferred_platforms,
+)
 from apps.worker.runner import run_bot
+from apps.web.settings_api import (
+    load_config as settings_load_config,
+    save_config as settings_save_config,
+    update_config_section,
+    load_env,
+    save_env,
+    get_env_for_display,
+    validate_config,
+)
+
+try:
+    from packages.notifications import NotificationManager
+    _HAS_NOTIFICATIONS = True
+except ImportError:
+    NotificationManager = None
+    _HAS_NOTIFICATIONS = False
 
 load_dotenv()
 store.init_db()
@@ -76,13 +101,72 @@ def _latest_debug_screenshot():
     }
 
 
-def _load_global_limits_config() -> dict:
+def _load_config_file() -> tuple[dict, str | None]:
     try:
         import yaml
         cfg = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8")) or {}
+        return cfg, None
+    except Exception as e:
+        return {}, f"{type(e).__name__}: {e}"
+
+
+def _parse_list(value: str) -> list[str]:
+    if not value:
+        return []
+    return [item.strip() for item in value.replace("\r", "").replace("\n", ",").split(",") if item.strip()]
+
+
+def _load_global_limits_config() -> dict:
+    cfg, _ = _load_config_file()
+    try:
         return cfg.get("global_limits", {}) or {}
     except Exception:
         return {}
+
+
+def _load_platform_config_summary(cfg: dict | None = None) -> list[dict]:
+    cfg = cfg or {}
+    result = []
+    for name, pcfg in (cfg.get("platforms", {}) or {}).items():
+        result.append({
+            "name": name,
+            "enabled": bool(pcfg.get("enabled", False)),
+            "max_apply": int(pcfg.get("max_apply_per_run", 0) or 0),
+            "credentials_ready": _platform_credentials_ready(name),
+        })
+    return result
+
+
+def _platform_credentials_ready(platform_name: str) -> bool:
+    load_dotenv()
+    return bool(
+        (os.getenv(f"{platform_name.upper()}_EMAIL") or "").strip()
+        and (os.getenv(f"{platform_name.upper()}_PASSWORD") or "").strip()
+    )
+
+
+def _missing_credentials(platforms: list[str]) -> list[str]:
+    return [platform for platform in platforms if not _platform_credentials_ready(platform)]
+
+
+def _get_platform_states_for_dashboard(platforms: list[dict] | None = None) -> dict:
+    platforms = platforms or _load_platform_config_summary()
+    raw_states = get_all_platform_states()
+    controller_state = controller.get_state()
+    merged = {}
+    for platform in platforms:
+        name = platform["name"]
+        state_info = dict(raw_states.get(name, {"platform": name, "state": "idle"}))
+        if controller_state not in ("running", "paused") and state_info.get("state") in ("running", "paused"):
+            state_info["state"] = "idle"
+        merged[name] = state_info
+    for name, state in raw_states.items():
+        if name not in merged:
+            state_info = dict(state)
+            if controller_state not in ("running", "paused") and state_info.get("state") in ("running", "paused"):
+                state_info["state"] = "idle"
+            merged[name] = state_info
+    return merged
 
 
 def _rate_limit_status(platform: str = "linkedin"):
@@ -90,6 +174,19 @@ def _rate_limit_status(platform: str = "linkedin"):
         return get_status_for_dashboard(store.DB_PATH, platform, _load_global_limits_config())
     except Exception:
         return None
+
+
+def _rate_limit_statuses(platforms: list[dict] | None = None) -> list[dict]:
+    platforms = platforms or _load_platform_config_summary()
+    names = [p["name"] for p in platforms if p.get("enabled")]
+    if not names:
+        names = ["linkedin"]
+    statuses = []
+    for name in names:
+        status = _rate_limit_status(name)
+        if status:
+            statuses.append(status)
+    return statuses
 
 
 def _get_stats_today() -> dict:
@@ -165,6 +262,43 @@ def _get_avg_fit_score():
         ).fetchone()
     if not row or row[0] is None:
         return None
+
+
+def _get_notification_status(config: dict | None = None) -> list[dict] | None:
+    config = config or {}
+    notif_cfg = config.get("notifications", {}) or {}
+    channels_cfg = notif_cfg.get("channels", {}) or {}
+    if not notif_cfg.get("enabled") and not channels_cfg:
+        return None
+
+    stats_by_channel = {}
+    if _HAS_NOTIFICATIONS:
+        try:
+            manager = NotificationManager.from_config(config, db_path=str(store.DB_PATH))
+            stats = manager.get_stats(days=30)
+            for row in stats.get("channels", []):
+                stats_by_channel[row.get("channel")] = row
+        except Exception:
+            stats_by_channel = {}
+
+    summaries = []
+    icon_map = {
+        "telegram": "send-fill",
+        "email": "envelope-fill",
+        "teams": "microsoft-teams",
+        "discord": "discord",
+        "webhook": "globe",
+    }
+    for name, cfg in channels_cfg.items():
+        stat = stats_by_channel.get(name, {})
+        summaries.append({
+            "name": name.capitalize(),
+            "type": name,
+            "icon": icon_map.get(name, "bell"),
+            "enabled": bool(cfg.get("enabled", False)),
+            "last_sent_at": f"{stat.get('success', 0)}/{stat.get('total', 0)} success, avg {stat.get('avg_ms', 0)}ms",
+        })
+    return summaries or None
     try:
         return int(round(float(row[0])))
     except Exception:
@@ -232,6 +366,7 @@ def _applications_csv(rows: list[dict]) -> Response:
 # ---------- PAGES ----------
 @app.route("/")
 def dashboard():
+    cfg, config_error = _load_config_file()
     stats = store.get_stats()
     recent = store.list_applications(limit=10)
     runs = store.recent_runs(limit=5)
@@ -239,19 +374,132 @@ def dashboard():
     unanswered = load_unanswered()
     diag = controller.get_diagnostics()
     latest_screenshot = _latest_debug_screenshot()
-    rate_limit_status = _rate_limit_status()
+    enabled_platforms = _load_platform_config_summary(cfg)
+    rate_limit_statuses = _rate_limit_statuses(enabled_platforms)
+    platform_states = _get_platform_states_for_dashboard(enabled_platforms)
+    session_override = get_session_platforms()
+    preferred_selection = get_preferred_platforms()
     return render_template(
         "dashboard.html",
         stats=stats, recent=recent, runs=runs, latest_run=latest_run,
         unanswered=unanswered, state=diag["state"], diag=diag,
         latest_screenshot=latest_screenshot,
-        rate_limit_status=rate_limit_status,
+        rate_limit_statuses=rate_limit_statuses,
         stats_today=_get_stats_today(),
         avg_fit_score=_get_avg_fit_score(),
         health_score=None,
-        notifications=None,
+        notifications=_get_notification_status(cfg),
         active_platform="LinkedIn Easy Apply",
+        platform_states=platform_states,
+        enabled_platforms=enabled_platforms,
+        session_override=session_override,
+        preferred_selection=preferred_selection,
+        config_error=config_error,
     )
+
+
+@app.route("/settings")
+def settings():
+    try:
+        config = settings_load_config()
+        env_display = get_env_for_display()
+        warnings = validate_config(config)
+        active_section = request.args.get("section", "search")
+        return render_template(
+            "settings.html",
+            config=config,
+            env_display=env_display,
+            warnings=warnings,
+            active_section=active_section,
+            state=controller.get_state(),
+        )
+    except Exception as e:
+        flash(f"Failed to load settings: {e}")
+        return redirect(url_for("dashboard"))
+
+
+@app.route("/settings/notifications")
+def settings_notifications():
+    return redirect(url_for("settings", section="credentials"))
+
+
+@app.route("/settings/save/<section>", methods=["POST"])
+def settings_save(section):
+    try:
+        form_data = request.form.to_dict(flat=False)
+        if section == "search":
+            config = settings_load_config()
+            filters_cfg = config.setdefault("filters", {})
+            filters_cfg.update({
+                "title_keywords_include": _parse_list(form_data.get("title_include", [""])[0]),
+                "title_keywords_exclude": _parse_list(form_data.get("title_exclude", [""])[0]),
+                "description_keywords_exclude": _parse_list(form_data.get("description_exclude", [""])[0]),
+                "company_blacklist": _parse_list(form_data.get("company_blacklist", [""])[0]),
+                "min_salary": int(form_data.get("min_salary", ["0"])[0] or 0),
+                "skip_already_applied": "skip_already_applied" in form_data,
+            })
+            queries = _parse_list(form_data.get("queries", [""])[0])
+            location = form_data.get("location", [""])[0]
+            max_apply = int(form_data.get("max_apply_per_run", ["0"])[0] or 0)
+            for platform_name in config.get("platforms", {}):
+                search_cfg = config["platforms"][platform_name].setdefault("search", {})
+                if queries:
+                    search_cfg["queries"] = queries
+                if location:
+                    search_cfg["location"] = location
+                if max_apply > 0:
+                    config["platforms"][platform_name]["max_apply_per_run"] = max_apply
+            success, msg = settings_save_config(config)
+        elif section == "personal":
+            new_values = {key: values[0] for key, values in form_data.items()}
+            success, msg = update_config_section("personal", new_values)
+        elif section == "behavior":
+            config = settings_load_config()
+            config.setdefault("stealth", {}).update({
+                "min_delay_sec": float(form_data.get("min_delay_sec", ["2"])[0] or 2),
+                "max_delay_sec": float(form_data.get("max_delay_sec", ["4.5"])[0] or 4.5),
+                "pause_every_n_applications": int(form_data.get("pause_every_n", ["5"])[0] or 5),
+                "pause_seconds": int(form_data.get("pause_seconds", ["60"])[0] or 60),
+            })
+            config.setdefault("ai", {}).update({
+                "enabled": "ai_enabled" in form_data,
+                "model": form_data.get("ai_model", [""])[0],
+                "resume_tailoring": "resume_tailoring" in form_data,
+                "cover_letter": "cover_letter" in form_data,
+                "fit_scoring": "fit_scoring" in form_data,
+            })
+            env = load_env()
+            env["HEADLESS"] = "true" if "headless" in form_data else "false"
+            save_env(env)
+            success, msg = settings_save_config(config)
+        elif section == "credentials":
+            env = load_env()
+            normal_keys = [
+                "LINKEDIN_EMAIL", "INDEED_EMAIL", "AI_API_KEY", "AI_BASE_URL",
+                "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "CAPTCHA_API_KEY",
+                "FLASK_SECRET_KEY", "WEB_HOST", "WEB_PORT", "LOG_LEVEL",
+            ]
+            for key in normal_keys:
+                form_key = key.lower()
+                if form_key in form_data:
+                    value = form_data[form_key][0]
+                    if value and not value.startswith("****"):
+                        env[key] = value
+            secret_keys = ["LINKEDIN_PASSWORD", "INDEED_PASSWORD", "LINKEDIN_TOTP_SECRET"]
+            for key in secret_keys:
+                form_key = key.lower()
+                if form_key in form_data and form_data[form_key][0]:
+                    env[key] = form_data[form_key][0]
+            success, msg = save_env(env)
+        else:
+            flash(f"Unknown section: {section}")
+            return redirect(url_for("settings"))
+
+        flash((f"Saved {section}: {msg}") if success else (f"Save failed: {msg}"))
+        return redirect(url_for("settings", section=section))
+    except Exception as e:
+        flash(f"Save error: {e}")
+        return redirect(url_for("settings", section=section))
 
 
 @app.route("/applications")
@@ -326,16 +574,70 @@ def clear_unanswered_route():
 @app.route("/control/start", methods=["POST"])
 def control_start():
     global _runner_thread
+    _, config_error = _load_config_file()
+    if config_error:
+        flash(f"Config error in config.yaml: {config_error}")
+        return redirect(url_for("dashboard"))
     diag = controller.get_diagnostics()
-    if diag["state"] == "running" and not diag["is_zombie"]:
+    if diag["state"] in ("running", "paused") and not diag["is_zombie"]:
         flash("Bot already running.")
         return redirect(url_for("dashboard"))
 
-    # Reset state for clean start
+    preferred = get_preferred_platforms() or {}
+    platforms = preferred.get("platforms") or []
+    mode = (preferred.get("mode") or "sequential").strip() or "sequential"
+    if platforms:
+        set_session_platforms(platforms, mode)
+        flash_msg = f"Bot started: {', '.join(platforms)} ({mode})."
+    else:
+        clear_session_override()
+        flash_msg = "Bot started in background."
     controller.reset()
+    controller.set_state("running")
+    controller.beat()
     _runner_thread = threading.Thread(target=run_bot, daemon=True)
     _runner_thread.start()
-    flash("Bot started in background.")
+    flash(flash_msg)
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/control/start_platform", methods=["POST"])
+def control_start_platform():
+    global _runner_thread
+    cfg, config_error = _load_config_file()
+    if config_error:
+        flash(f"Config error in config.yaml: {config_error}")
+        return redirect(url_for("dashboard"))
+    diag = controller.get_diagnostics()
+    if diag["state"] in ("running", "paused") and not diag["is_zombie"]:
+        flash("Bot already running.")
+        return redirect(url_for("dashboard"))
+
+    platforms_raw = (request.form.get("platforms") or "").strip()
+    if not platforms_raw:
+        platforms_raw = ",".join(request.form.getlist("platforms_checks"))
+    mode = (request.form.get("mode") or "sequential").strip() or "sequential"
+
+    if platforms_raw == "all":
+        clear_session_override()
+        clear_preferred_platforms()
+        flash_msg = "Bot started (all enabled platforms)."
+    else:
+        platforms_list = [p.strip() for p in platforms_raw.split(",") if p.strip()]
+        platforms_list = list(dict.fromkeys(platforms_list))
+        if not platforms_list:
+            flash("No platforms selected.")
+            return redirect(url_for("dashboard"))
+        set_session_platforms(platforms_list, mode)
+        set_preferred_platforms(platforms_list, mode)
+        flash_msg = f"Bot started: {', '.join(platforms_list)} ({mode})."
+
+    controller.reset()
+    controller.set_state("running")
+    controller.beat()
+    _runner_thread = threading.Thread(target=run_bot, daemon=True)
+    _runner_thread.start()
+    flash(flash_msg)
     return redirect(url_for("dashboard"))
 
 
@@ -372,9 +674,11 @@ def control_reset():
 @app.route("/control/ai-test", methods=["POST"])
 def control_ai_test():
     """PATCH 5: Test AI connection on demand."""
-    import yaml
     try:
-        cfg = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))
+        cfg, config_error = _load_config_file()
+        if config_error:
+            flash(f"Config error in config.yaml: {config_error}")
+            return redirect(url_for("dashboard"))
         ai_cfg = cfg.get("ai", {}) or {}
         if not ai_cfg.get("enabled"):
             flash("AI is disabled in config.yaml")
@@ -422,6 +726,9 @@ def api_dashboard():
     recent = store.list_applications(limit=10)
     runs = store.recent_runs(limit=1)
     latest_run = runs[0] if runs else None
+    cfg, config_error = _load_config_file()
+    enabled_platforms = _load_platform_config_summary(cfg)
+    rate_limit_statuses = _rate_limit_statuses(enabled_platforms)
     for row in recent:
         row["created_at_display"] = _format_local_datetime(row.get("created_at"))
     if latest_run:
@@ -435,17 +742,26 @@ def api_dashboard():
         "latest_run": latest_run,
         "latest_screenshot": _latest_debug_screenshot(),
         "unanswered_count": len(unanswered),
-        "rate_limit_status": _rate_limit_status(),
+        "rate_limit_status": rate_limit_statuses[0] if rate_limit_statuses else None,
+        "rate_limit_statuses": rate_limit_statuses,
         "stats_today": _get_stats_today(),
         "avg_fit_score": _get_avg_fit_score(),
         "apps_14days": _get_apps_14days(),
         "skip_reasons": _get_skip_reasons(),
+        "platform_states": _get_platform_states_for_dashboard(enabled_platforms),
+        "preferred_selection": get_preferred_platforms(),
+        "config_error": config_error,
     })
 
 
 @app.route("/api/rate_limit/<platform>")
 def api_rate_limit(platform):
     return jsonify(_rate_limit_status(platform) or {"platform": platform})
+
+
+@app.route("/api/platform_states")
+def api_platform_states():
+    return jsonify(_get_platform_states_for_dashboard())
 
 
 @app.route("/api/logs/tail")
