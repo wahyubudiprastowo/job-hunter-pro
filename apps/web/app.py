@@ -1,8 +1,11 @@
 """Flask dashboard — PATCH 5: + Reset button + AI test + diagnostics."""
 import os
 import json
+import csv
+import io
+import sqlite3
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from flask import (
     Flask, render_template, request, redirect, url_for, flash, jsonify, Response
@@ -48,6 +51,16 @@ def _format_local_datetime(value):
 app.jinja_env.filters["localdt"] = _format_local_datetime
 
 
+@app.context_processor
+def _inject_layout_state():
+    unanswered = load_unanswered()
+    return {
+        "state": controller.get_state(),
+        "stats": store.get_stats(),
+        "unanswered_count": len(unanswered),
+    }
+
+
 def _latest_debug_screenshot():
     shots_dir = Path("data/screenshots")
     if not shots_dir.exists():
@@ -79,6 +92,143 @@ def _rate_limit_status(platform: str = "linkedin"):
         return None
 
 
+def _get_stats_today() -> dict:
+    today = datetime.now().strftime("%Y-%m-%d")
+    result = {"applied": 0, "skipped": 0}
+    with sqlite3.connect(store.DB_PATH) as conn:
+        applied = conn.execute(
+            "SELECT COUNT(*) FROM applications WHERE status='applied' AND DATE(created_at)=?",
+            (today,),
+        ).fetchone()
+        skipped = conn.execute(
+            """
+            SELECT COUNT(*) FROM applications
+            WHERE status='skipped'
+              AND NOT (skip_reason='not_easy_apply' AND error_message='external apply')
+              AND DATE(created_at)=?
+            """,
+            (today,),
+        ).fetchone()
+        result["applied"] = int(applied[0] or 0) if applied else 0
+        result["skipped"] = int(skipped[0] or 0) if skipped else 0
+    return result
+
+
+def _get_apps_14days() -> dict:
+    today = datetime.now().date()
+    labels = [(today - timedelta(days=offset)).strftime("%m-%d") for offset in range(13, -1, -1)]
+    counts = {label: 0 for label in labels}
+    cutoff = (today - timedelta(days=13)).strftime("%Y-%m-%d")
+    with sqlite3.connect(store.DB_PATH) as conn:
+        rows = conn.execute(
+            """
+            SELECT DATE(created_at) AS day, COUNT(*)
+            FROM applications
+            WHERE status='applied' AND DATE(created_at) >= ?
+            GROUP BY DATE(created_at)
+            ORDER BY DATE(created_at)
+            """,
+            (cutoff,),
+        ).fetchall()
+    for day, count in rows:
+        try:
+            label = datetime.fromisoformat(day).strftime("%m-%d")
+            if label in counts:
+                counts[label] = int(count or 0)
+        except Exception:
+            continue
+    return {"labels": labels, "data": [counts[label] for label in labels]}
+
+
+def _get_skip_reasons() -> dict:
+    with sqlite3.connect(store.DB_PATH) as conn:
+        rows = conn.execute(
+            """
+            SELECT COALESCE(skip_reason, 'unknown') AS reason, COUNT(*)
+            FROM applications
+            WHERE status='skipped'
+              AND NOT (skip_reason='not_easy_apply' AND error_message='external apply')
+            GROUP BY COALESCE(skip_reason, 'unknown')
+            ORDER BY COUNT(*) DESC, reason ASC
+            LIMIT 7
+            """
+        ).fetchall()
+    labels = [row[0] for row in rows]
+    data = [int(row[1] or 0) for row in rows]
+    return {"labels": labels, "data": data}
+
+
+def _get_avg_fit_score():
+    with sqlite3.connect(store.DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT AVG(fit_score) FROM applications WHERE fit_score IS NOT NULL"
+        ).fetchone()
+    if not row or row[0] is None:
+        return None
+    try:
+        return int(round(float(row[0])))
+    except Exception:
+        return None
+
+
+def _get_platforms() -> list[str]:
+    with sqlite3.connect(store.DB_PATH) as conn:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT platform
+            FROM applications
+            WHERE platform IS NOT NULL AND TRIM(platform) != ''
+            ORDER BY platform
+            """
+        ).fetchall()
+    return [str(row[0]) for row in rows if row and row[0]]
+
+
+def _paginate(rows: list[dict], page: int = 1, page_size: int = 50):
+    total = len(rows)
+    total_pages = (total + page_size - 1) // page_size
+    current_page = max(1, min(page, total_pages or 1))
+    start = (current_page - 1) * page_size
+    end = start + page_size
+    if total_pages <= 7:
+        page_range = list(range(1, total_pages + 1))
+    else:
+        page_range = [1]
+        if current_page > 3:
+            page_range.append("...")
+        for pageno in range(max(2, current_page - 1), min(total_pages, current_page + 2)):
+            page_range.append(pageno)
+        if current_page < total_pages - 2:
+            page_range.append("...")
+        if total_pages > 1:
+            page_range.append(total_pages)
+    return rows[start:end], total_pages, current_page, page_range
+
+
+def _applications_csv(rows: list[dict]) -> Response:
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["id", "platform", "title", "company", "location", "status", "fit_score", "reason", "created_at", "url"])
+    for row in rows:
+        writer.writerow([
+            row.get("id"),
+            row.get("platform"),
+            row.get("title"),
+            row.get("company"),
+            row.get("location"),
+            row.get("status"),
+            row.get("fit_score"),
+            row.get("skip_reason") or row.get("error_message") or "",
+            _format_local_datetime(row.get("created_at")),
+            row.get("url"),
+        ])
+    return Response(
+        buf.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=applications.csv"},
+    )
+
+
 # ---------- PAGES ----------
 @app.route("/")
 def dashboard():
@@ -96,14 +246,37 @@ def dashboard():
         unanswered=unanswered, state=diag["state"], diag=diag,
         latest_screenshot=latest_screenshot,
         rate_limit_status=rate_limit_status,
+        stats_today=_get_stats_today(),
+        avg_fit_score=_get_avg_fit_score(),
+        health_score=None,
+        notifications=None,
+        active_platform="LinkedIn Easy Apply",
     )
 
 
 @app.route("/applications")
 def applications():
     status = request.args.get("status") or None
-    rows = store.list_applications(status=status, limit=300)
-    return render_template("applications.html", rows=rows, current=status)
+    platform = request.args.get("platform") or None
+    page = max(1, request.args.get("page", default=1, type=int))
+    all_rows = store.list_applications(status=status, limit=2000)
+    if platform:
+        all_rows = [row for row in all_rows if (row.get("platform") or "").lower() == platform.lower()]
+    if request.args.get("export") == "csv":
+        return _applications_csv(all_rows)
+    rows, total_pages, current_page, page_range = _paginate(all_rows, page=page, page_size=50)
+    return render_template(
+        "applications.html",
+        rows=rows,
+        current=status,
+        platforms=_get_platforms(),
+        total_pages=total_pages,
+        current_page=current_page,
+        page_range=page_range,
+        page_size=50,
+        total_rows=len(all_rows),
+        show_ghost_status=False,
+    )
 
 
 @app.route("/application/<int:app_id>")
@@ -112,7 +285,7 @@ def application_detail(app_id):
     if not row:
         flash("Application not found")
         return redirect(url_for("applications"))
-    return render_template("application_detail.html", row=row)
+    return render_template("application_detail.html", row=row, show_interview_prep=False)
 
 
 @app.route("/questions", methods=["GET", "POST"])
@@ -206,6 +379,9 @@ def control_ai_test():
         if not ai_cfg.get("enabled"):
             flash("AI is disabled in config.yaml")
             return redirect(url_for("dashboard"))
+        ai_cfg = dict(ai_cfg)
+        ai_cfg["timeout_seconds"] = min(int(ai_cfg.get("timeout_seconds", 60)), 12)
+        ai_cfg["max_retries"] = 0
         from packages.ai.provider import AIProvider
         ai = AIProvider(ai_cfg)
         ok, msg = ai.test_connection()
@@ -260,6 +436,10 @@ def api_dashboard():
         "latest_screenshot": _latest_debug_screenshot(),
         "unanswered_count": len(unanswered),
         "rate_limit_status": _rate_limit_status(),
+        "stats_today": _get_stats_today(),
+        "avg_fit_score": _get_avg_fit_score(),
+        "apps_14days": _get_apps_14days(),
+        "skip_reasons": _get_skip_reasons(),
     })
 
 

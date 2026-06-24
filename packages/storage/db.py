@@ -204,6 +204,16 @@ def get_application(app_id: int) -> Optional[dict]:
         return _row_to_dict(row) if row else None
 
 
+def _resolve_application_url(r: Application) -> str:
+    if r.url:
+        return r.url
+    platform = (r.platform or "").lower()
+    job_id = (r.job_id or "").strip()
+    if platform == "linkedin" and job_id:
+        return f"https://www.linkedin.com/jobs/view/{job_id}/"
+    return ""
+
+
 def _row_to_dict(r: Application) -> dict:
     display_status = r.status
     if (
@@ -220,7 +230,7 @@ def _row_to_dict(r: Application) -> dict:
         "title": r.title,
         "company": r.company,
         "location": r.location,
-        "url": r.url,
+        "url": _resolve_application_url(r),
         "salary": r.salary,
         "status": display_status,
         "skip_reason": r.skip_reason,

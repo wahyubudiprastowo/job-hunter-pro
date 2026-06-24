@@ -4,52 +4,46 @@
 
 {% block top_left %}
   <a href="/applications" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-arrow-left"></i> Back to Applications
+    <i class="bi bi-arrow-left"></i> Back
   </a>
 {% endblock %}
 
 {% block content %}
+
 <div class="card">
   <div class="card-body">
     <div class="d-flex justify-content-between align-items-end mb-3">
       <div>
         <h2 class="page-title">{{ row.title }}</h2>
         <p class="text-muted mb-0">
-          <i class="bi bi-building"></i> {{ row.company }} · {{ row.location }} ·
+          <i class="bi bi-building"></i> {{ row.company }} · {{ row.location }} · 
           <span class="badge bg-secondary">{{ row.platform }}</span>
-          {% if row.ghost_status %}
-            <span class="badge badge-ghost-{{ row.ghost_status|lower }}">{{ row.ghost_status }}</span>
-          {% endif %}
         </p>
       </div>
       <div class="text-end">
         <div><span class="badge badge-{{ row.status }}" style="font-size: 13px; padding: 6px 12px;">{{ row.status|upper }}</span></div>
-        {% if row.skip_reason %}<div class="small text-muted mt-1">{{ row.skip_reason }}</div>{% endif %}
+        {% if row.skip_reason %}
+          <div class="small text-muted mt-1">{{ row.skip_reason }}</div>
+        {% endif %}
       </div>
     </div>
-
-    <div class="d-flex gap-2">
-      <a href="{{ row.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
-        <i class="bi bi-box-arrow-up-right"></i> View on platform
-      </a>
-      {% if row.status == 'applied' and show_interview_prep %}
-      <a href="/interview-prep/{{ row.id }}" class="btn btn-outline-primary btn-sm">
-        <i class="bi bi-mic"></i> Interview Prep
-      </a>
-      {% endif %}
-    </div>
+    
+    <a href="{{ row.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-box-arrow-up-right"></i> View on platform
+    </a>
   </div>
 </div>
 
+<!-- Fit Score Card (Patch 17) -->
 {% if row.fit_score is not none %}
-<div class="card mt-3">
+<div class="card">
   <div class="card-header">
     <span><i class="bi bi-bullseye"></i> Job Fit Analysis</span>
   </div>
   <div class="card-body">
     <div class="d-grid" style="grid-template-columns: auto 1fr; gap: 24px; align-items: center;">
       <div class="text-center">
-        <div style="font-size: 56px; font-weight: 700;
+        <div style="font-size: 56px; font-weight: 700; 
           {% if row.fit_score >= 80 %}color: var(--color-success);
           {% elif row.fit_score >= 60 %}color: var(--color-warning);
           {% else %}color: var(--color-danger);{% endif %}">
@@ -57,9 +51,13 @@
         </div>
         <div class="small text-muted">out of 100</div>
         <div class="mt-2">
-          {% if row.fit_score >= 80 %}<span class="badge bg-success">HIGH FIT</span>
-          {% elif row.fit_score >= 60 %}<span class="badge bg-warning">MID FIT</span>
-          {% else %}<span class="badge bg-danger">LOW FIT</span>{% endif %}
+          {% if row.fit_score >= 80 %}
+            <span class="badge bg-success">HIGH FIT</span>
+          {% elif row.fit_score >= 60 %}
+            <span class="badge bg-warning">MID FIT</span>
+          {% else %}
+            <span class="badge bg-danger">LOW FIT</span>
+          {% endif %}
         </div>
       </div>
       <div>
@@ -75,7 +73,8 @@
 </div>
 {% endif %}
 
-<div class="card mt-3">
+<!-- Files Card -->
+<div class="card">
   <div class="card-header">
     <span><i class="bi bi-file-earmark-text"></i> Generated Files</span>
   </div>
@@ -99,34 +98,46 @@
 </div>
 
 {% if row.error_message %}
-<div class="alert alert-warning mt-3">
+<div class="alert alert-warning">
   <strong><i class="bi bi-exclamation-triangle"></i> Error:</strong> {{ row.error_message }}
 </div>
 {% endif %}
 
-<div class="card mt-3">
+<!-- Q&A Trail -->
+<div class="card">
   <div class="card-header">
-    <span><i class="bi bi-chat-square-text"></i> Q&amp;A Trail</span>
+    <span><i class="bi bi-chat-square-text"></i> Q&A Trail</span>
   </div>
   <div class="card-body" style="padding: 0;">
     {% if row.qa_log %}
       <table class="table">
         <thead>
-          <tr><th>Question</th><th>Answer</th><th>Status</th></tr>
+          <tr>
+            <th>Question</th>
+            <th>Answer</th>
+            <th>Status</th>
+          </tr>
         </thead>
         <tbody>
           {% for q in row.qa_log %}
             <tr>
               <td>{{ q.q }}</td>
-              <td>{% if q.a %}<code>{{ q.a }}</code>{% else %}<em class="text-muted">(none)</em>{% endif %}</td>
-              <td>{% if q.filled %}<span class="badge bg-success">FILLED</span>{% else %}<span class="badge bg-warning">SKIPPED</span>{% endif %}</td>
+              <td>
+                {% if q.a %}<code>{{ q.a }}</code>
+                {% else %}<em class="text-muted">(none)</em>{% endif %}
+              </td>
+              <td>
+                {% if q.filled %}<span class="badge bg-success">FILLED</span>
+                {% else %}<span class="badge bg-warning">SKIPPED</span>{% endif %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     {% else %}
-      <p class="text-muted text-center p-4 mb-0">No Q&amp;A interactions recorded.</p>
+      <p class="text-muted text-center p-4 mb-0">No Q&A interactions recorded.</p>
     {% endif %}
   </div>
 </div>
+
 {% endblock %}

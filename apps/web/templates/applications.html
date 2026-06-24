@@ -1,33 +1,159 @@
 {% extends "base.html" %}
+
+{% block title %}Applications — Job-Hunter Pro{% endblock %}
+
+{% block top_left %}
+  <div>
+    <h1 class="page-title" style="margin: 0; font-size: 20px;">Applications</h1>
+    <p class="page-subtitle" style="margin: 0;">All jobs the bot has attempted, with full Q&amp;A trail.</p>
+  </div>
+{% endblock %}
+
 {% block content %}
-<h3>📋 Applications</h3>
-<div class="mb-3 d-flex gap-2 flex-wrap">
-  <a href="/applications" class="btn btn-sm btn-outline-secondary {% if not current %}active{% endif %}">All</a>
-  {% for s in ['applied','skipped','needs_answers','failed','external'] %}
-    <a href="/applications?status={{s}}" class="btn btn-sm btn-outline-secondary {% if current==s %}active{% endif %}">{{s}}</a>
-  {% endfor %}
+<div class="filter-pills">
+  <a href="/applications" class="filter-pill {% if not current %}active{% endif %}">All</a>
+  <a href="/applications?status=applied" class="filter-pill {% if current == 'applied' %}active{% endif %}">applied</a>
+  <a href="/applications?status=skipped" class="filter-pill {% if current == 'skipped' %}active{% endif %}">skipped</a>
+  <a href="/applications?status=needs_answers" class="filter-pill {% if current == 'needs_answers' %}active{% endif %}">needs_answers</a>
+  <a href="/applications?status=failed" class="filter-pill {% if current == 'failed' %}active{% endif %}">failed</a>
+  <a href="/applications?status=external" class="filter-pill {% if current == 'external' %}active{% endif %}">external</a>
 </div>
-<div class="card shadow-sm">
-  <div class="card-body">
-    <table class="table table-sm table-hover">
+
+<div class="search-bar">
+  <div style="position: relative; flex: 1;">
+    <i class="bi bi-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-text-muted);"></i>
+    <input type="text" class="search-input" placeholder="Search by company or title..."
+           style="padding-left: 36px;" id="search-input"
+           oninput="filterRows()">
+  </div>
+
+  {% if platforms %}
+  <select class="filter-select" id="platform-filter" onchange="filterByPlatform(this.value)">
+    <option value="">All platforms</option>
+    {% for p in platforms %}
+      <option value="{{ p }}" {% if request.args.get('platform') == p %}selected{% endif %}>{{ p|upper }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
+
+  <a href="/applications?export=csv{% if current %}&status={{ current }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}" class="btn btn-outline-primary btn-sm">
+    <i class="bi bi-download"></i> Export CSV
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding: 0;">
+    <table class="table">
       <thead>
-        <tr><th>#</th><th>Platform</th><th>Title</th><th>Company</th><th>Location</th><th>Status</th><th>Reason</th><th>When</th></tr>
-      </thead>
-      <tbody>
-        {% for r in rows %}
         <tr>
-          <td>{{ r.id }}</td>
-          <td><span class="badge bg-secondary">{{ r.platform }}</span></td>
-          <td><a href="/application/{{ r.id }}">{{ r.title }}</a></td>
-          <td>{{ r.company }}</td>
-          <td>{{ r.location }}</td>
-          <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
-          <td><small>{{ r.skip_reason or r.error_message or '' }}</small></td>
-          <td><small>{{ r.created_at | localdt }}</small></td>
+          <th>#</th>
+          <th>Platform</th>
+          <th>Title</th>
+          <th>Company</th>
+          <th>Location</th>
+          <th>Status</th>
+          <th>Fit</th>
+          {% if show_ghost_status %}<th>Ghost</th>{% endif %}
+          <th>Reason</th>
+          <th>When</th>
+          <th></th>
         </tr>
+      </thead>
+      <tbody id="apps-tbody">
+        {% for r in rows %}
+          <tr data-company="{{ (r.company or '')|lower }}" data-title="{{ (r.title or '')|lower }}" data-platform="{{ r.platform }}">
+            <td><span class="row-id">{{ r.id }}</span></td>
+            <td><span class="badge bg-secondary">{{ r.platform }}</span></td>
+            <td><a href="/application/{{ r.id }}">{{ (r.title or '?')|truncate(50) }}</a></td>
+            <td>{{ (r.company or '?')|truncate(30) }}</td>
+            <td>{{ (r.location or '—')|truncate(40) }}</td>
+            <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+            <td>
+              {% if r.fit_score is not none %}
+                <span class="fit-score {% if r.fit_score >= 80 %}fit-score-high{% elif r.fit_score >= 60 %}fit-score-mid{% else %}fit-score-low{% endif %}">{{ r.fit_score }}</span>
+              {% else %}—{% endif %}
+            </td>
+            {% if show_ghost_status %}
+            <td>
+              {% if r.ghost_status %}
+                <span class="badge badge-ghost-{{ r.ghost_status|lower }}">{{ r.ghost_status }}</span>
+              {% else %}—{% endif %}
+            </td>
+            {% endif %}
+            <td><small class="text-muted">{{ r.skip_reason or r.error_message or '—' }}</small></td>
+            <td><small class="text-muted">{{ r.created_at | localdt }}</small></td>
+            <td>
+              <a href="/application/{{ r.id }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-chevron-right"></i>
+              </a>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="11" class="text-muted text-center" style="padding: 40px;">No applications match the filter.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+
+  {% if total_pages and total_pages > 1 %}
+  <div class="pagination">
+    {% if current_page > 1 %}
+      <a href="?page={{ current_page - 1 }}{% if current %}&status={{ current }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}" class="page-btn">
+        <i class="bi bi-chevron-left"></i> Prev
+      </a>
+    {% else %}
+      <button class="page-btn" disabled><i class="bi bi-chevron-left"></i> Prev</button>
+    {% endif %}
+
+    {% for p in page_range %}
+      {% if p == current_page %}
+        <span class="page-btn active">{{ p }}</span>
+      {% elif p == '...' %}
+        <span class="page-btn" style="border:none;">...</span>
+      {% else %}
+        <a href="?page={{ p }}{% if current %}&status={{ current }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}" class="page-btn">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+
+    {% if current_page < total_pages %}
+      <a href="?page={{ current_page + 1 }}{% if current %}&status={{ current }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}" class="page-btn">
+        Next <i class="bi bi-chevron-right"></i>
+      </a>
+    {% else %}
+      <button class="page-btn" disabled>Next <i class="bi bi-chevron-right"></i></button>
+    {% endif %}
+
+    <span class="text-muted small ms-2">Showing {{ (current_page - 1) * page_size + 1 }} - {{ [current_page * page_size, total_rows]|min }} of {{ total_rows }}</span>
+  </div>
+  {% elif rows %}
+    <div class="text-muted small text-center p-3">
+      Showing {{ rows|length }} result{{ 's' if rows|length != 1 else '' }}.
+    </div>
+  {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterRows() {
+  const query = document.getElementById('search-input').value.toLowerCase();
+  const rows = document.querySelectorAll('#apps-tbody tr[data-company]');
+  rows.forEach(row => {
+    const company = row.dataset.company || '';
+    const title = row.dataset.title || '';
+    row.style.display = (company.includes(query) || title.includes(query)) ? '' : 'none';
+  });
+}
+
+function filterByPlatform(platform) {
+  const url = new URL(window.location);
+  if (platform) {
+    url.searchParams.set('platform', platform);
+  } else {
+    url.searchParams.delete('platform');
+  }
+  url.searchParams.delete('page');
+  window.location.href = url.toString();
+}
+</script>
 {% endblock %}

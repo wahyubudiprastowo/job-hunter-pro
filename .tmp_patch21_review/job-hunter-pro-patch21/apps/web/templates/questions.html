@@ -1,33 +1,22 @@
 {% extends "base.html" %}
 
-{% block title %}Question Bank — Job-Hunter Pro{% endblock %}
+{% block title %}Unanswered Questions — Job-Hunter Pro{% endblock %}
 
 {% block top_left %}
-  <div>
-    <h1 class="page-title" style="margin: 0; font-size: 20px;">Question Bank</h1>
-    <p class="page-subtitle" style="margin: 0;">Answer questions to teach the bot for future applications.</p>
+  <div class="page-header" style="margin: 0;">
+    <h1 class="page-title">Question Bank</h1>
+    <p class="page-subtitle">Answer questions to teach the bot for future applications.</p>
   </div>
 {% endblock %}
 
 {% block content %}
-<div class="card mb-4">
-  <div class="card-body">
-    <form method="post" action="/questions" class="d-flex gap-2">
-      <input type="text" name="question" placeholder="Question text" class="search-input flex-1" required>
-      <input type="text" name="answer" placeholder="Your answer" class="search-input flex-1" required>
-      <button class="btn btn-primary">
-        <i class="bi bi-check"></i> Save
-      </button>
-    </form>
-  </div>
-</div>
 
 {% if unanswered %}
   <div class="card">
     <div class="card-header">
-      <span><i class="bi bi-exclamation-circle text-warning"></i> Unanswered Queue ({{ unanswered|length }})</span>
+      <span><i class="bi bi-exclamation-circle text-warning"></i> Unanswered Questions ({{ unanswered|length }})</span>
       <form method="post" action="/questions/clear-unanswered" style="display:inline">
-        <button class="btn btn-outline-secondary btn-sm">Clear all</button>
+        <button class="btn btn-outline-secondary btn-sm">Clear queue</button>
       </form>
     </div>
     <div class="card-body" style="padding: 0;">
@@ -35,8 +24,9 @@
         <thead>
           <tr>
             <th>Question</th>
-            <th>Type</th>
+            <th>Field type</th>
             <th>Answer</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -45,16 +35,19 @@
               <td>{{ u.question }}</td>
               <td><span class="badge bg-info">{{ u.field_type }}</span></td>
               <td>
-                <form method="post" action="/questions" class="d-flex gap-2">
+                <form method="post" action="/questions" style="display: flex; gap: 8px;">
                   <input type="hidden" name="question" value="{{ u.question }}">
-                  <input type="text" name="answer" placeholder="Your answer..." class="search-input flex-1">
+                  <input type="text" name="answer" placeholder="Your answer..." 
+                         class="search-input" style="flex: 1;">
                   <button class="btn btn-success btn-sm">
                     <i class="bi bi-check"></i> Save
                   </button>
                 </form>
+              </td>
+              <td>
                 {% if u.options %}
-                  <div class="small text-muted mt-1">
-                    Options: {{ u.options|join(', ')|truncate(80) }}
+                  <div class="small text-muted">
+                    Options: {{ u.options|join(', ')|truncate(60) }}
                   </div>
                 {% endif %}
               </td>
@@ -62,15 +55,6 @@
           {% endfor %}
         </tbody>
       </table>
-    </div>
-  </div>
-{% else %}
-  <div class="card mb-4">
-    <div class="card-header">
-      <span><i class="bi bi-check-circle text-success"></i> Unanswered Queue (0)</span>
-    </div>
-    <div class="card-body">
-      <p class="text-muted mb-0">All caught up. No unanswered questions right now.</p>
     </div>
   </div>
 {% endif %}
@@ -92,11 +76,12 @@
         {% for q, a in answers.items() %}
           <tr>
             <td><small>{{ q|truncate(80) }}</small></td>
-            <td><code>{{ a|truncate(50) }}</code></td>
+            <td><code>{{ a|truncate(40) }}</code></td>
             <td>
               <form method="post" action="/questions/delete" style="display:inline">
                 <input type="hidden" name="question" value="{{ q }}">
-                <button class="btn btn-outline-secondary btn-sm" onclick="return confirm('Remove this answer?')">
+                <button class="btn btn-outline-secondary btn-sm" 
+                        onclick="return confirm('Remove this answer?')">
                   <i class="bi bi-trash"></i>
                 </button>
               </form>
@@ -109,4 +94,5 @@
     </table>
   </div>
 </div>
+
 {% endblock %}

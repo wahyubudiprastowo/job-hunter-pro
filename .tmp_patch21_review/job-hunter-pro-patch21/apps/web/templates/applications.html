@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}History — Job-Hunter Pro{% endblock %}
+
+{% block top_left %}
+  <div class="page-header" style="margin: 0;">
+    <h1 class="page-title">Application History</h1>
+    <p class="page-subtitle">All jobs the bot has attempted, with full Q&A trail.</p>
+  </div>
+{% endblock %}
+
+{% block content %}
+
+<div class="search-bar">
+  <div style="position: relative; flex: 1;">
+    <i class="bi bi-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-text-muted);"></i>
+    <input type="text" class="search-input" placeholder="Search by company..." 
+           style="padding-left: 36px;" id="search-input" 
+           oninput="filterRows()" value="{{ request.args.get('q', '') }}">
+  </div>
+  <select class="filter-select" id="status-filter" onchange="window.location.href='?status=' + this.value">
+    <option value="">All statuses</option>
+    <option value="applied" {% if current == 'applied' %}selected{% endif %}>Applied</option>
+    <option value="skipped" {% if current == 'skipped' %}selected{% endif %}>Skipped</option>
+    <option value="failed" {% if current == 'failed' %}selected{% endif %}>Failed</option>
+    <option value="needs_answers" {% if current == 'needs_answers' %}selected{% endif %}>Needs answers</option>
+    <option value="external" {% if current == 'external' %}selected{% endif %}>External</option>
+  </select>
+  <a href="/applications?export=csv" class="btn btn-outline-primary btn-sm">
+    <i class="bi bi-download"></i> Export CSV
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding: 0;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Job title</th>
+          <th>Company</th>
+          <th>Location</th>
+          <th>Status</th>
+          <th>Fit</th>
+          <th>Applied at</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="apps-tbody">
+        {% for r in rows %}
+          <tr data-company="{{ (r.company or '')|lower }}">
+            <td><a href="/application/{{ r.id }}">{{ r.title or '?' }}</a></td>
+            <td>{{ r.company or '?' }}</td>
+            <td>{{ r.location or '—' }}</td>
+            <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+            <td>
+              {% if r.fit_score is not none %}
+                <span class="fit-score {% if r.fit_score >= 80 %}fit-score-high{% elif r.fit_score >= 60 %}fit-score-mid{% else %}fit-score-low{% endif %}">{{ r.fit_score }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td><small class="text-muted">{{ r.created_at | localdt }}</small></td>
+            <td>
+              <a href="/application/{{ r.id }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-chevron-right"></i>
+              </a>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="7" class="text-muted text-center" style="padding: 40px;">
+              No applications match the filter.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  
+  {% if rows|length >= 300 %}
+    <div class="text-muted small text-center p-3">
+      Showing first 300 results. Filter or export CSV to see more.
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterRows() {
+  const query = document.getElementById('search-input').value.toLowerCase();
+  const rows = document.querySelectorAll('#apps-tbody tr[data-company]');
+  rows.forEach(row => {
+    const company = row.dataset.company || '';
+    row.style.display = company.includes(query) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}
