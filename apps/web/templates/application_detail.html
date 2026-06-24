@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<a href="/applications" class="btn btn-sm btn-outline-secondary mb-3">← Back</a>
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h4>{{ row.title }}</h4>
+    <p class="text-muted">{{ row.company }} · {{ row.location }} · <span class="badge bg-secondary">{{ row.platform }}</span></p>
+    <p><span class="badge badge-{{ row.status }}">{{ row.status }}</span>
+       {% if row.skip_reason %} · {{ row.skip_reason }}{% endif %}</p>
+    <p><a href="{{ row.url }}" target="_blank">🔗 View on platform</a></p>
+    {% if row.salary %}<p><strong>Salary:</strong> {{ row.salary }}</p>{% endif %}
+    {% if row.error_message %}
+      <div class="alert alert-warning">{{ row.error_message }}</div>
+    {% endif %}
+
+    {% if row.qa_log %}
+    <h5 class="mt-4">Q&A Log</h5>
+    <table class="table table-sm">
+      <thead><tr><th>Question</th><th>Answer</th><th>Filled?</th></tr></thead>
+      <tbody>
+        {% for q in row.qa_log %}
+        <tr>
+          <td>{{ q.q }}</td>
+          <td>{{ q.a }}</td>
+          <td>{% if q.filled %}✅{% else %}❌{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if row.unanswered %}
+    <h5 class="mt-4">❓ Unanswered Questions for this job</h5>
+    <ul class="list-group">
+      {% for u in row.unanswered %}
+      <li class="list-group-item">
+        <strong>{{ u.question }}</strong> <span class="badge bg-warning">{{ u.field_type }}</span>
+        {% if u.options %}<br><small>Options: {{ u.options|join(' | ') }}</small>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

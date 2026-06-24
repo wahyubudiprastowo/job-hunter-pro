@@ -1,0 +1,21 @@
+[
+  {
+    "question": "In quanto libero professionista in Partita Iva, qual è la sua desiderata giornaliera?",
+    "field_type": "text",
+    "options": [],
+    "job_id": "4430433567",
+    "platform": "linkedin",
+    "created_at": "2026-06-23T18:59:27.116729"
+  },
+  {
+    "question": "Moet u nu of in de toekomst worden gesponsord voor een werkvisum?\nRequired",
+    "field_type": "radio",
+    "options": [
+      "Yes",
+      "No"
+    ],
+    "job_id": "4426086342",
+    "platform": "linkedin",
+    "created_at": "2026-06-24T00:54:20.625310"
+  }
+]

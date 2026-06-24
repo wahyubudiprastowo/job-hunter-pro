@@ -1,0 +1,18 @@
+services:
+  jobhunter:
+    build: .
+    container_name: jobhunter-pro
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./resumes:/app/resumes
+      - ./cover_letters:/app/cover_letters
+      - ./config.yaml:/app/config.yaml:ro
+      - chrome-profile:/app/.chrome-profile
+    ports:
+      - "${WEB_PORT:-5050}:5050"
+    shm_size: "2g"
+    restart: unless-stopped
+
+volumes:
+  chrome-profile:

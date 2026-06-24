@@ -1,0 +1,6 @@
+#!/bin/sh
+git diff --cached | grep -E 'sk-[a-zA-Z0-9]{20,}|password.*=.*\S|api_key.*sk-' > /dev/null
+if [ \True -eq 0 ]; then
+    echo '?? BLOCKED: Potential secret in staged changes!'
+    exit 1
+fi

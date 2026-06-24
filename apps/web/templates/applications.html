@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>📋 Applications</h3>
+<div class="mb-3 d-flex gap-2 flex-wrap">
+  <a href="/applications" class="btn btn-sm btn-outline-secondary {% if not current %}active{% endif %}">All</a>
+  {% for s in ['applied','skipped','needs_answers','failed','external'] %}
+    <a href="/applications?status={{s}}" class="btn btn-sm btn-outline-secondary {% if current==s %}active{% endif %}">{{s}}</a>
+  {% endfor %}
+</div>
+<div class="card shadow-sm">
+  <div class="card-body">
+    <table class="table table-sm table-hover">
+      <thead>
+        <tr><th>#</th><th>Platform</th><th>Title</th><th>Company</th><th>Location</th><th>Status</th><th>Reason</th><th>When</th></tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.id }}</td>
+          <td><span class="badge bg-secondary">{{ r.platform }}</span></td>
+          <td><a href="/application/{{ r.id }}">{{ r.title }}</a></td>
+          <td>{{ r.company }}</td>
+          <td>{{ r.location }}</td>
+          <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+          <td><small>{{ r.skip_reason or r.error_message or '' }}</small></td>
+          <td><small>{{ (r.created_at or '')[:19] }}</small></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

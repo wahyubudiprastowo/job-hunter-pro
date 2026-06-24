@@ -1,0 +1,10 @@
+# PATCH 9 — add this to your config.yaml under ai: section
+
+ai:
+  # ... existing keys ...
+
+  # === PATCH 9: Anti-hallucination validator settings ===
+  resume_tailoring: true        # already exists
+  validator_strict: true        # NEW: true = reject any new tech | false = allow 1 new
+  # When validator rejects, bot falls back to base resume + logs reason.
+  # Rejected JSON saved to resumes/generated/<key>.rejected.json for audit.

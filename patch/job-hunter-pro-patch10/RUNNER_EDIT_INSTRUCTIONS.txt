@@ -1,0 +1,147 @@
+PATCH 10 — Manual edits for apps/worker/runner.py
+=================================================
+
+EDIT 1: Update imports (top of file)
+------------------------------------
+FIND the AI imports block:
+    try:
+        from packages.ai.provider import AIProvider
+        from packages.ai.cv_extractor import extract_cv_text
+        from packages.ai.resume_tailor import generate_tailored_resume
+        _HAS_AI = True
+    except ImportError:
+        ...
+
+REPLACE with:
+    try:
+        from packages.ai.provider import AIProvider
+        from packages.ai.cv_extractor import extract_cv_text
+        from packages.ai.resume_tailor import generate_tailored_resume
+        # PATCH 10: cover letter
+        try:
+            from packages.ai.cover_letter import generate_cover_letter
+            _HAS_COVER_LETTER = True
+        except ImportError:
+            generate_cover_letter = None
+            _HAS_COVER_LETTER = False
+        _HAS_AI = True
+    except ImportError:
+        AIProvider = None
+        extract_cv_text = None
+        generate_tailored_resume = None
+        generate_cover_letter = None
+        _HAS_AI = False
+        _HAS_COVER_LETTER = False
+
+
+EDIT 2: Update counters dict
+----------------------------
+FIND:
+    counters = {"applied": 0, "skipped": 0, "failed": 0, "needs": 0,
+                "tailored": 0, "tailored_rejected": 0}
+
+REPLACE with:
+    counters = {"applied": 0, "skipped": 0, "failed": 0, "needs": 0,
+                "tailored": 0, "tailored_rejected": 0,
+                "cover_letters": 0, "cover_letters_rejected": 0}
+
+
+EDIT 3: Add cover_letter_enabled flag near tailoring_enabled
+----------------------------------------------------------
+FIND:
+    tailoring_enabled = bool(ai_cfg.get("resume_tailoring", False) and ai_provider and cv_text)
+    if tailoring_enabled:
+        logger.success("🎨 Resume tailoring ENABLED — will generate custom resume per job")
+
+ADD AFTER:
+    # PATCH 10: cover letter
+    cover_letter_enabled = bool(
+        ai_cfg.get("cover_letter", False)
+        and ai_provider
+        and cv_text
+        and _HAS_COVER_LETTER
+    )
+    if cover_letter_enabled:
+        logger.success("💌 Cover letter generation ENABLED")
+
+
+EDIT 4: Generate cover letter alongside resume
+---------------------------------------------
+FIND this block (the resume tailoring block from Patch 9):
+    if tailoring_enabled and job.description:
+        try:
+            facts_dict = {
+                "years_experience": profile.years_experience,
+                ...
+            }
+            ...
+        except Exception as e:
+            logger.warning(f"Resume tailoring failed: {e}")
+            counters["tailored_rejected"] += 1
+
+ADD IMMEDIATELY AFTER (still inside the per-card loop):
+    # === PATCH 10: COVER LETTER GENERATION ===
+    cover_letter_paths = None  # (txt_path, pdf_path) or None
+    if cover_letter_enabled and job.description:
+        try:
+            facts_dict = {
+                "years_experience": profile.years_experience,
+                "current_salary": profile.current_salary,
+                "expected_salary": profile.expected_salary,
+            }
+            cl_strict = ai_cfg.get("cover_letter_strict", True)
+            cover_letter_paths = generate_cover_letter(
+                ai_provider, profile, cv_text, job,
+                output_dir=ai_cfg.get("cover_letter_output_dir", "cover_letters/generated"),
+                validator_strict=cl_strict,
+                candidate_facts=facts_dict,
+            )
+            if cover_letter_paths:
+                counters["cover_letters"] += 1
+            else:
+                counters["cover_letters_rejected"] += 1
+        except Exception as e:
+            logger.warning(f"Cover letter generation failed: {e}")
+            counters["cover_letters_rejected"] += 1
+
+
+EDIT 5 (Optional): Pass cover_letter_paths to apply()
+-----------------------------------------------------
+If you want extractor.apply() to upload the cover letter, modify the
+extractor.apply() call to accept cover_letter_paths.
+
+Current (skip this for now — extractor needs separate modification):
+    result = extractor.apply(job, effective_resume, mode=mode)
+
+Future (Patch 10b will add this):
+    result = extractor.apply(
+        job, effective_resume, mode=mode,
+        cover_letter_path=(cover_letter_paths[1] if cover_letter_paths else None)
+    )
+
+For now, cover letters are generated and saved to disk but NOT yet uploaded
+to LinkedIn. That's coming in Patch 10b (extractor integration).
+
+
+EDIT 6: Update final log with cover letter stats
+------------------------------------------------
+FIND:
+    if counters.get("tailored_rejected", 0) > 0 or counters.get("tailored", 0) > 0:
+        ...
+        logger.info(
+            f"🎨 Tailoring: {counters['tailored']} accepted, "
+            f"{counters['tailored_rejected']} rejected ({reject_pct:.0f}% reject rate)"
+        )
+
+ADD AFTER:
+    if counters.get("cover_letters_rejected", 0) > 0 or counters.get("cover_letters", 0) > 0:
+        cl_total = counters["cover_letters"] + counters["cover_letters_rejected"]
+        cl_reject_pct = (counters["cover_letters_rejected"] / cl_total * 100) if cl_total > 0 else 0
+        logger.info(
+            f"💌 Cover letters: {counters['cover_letters']} generated, "
+            f"{counters['cover_letters_rejected']} rejected ({cl_reject_pct:.0f}% reject rate)"
+        )
+
+=================================================
+That's it. Save runner.py, restart bot.
+=================================================

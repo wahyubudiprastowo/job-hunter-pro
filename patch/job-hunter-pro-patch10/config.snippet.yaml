@@ -1,0 +1,10 @@
+# PATCH 10 — Add to config.yaml under ai: section
+# (Existing keys stay as-is, just add these 3 new ones)
+
+ai:
+  # ... existing keys (resume_tailoring etc.) ...
+
+  # === PATCH 10: Cover letter ===
+  cover_letter: true              # Enable cover letter generation
+  cover_letter_strict: true       # Reject hallucinated cover letters
+  cover_letter_output_dir: "cover_letters/generated"

@@ -1,0 +1,201 @@
+# ===========================================================
+# Job-Hunter Pro — Phase 2 Config (PATCH 11 IMPROVEMENTS)
+# ===========================================================
+
+mode: "full_auto"
+
+platforms:
+  linkedin:
+    enabled: true
+    max_apply_per_run: 100
+    search:
+      # PATCH 11: De-duplicated, prioritized queries
+      queries:
+        - "Cloud Infrastructure Engineer"
+        - "Azure Cloud Engineer"
+        - "Azure DevOps Engineer"
+        - "IT Infrastructure Specialist"
+        - "Senior System Administrator"
+        - "Linux System Administrator"
+        - "Cloud Platform Engineer"
+        - "Hybrid Cloud Engineer"
+        - "Site Reliability Engineer"
+        - "Platform Engineer"
+        - "DevOps Engineer"
+      location: "European Union"
+      remote: true
+      hybrid: true
+      date_posted: "past_week"
+      experience_levels:
+        - "Mid-Senior level"
+        - "Associate"
+      job_type: "Full-time"
+      easy_apply_only: true
+
+filters:
+  # PATCH 11: Expanded title keywords — catches more relevant jobs
+  title_keywords_include:
+    - "engineer"
+    - "sysadmin"
+    - "cloud"
+    - "infrastructure"
+    - "sre"
+    - "architect"
+    - "administrator"
+    - "specialist"
+    - "platform"
+    - "system"
+    - "azure"
+    - "aws"
+    - "hybrid"
+    - "linux"
+    - "operations"
+    - "devops"
+    - "kubernetes"
+    - "container"
+    - "ops"
+    - "reliability"
+    - "site"
+    - "automation"
+    # Common adjective markers
+    - "senior"
+    - "principal"
+    - "lead engineer"   # specific (not "lead" alone which is generic)
+    - "staff"
+    - "iac"
+  title_keywords_exclude:
+    - "intern"
+    - "internship"
+    - "sales"
+    - "marketing"
+    - "manager of people"
+    - "head of"
+    - "director"
+    - "vp "
+    - "vice president"
+    - "chief"
+    - "junior"
+    - "trainee"
+    - "apprentice"
+    - "founder"
+    - "co-founder"
+    # Excluded specializations (not your fit)
+    - "data scientist"
+    - "ml engineer"
+    - "machine learning"
+    - "frontend"
+    - "react developer"
+    - "mobile developer"
+    - "ios developer"
+    - "android developer"
+  description_keywords_exclude:
+    - "us citizen only"
+    - "us citizen required"
+    - "security clearance required"
+    - "active clearance required"
+    - "must be local to"
+    - "no remote applicants"
+  company_blacklist:
+    - "Acme Corp"
+  min_salary: 0
+  skip_already_applied: true
+
+personal:
+  first_name: "Wahyu Budi"
+  last_name: "Prastowo"
+  email: "wahyubudiprastowo@gmail.com"
+  phone_country_code: "Indonesia (+62)"
+  phone: "8123456789"
+  city: "Jakarta"
+  country: "Indonesia"
+  linkedin_url: "https://linkedin.com/in/wahyubudi-prastowo"
+  github_url: "https://github.com/wahyubudiprastowo"
+  portfolio_url: ""
+  years_experience: "8"
+  current_company: "Digiserve"
+  current_title: "IT Infrastructure Specialist"
+  highest_education: "Bachelor's Degree"
+  authorized_to_work: "Yes"
+  require_sponsorship: "Yes"
+  willing_to_relocate: "Yes"
+  notice_period_days: "30"
+  expected_salary: "70000"
+  current_salary: "45000"
+
+resume:
+  default_path: "resumes/base_resume.pdf"
+
+# =================================================================
+# AI CONFIGURATION (Phase 2)
+# =================================================================
+ai:
+  enabled: true
+  question_fallback: true
+  auto_save_answers: true
+  resume_tailoring: true
+  validator_strict: false       # PATCH 11: false reduces false positives
+  cover_letter: true            # PATCH 10
+  cover_letter_strict: false    # PATCH 11: false for tolerance
+  cover_letter_output_dir: "cover_letters/generated"
+  fit_scoring: false
+
+  provider: "omnirouter"
+  model: "antigravity/gemini-3.5-flash-medium"
+  api_key: "sk-3d39a725ffa5e05f-539a83-9e66c5a9"                   # PUT IN .env AS AI_API_KEY (more secure!)
+  base_url: "https://openwebui.tail443aaa.ts.net/api/v1/vscode/sk-3d39a725ffa5e05f-539a83-9e66c5a9/"              # PATCH 11: keep blank — use .env
+
+  temperature: 0.2
+  timeout_seconds: 75
+  connect_timeout_seconds: 8
+  max_retries: 1
+  retry_backoff_sec: 3
+  failure_cooldown_seconds: 300
+
+  # PATCH 11: New debug flag — set true if AI answers seem wrong
+  debug_chat: true
+
+  system_prompt: |
+    You are a precise, honest job-application assistant for the candidate below.
+
+    Rules:
+    - Answer screener questions HONESTLY using only the candidate's facts.
+    - Numeric questions (years of experience, salary): respond with ONLY a number.
+    - Yes/No questions: respond with ONLY "Yes" or "No" (or "Sì"/"No" for Italian,
+      "Sí"/"No" for Spanish, "Oui"/"Non" for French, "Ja"/"Nein" for German,
+      "Ja"/"Nee" for Dutch).
+    - Multiple-choice: respond with ONLY the exact option text from the provided list.
+    - Diversity/EEOC (gender, race, disability, veteran, etc): always reply
+      "Decline to self-identify" (or local equivalent).
+    - For language proficiency questions (English, Italian, German, etc):
+      - English: "Professional" or "Full Professional"
+      - Other languages: "Beginner" or "Basic" unless the candidate is fluent
+    - For tool/tech experience questions (e.g. "Years of Kubernetes experience"):
+      - If the tech is listed in candidate facts → answer the candidate's total years
+      - If not listed → answer "0" or "Less than 1 year"
+    - For SALARY EXPECTATIONS questions in EUR or other currencies:
+      - Convert candidate's expected_salary (currently in IDR or EUR) to local currency if obvious
+      - If currency unclear, use candidate's expected_salary directly
+      - For Italian "Partita IVA" / freelance rate: divide annual by ~220 working days
+      - Example: 70000 EUR/year = ~320 EUR/day rate
+    - For VISA SPONSORSHIP questions:
+      - Candidate REQUIRES sponsorship (not authorized to work in EU)
+      - "Will you need sponsorship?": YES (or Sì/Sí/Oui/Ja/Ja)
+      - "Are you authorized to work?": NO for EU jobs (Indonesia citizen)
+    - If genuinely unknown → respond with the literal word: UNKNOWN
+    - NEVER invent skills, certifications, or experience.
+    - Output ONLY the answer, no explanations.
+
+    CANDIDATE FACTS:
+    {candidate_facts}
+
+stealth:
+  min_delay_sec: 1.5
+  max_delay_sec: 4.5
+  typing_min_delay: 0.05
+  typing_max_delay: 0.15
+  pause_every_n_applications: 5
+  pause_seconds: 60
+
+global_limits:
+  total_apply_per_day: 25
+  total_apply_per_run: 20

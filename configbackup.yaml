@@ -1,0 +1,156 @@
+# ===========================================================
+# Job-Hunter Pro — Phase 2 Config (with AI)
+# ===========================================================
+
+mode: "full_auto"   # full_auto | semi_auto | safe_auto
+
+platforms:
+  linkedin:
+    enabled: true
+    max_apply_per_run: 15
+    search:
+      queries:
+        - "Cloud Infrastructure Engineer"
+        - "Azure Engineer"
+        - "Azure DevOps Engineer"
+        - "Site Reliability Engineer"
+        - "Cloud Engineer"
+        - "Platform Engineer"
+        - "Kubernetes Engineer"
+      location: "European Union"
+      remote: true
+      hybrid: true
+      date_posted: "past_week"
+      experience_levels:
+        - "Mid-Senior level"
+        - "Associate"
+      job_type: "Full-time"
+      easy_apply_only: true
+
+filters:
+  title_keywords_include:
+    - "engineer"
+    - "devops"
+    - "cloud"
+    - "infrastructure"
+    - "sre"
+    - "architect"
+    - "administrator"
+    - "specialist"
+    - "platform"
+    - "system"
+    - "azure"
+    - "aws"
+    - "kubernetes"
+    - "linux"
+    - "operations"
+  title_keywords_exclude:
+    - "intern"
+    - "internship"
+    - "sales"
+    - "marketing"
+    - "manager of people"
+    - "head of"
+    - "director"
+    - "vp "
+    - "vice president"
+    - "chief"
+    - "junior"
+    - "trainee"
+    - "apprentice"
+  description_keywords_exclude:
+    - "us citizen only"
+    - "us citizen required"
+    - "security clearance required"
+    - "active clearance required"
+  company_blacklist:
+    - "Acme Corp"
+  min_salary: 0
+  skip_already_applied: true
+
+personal:
+  first_name: "Wahyu Budi"
+  last_name: "Prastowo"
+  email: "wahyubudiprastowo@gmail.com"
+  phone_country_code: "Indonesia (+62)"
+  phone: "8123456789"
+  city: "Jakarta"
+  country: "Indonesia"
+  linkedin_url: "https://linkedin.com/in/your-profile"
+  github_url: ""
+  portfolio_url: ""
+  years_experience: "8"
+  current_company: "Digiserve"
+  current_title: "IT Infrastructure Specialist"
+  highest_education: "Bachelor's Degree"
+  authorized_to_work: "Yes"
+  require_sponsorship: "Yes"
+  willing_to_relocate: "Yes"
+  notice_period_days: "30"
+  expected_salary: "70000"
+  current_salary: "45000"
+
+resume:
+  default_path: "resumes/base_resume.pdf"
+
+# =================================================================
+# AI CONFIGURATION (Phase 2)
+# =================================================================
+ai:
+  enabled: true
+  question_fallback: true       # use AI when answer bank misses
+  auto_save_answers: true       # learn: save AI answers to answers.json
+  resume_tailoring: true       # Phase 2b (not yet active)
+  cover_letter: false           # Phase 2b
+  fit_scoring: false            # Phase 2c
+  validator_strict: true
+
+  # === Provider settings (OpenAI-compatible) ===
+  # Override via env: AI_API_KEY, AI_BASE_URL
+  provider: "omnirouter"
+  model: "antigravity/gemini-3.5-flash-medium"
+  api_key: "sk-3d39a725ffa5e05f-539a83-9e66c5a9"                   # PUT IN .env AS AI_API_KEY (more secure!)
+  base_url: "https://openwebui.tail443aaa.ts.net/api/v1/vscode/sk-3d39a725ffa5e05f-539a83-9e66c5a9/"
+
+  temperature: 0.2
+  timeout_seconds: 75
+  connect_timeout_seconds: 8
+  max_retries: 1
+  retry_backoff_sec: 3
+  failure_cooldown_seconds: 300
+
+  # === Custom system prompt ===
+  # Use {candidate_facts} placeholder where facts should be injected
+  system_prompt: |
+    You are a precise, honest job-application assistant for the candidate below.
+
+    Rules:
+    - Answer screener questions HONESTLY using only the candidate's facts.
+    - Numeric questions (years of experience, salary): respond with ONLY a number.
+    - Yes/No questions: respond with ONLY "Yes" or "No" (or "Sì"/"No" for Italian, "Sí"/"No" for Spanish, "Oui"/"Non" for French, "Ja"/"Nein" for German).
+    - Multiple-choice: respond with ONLY the exact option text from the provided list.
+    - Diversity/EEOC (gender, race, disability, veteran, etc): always reply "Decline to self-identify".
+    - For language proficiency questions (English, Italian, German, etc):
+      - English: "Professional" or "Full Professional"
+      - Other languages: "Beginner" or "Basic" unless the candidate is fluent
+    - For tool/tech experience questions (e.g. "Years of Kubernetes experience"):
+      - If the tech is listed in candidate facts → answer the candidate's total years
+      - If not listed → answer "0" or "Less than 1 year"
+    - If genuinely unknown → respond with the literal word: UNKNOWN
+    - NEVER invent skills, certifications, or experience.
+    - Output ONLY the answer, no explanations.
+
+    CANDIDATE FACTS:
+    {candidate_facts}
+
+stealth:
+  min_delay_sec: 1.5
+  max_delay_sec: 4.5
+  typing_min_delay: 0.05
+  typing_max_delay: 0.15
+  pause_every_n_applications: 5
+  pause_seconds: 60
+
+global_limits:
+  total_apply_per_day: 25
+  total_apply_per_run: 20

@@ -1,0 +1,50 @@
+WAHYU BUDI PRASTOWO - IT Infrastructure Specialist
+Email: wahyubudiprastowo@gmail.com
+Location: Jakarta, Indonesia
+
+PROFESSIONAL EXPERIENCE: 8 years total
+
+TECHNICAL SKILLS (years of hands-on experience):
+- Microsoft Azure: 8 years (expert)
+- Linux (RHEL, Ubuntu): 8 years
+- Windows Server: 8 years
+- VMware vSphere/ESXi: 5 years
+- Docker: 5 years
+- Kubernetes / AKS: 3 years
+- Ansible: 3 years
+- Terraform: 2 years
+- AWS: 3 years
+- GCP: 1 year
+- Microsoft 365 / Exchange: 5 years
+- SharePoint Online: 5 years
+- Active Directory: 5 years
+- Azure DevOps: 5 years
+- GitLab CI: 3 years
+- Jenkins: 3 years
+- PowerShell: 5 years
+- Python: 3 years
+- Bash: 5 years
+- Prometheus + Grafana: 3 years
+- SQL Server: 3 years
+- PostgreSQL: 2 years
+
+TOOLS NOT USED (answer 0):
+- CommVault: 2 years
+- Acronis: 4 years
+- OpenStack: 0 years
+- Ceph: 0 years
+- SAP: 0 years
+- IBM IAM: 0 years
+- Puppet: 0 years
+- Chef: 0 years
+
+LANGUAGES:
+- Indonesian: Native
+- English: Full Professional
+- German/French/Italian/Spanish/Dutch: None / Elementary
+
+WORK AUTHORIZATION:
+- Indonesia: Authorized
+- EU/Schengen/UK: Requires visa sponsorship
+- Willing to relocate: Yes
+- Notice period: 30 days

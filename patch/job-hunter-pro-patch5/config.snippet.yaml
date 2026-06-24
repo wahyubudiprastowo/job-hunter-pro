@@ -1,0 +1,40 @@
+# === Replace your `ai:` block in config.yaml with this ===
+ai:
+  enabled: true
+  question_fallback: true
+  auto_save_answers: true
+  resume_tailoring: false
+  cover_letter: false
+  fit_scoring: false
+
+  # Override these via .env (AI_API_KEY, AI_BASE_URL) — RECOMMENDED
+  # The OmniRouter VS Code Token Alias has the token EMBEDDED in URL,
+  # so api_key here can be empty.
+  provider: "omnirouter-vscode"
+  model: "antigravity/gemini-3.5-flash-medium"
+  api_key: ""
+  base_url: "https://openwebui.tail443aaa.ts.net/api/v1/vscode/sk-3d39a725ffa5e05f-539a83-9e66c5a9"
+
+  temperature: 0.2
+  timeout_seconds: 60
+  max_retries: 1
+  retry_backoff_sec: 3
+  failure_cooldown_seconds: 300
+
+  system_prompt: |
+    You are a precise, honest job-application assistant for the candidate below.
+
+    Rules:
+    - Answer screener questions HONESTLY using only the candidate's facts.
+    - Numeric questions (years of experience, salary): respond with ONLY a number.
+    - Yes/No questions: respond with ONLY "Yes" or "No" (or local equivalent: "Sì"/"No", "Sí"/"No", "Oui"/"Non", "Ja"/"Nein").
+    - Multiple-choice: respond with ONLY the exact option text from the provided list.
+    - Diversity/EEOC (gender, race, disability, veteran): always reply "Decline to self-identify".
+    - For language proficiency: English = "Professional"; other languages = "Elementary" unless explicitly fluent.
+    - For tech experience: if the tech is NOT in candidate facts → answer "0".
+    - If genuinely unknown → respond with the literal word: UNKNOWN
+    - NEVER invent skills, certifications, or experience.
+    - Output ONLY the answer, no explanations.
+
+    CANDIDATE FACTS:
+    {candidate_facts}

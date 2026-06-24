@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>📊 Dashboard</h3>
+  <div>
+    <span class="state-pill state-{{ state }}">{{ state.upper() }}</span>
+    {% if diag.is_zombie %}<span class="badge bg-danger ms-2">ZOMBIE</span>{% endif %}
+  </div>
+</div>
+
+<!-- Control buttons -->
+<div class="card mb-3 shadow-sm">
+  <div class="card-body d-flex gap-2 flex-wrap">
+    <form method="post" action="/control/start"><button class="btn btn-success">🚀 Start</button></form>
+    <form method="post" action="/control/pause"><button class="btn btn-warning">⏸️ Pause</button></form>
+    <form method="post" action="/control/resume"><button class="btn btn-info">▶️ Resume</button></form>
+    <form method="post" action="/control/stop"><button class="btn btn-danger">🛑 Stop</button></form>
+    <form method="post" action="/control/reset"
+          onsubmit="return confirm('Force-reset all state files? Use only if bot is stuck.');">
+      <button class="btn btn-outline-dark">🧹 Reset State</button>
+    </form>
+    <form method="post" action="/control/ai-test"><button class="btn btn-outline-primary">🧠 Test AI</button></form>
+  </div>
+</div>
+
+<!-- Diagnostics panel (collapsible) -->
+<div class="card mb-3 shadow-sm">
+  <div class="card-header py-2">
+    <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#diagPanel" role="button">
+      🔧 Diagnostics
+    </a>
+  </div>
+  <div id="diagPanel" class="collapse">
+    <div class="card-body">
+      <table class="table table-sm mb-0">
+        <tr><th>State</th><td>{{ diag.state }}</td></tr>
+        <tr><th>Command</th><td>{{ diag.command or '(none)' }}</td></tr>
+        <tr><th>PID</th><td>{{ diag.pid or '(none)' }}</td></tr>
+        <tr><th>Heartbeat age (s)</th>
+            <td>{{ diag.heartbeat_age_sec if diag.heartbeat_age_sec is not none else '(no heartbeat)' }}</td></tr>
+        <tr><th>Is zombie</th>
+            <td>{% if diag.is_zombie %}<span class="text-danger">YES — click Reset</span>{% else %}No{% endif %}</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Stats cards -->
+<div class="row g-3 mb-4">
+  {% set order = ['applied','skipped','needs_answers','failed','external'] %}
+  {% for k in order %}
+    {% set v = stats.get(k, 0) %}
+    <div class="col-md">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <div class="display-6">{{ v }}</div>
+          <div class="text-muted text-uppercase small">{{ k.replace('_',' ') }}</div>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<!-- Live logs -->
+<div class="card mb-4 shadow-sm">
+  <div class="card-header d-flex justify-content-between">
+    <strong>📜 Live Logs (last 100 lines)</strong>
+    <button class="btn btn-sm btn-outline-secondary" onclick="loadLogs()">↻ Refresh</button>
+  </div>
+  <div class="card-body">
+    <pre class="log" id="logbox">(loading...)</pre>
+  </div>
+</div>
+
+<!-- Unanswered queue -->
+<div class="card mb-4 shadow-sm">
+  <div class="card-header"><strong>❓ Unanswered Questions ({{ unanswered|length }})</strong></div>
+  <div class="card-body">
+    {% if unanswered %}
+      <ul class="list-group">
+        {% for u in unanswered[:5] %}
+          <li class="list-group-item d-flex justify-content-between">
+            <span>{{ u.question }}</span>
+            <span class="badge bg-warning">{{ u.field_type }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <a href="/questions" class="btn btn-sm btn-primary mt-2">Answer all →</a>
+    {% else %}
+      <p class="text-muted mb-0">None. 🎉</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Recent applications -->
+<div class="card shadow-sm">
+  <div class="card-header"><strong>📨 Recent Applications</strong></div>
+  <div class="card-body">
+    <table class="table table-sm">
+      <thead>
+        <tr><th>Title</th><th>Company</th><th>Platform</th><th>Status</th><th>When</th></tr>
+      </thead>
+      <tbody>
+        {% for r in recent %}
+        <tr>
+          <td><a href="/application/{{ r.id }}">{{ r.title or '?' }}</a></td>
+          <td>{{ r.company or '?' }}</td>
+          <td><span class="badge bg-secondary">{{ r.platform }}</span></td>
+          <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+          <td><small>{{ (r.created_at or '')[:19] }}</small></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadLogs(){
+  const r = await fetch('/api/logs/tail');
+  document.getElementById('logbox').textContent = await r.text();
+}
+loadLogs();
+setInterval(loadLogs, 5000);
+</script>
+{% endblock %}

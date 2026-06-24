@@ -1,0 +1,15 @@
+{
+  "// === PATCH 11: Add these to data/answers.json (merge with existing) ===": "",
+  "in quanto libero professionista in partita iva qual è la sua desiderata giornaliera": "320",
+  "desiderata giornaliera": "320",
+  "tariffa giornaliera": "320",
+  "partita iva": "320",
+  "rate giornaliera": "320",
+  "moet u nu of in de toekomst worden gesponsord voor een werkvisum": "Ja",
+  "werkvisum": "Ja",
+  "sponsoring werkvisum": "Ja",
+  "visa werkvergunning": "Ja",
+  "// === Translation context ===": "",
+  "// 'In quanto libero professionista...' = Italian freelance day rate (320 EUR/day = 70K/year)": "",
+  "// 'Moet u worden gesponsord voor een werkvisum?' = Dutch 'Do you need visa sponsorship?'": ""
+}

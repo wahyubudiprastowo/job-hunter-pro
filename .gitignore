@@ -1,0 +1,62 @@
+@'
+# === Secrets — NEVER commit ===
+.env
+.env.*
+!.env.example
+secrets/
+*.key
+*.pem
+
+# === Python ===
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+build/
+dist/
+
+# === Bot data (PII + credentials in cookies) ===
+data/applications.db
+data/applications.db-journal
+data/*.log
+data/logs/
+data/.control/
+data/screenshots/
+
+# === Browser session ===
+.chrome-profile/
+.chrome-profile-*/
+
+# === Backups ===
+.backup_*/
+*.bak
+*.bak.*
+docs.bak_*/
+
+# === Generated files ===
+resumes/generated/
+cover_letters/generated/
+
+# === IDE & OS ===
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Logs ===
+*.log
+logs/
+
+# === Test artifacts ===
+.pytest_cache/
+.coverage
+htmlcov/
+'@ | Set-Content .gitignore -NoNewline
+
+Write-Host "`n.gitignore updated" -ForegroundColor Green
+Get-Content .gitignore | Measure-Object -Line | Select-Object -ExpandProperty Lines | ForEach-Object { Write-Host "Total lines: $_" }

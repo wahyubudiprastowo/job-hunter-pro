@@ -1,0 +1,79 @@
+"""
+PATCH 9 — Manual modifications needed in apps/worker/runner.py
+
+==============================================================
+This patch ADDS validator integration. Do these 3 small edits.
+==============================================================
+
+EDIT 1: Update counters dict initialization
+----------------------------------------------
+FIND this line (in run_bot function):
+    counters = {"applied": 0, "skipped": 0, "failed": 0, "needs": 0, "tailored": 0}
+
+REPLACE with:
+    counters = {"applied": 0, "skipped": 0, "failed": 0, "needs": 0,
+                "tailored": 0, "tailored_rejected": 0}
+
+
+EDIT 2: Pass candidate_facts to generate_tailored_resume
+----------------------------------------------
+FIND this block:
+    if tailoring_enabled and job.description:
+        try:
+            tailored = generate_tailored_resume(
+                ai_provider, profile, cv_text, job,
+                output_dir=ai_cfg.get("resume_output_dir", "resumes/generated")
+            )
+            if tailored:
+                effective_resume = tailored
+                counters["tailored"] += 1
+        except Exception as e:
+            logger.warning(f"Resume tailoring failed: {e}")
+
+REPLACE with:
+    if tailoring_enabled and job.description:
+        try:
+            # PATCH 9: pass facts for inflation check + strict mode from config
+            facts_dict = {
+                "years_experience": profile.years_experience,
+                "current_salary": profile.current_salary,
+                "expected_salary": profile.expected_salary,
+            }
+            strict_mode = ai_cfg.get("validator_strict", True)
+
+            tailored = generate_tailored_resume(
+                ai_provider, profile, cv_text, job,
+                output_dir=ai_cfg.get("resume_output_dir", "resumes/generated"),
+                validator_strict=strict_mode,
+                candidate_facts=facts_dict,
+            )
+            if tailored:
+                effective_resume = tailored
+                counters["tailored"] += 1
+            else:
+                # Validator rejected (or other failure) — fallback handled
+                counters["tailored_rejected"] += 1
+        except Exception as e:
+            logger.warning(f"Resume tailoring failed: {e}")
+            counters["tailored_rejected"] += 1
+
+
+EDIT 3: (Optional) Log final counters with reject ratio
+----------------------------------------------
+FIND:
+    logger.info(f"🎉 Run done. Counters: {counters}")
+
+REPLACE with:
+    if counters.get("tailored_rejected", 0) > 0 or counters.get("tailored", 0) > 0:
+        total_attempts = counters["tailored"] + counters["tailored_rejected"]
+        reject_pct = (counters["tailored_rejected"] / total_attempts * 100) if total_attempts > 0 else 0
+        logger.info(
+            f"🎨 Tailoring: {counters['tailored']} accepted, "
+            f"{counters['tailored_rejected']} rejected ({reject_pct:.0f}% reject rate)"
+        )
+    logger.info(f"🎉 Run done. Counters: {counters}")
+
+==============================================================
+That's it! Save and restart bot.
+==============================================================
+"""
