@@ -142,5 +142,9 @@
   "adresse e-mail": "wahyubudiprastowo@gmail.com",
   "code pays": "Indonésie (+62)",
   "du hast kenntnisse in it-operations sowie itil-prozessen und -tools?": "Yes",
-  "können sie sich vorstellen, abwechselnd vor ort und remote zu arbeiten?\nrequired": "Ja"
+  "können sie sich vorstellen, abwechselnd vor ort und remote zu arbeiten?\nrequired": "Ja",
+  "maitrise des outils de monitoring (prometheuse, grafana, ...)": "Yes",
+  "maitrise des outils d'orchestration (airflow, azure data factory, gcp composer, databricks workflow ...)": "No",
+  "maitrise de l’infrastructure as code (terraform, ansible, docker, kubernetes).": "Yes",
+  "do you have hands-on experience with grafana (setting up dashboards, alerts, etc.)": "Yes"
 }

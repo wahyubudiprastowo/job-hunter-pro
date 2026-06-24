@@ -1,8 +1,144 @@
-WAHYU BUDI PRASTOWO - IT Infrastructure Specialist
-Email: wahyubudiprastowo@gmail.com
+Wahyu Budi Prastowo
+IT Infrastructure Specialist | Cloud Architect
+Email: wahyubudiprastowo@gmail.com | Phone: +62 812-8228- 7213
 Location: Jakarta, Indonesia
+LinkedIn: linkedin.com/in/wahyubudiprastowo
 
-PROFESSIONAL EXPERIENCE: 8 years total
+================================================================
+PROFESSIONAL SUMMARY
+================================================================
+
+Senior IT Infrastructure Specialist with 8 years of hands-on experience 
+designing, deploying, and operating enterprise-scale Azure cloud and 
+hybrid infrastructure. Expert in Kubernetes orchestration, Terraform 
+Infrastructure-as-Code, CI/CD pipelines, and Linux system administration. 
+Proven track record of architecting solutions for 1000+ users, implementing 
+production-grade monitoring stacks, and leading infrastructure automation 
+initiatives. Strong background in DevOps practices, security, and 
+high-availability architecture.
+
+================================================================
+PROFESSIONAL EXPERIENCE
+================================================================
+
+SENIOR IT INFRASTRUCTURE SPECIALIST | Digiserve | Jan 2018 - Present
+Jakarta, Indonesia | Telkom Indonesia subsidiary
+
+- Architected and maintained Azure cloud infrastructure serving 1000+ 
+  enterprise users, including IaaS (Azure VMs, Storage), PaaS (App Services, 
+  Azure SQL), and hybrid connectivity via ExpressRoute and Site-to-Site VPN.
+  Designed network topology with VNet peering, NSG rules, Azure Firewall, 
+  and Application Gateway for L7 load balancing.
+
+- Deployed and operated production Azure Kubernetes Service (AKS) clusters 
+  with Helm charts for application deployment. Managed cluster upgrades, 
+  RBAC policies, network policies with Calico, Nginx ingress controllers, 
+  persistent volume claims, and HorizontalPodAutoscaler (HPA) configurations 
+  for auto-scaling workloads based on CPU/memory metrics.
+
+- Automated infrastructure provisioning using Terraform (modules for Azure 
+  resources), ARM templates for legacy workloads, and Ansible playbooks 
+  for Linux server configuration on RHEL, Ubuntu, and CentOS. Reduced 
+  deployment time from days to minutes through Infrastructure-as-Code 
+  practices.
+
+- Implemented comprehensive monitoring and observability stack: Prometheus 
+  for metrics collection, Grafana for dashboards and alerting, ELK Stack 
+  (Elasticsearch, Logstash, Kibana) for centralized logging, and Azure 
+  Monitor for cloud-native monitoring. Set up SLA tracking and incident 
+  response runbooks.
+
+- Designed and operated CI/CD pipelines in GitLab CI and Jenkins for 
+  multi-environment deployments (dev/staging/production). Managed build 
+  artifacts, container image registries, automated testing integration, 
+  and blue-green deployment strategies. Implemented GitOps workflows with 
+  ArgoCD for declarative deployments.
+
+- Managed PostgreSQL (clustering, replication, point-in-time recovery), 
+  MongoDB (replica sets, sharding), Redis (caching, session management), 
+  and Microsoft SQL Server databases at scale. Implemented backup strategies, 
+  disaster recovery procedures, and performance tuning for high-throughput 
+  workloads.
+
+- Configured Nginx web servers and HAProxy load balancing for high 
+  availability and traffic distribution. Set up reverse proxy configurations, 
+  SSL termination, rate limiting, and DDoS mitigation strategies.
+
+- Implemented comprehensive security policies: IAM roles with least-privilege 
+  access, RBAC for Kubernetes and Azure resources, OAuth/OIDC integration 
+  for SSO, TLS/SSL certificate management with Azure Key Vault and 
+  Let's Encrypt automation, network segmentation, and Zero Trust 
+  architecture principles.
+
+- Hands-on Docker containerization with multi-stage builds for image 
+  optimization, Docker Compose for local development environments, and 
+  container registry management (Azure Container Registry, Docker Hub).
+
+- Linux system administration on RHEL, Ubuntu, CentOS, and Alpine: 
+  systemd service management, SELinux/AppArmor security hardening, 
+  iptables/nftables firewall rules, log analysis with journalctl, 
+  package management (yum, apt), and shell scripting in Bash.
+
+- VMware vSphere and Hyper-V virtualization: VM provisioning, vMotion, 
+  HA clusters, snapshot management, resource pool configuration, and 
+  capacity planning. Migrated legacy workloads from on-premises to Azure.
+
+- Version control with Git for infrastructure code, application 
+  configurations, and documentation. Established branching strategies, 
+  code review processes, and merge request workflows in GitLab.
+
+- Authored technical documentation, architecture diagrams, runbooks, 
+  and disaster recovery procedures. Mentored junior team members on 
+  cloud-native practices and DevOps methodologies.
+
+================================================================
+TECHNICAL SKILLS
+================================================================
+
+Cloud Platforms:
+  Azure (8 years), AWS (basic), GCP (basic), Hybrid Cloud Architecture,
+  Multi-cloud strategies
+
+Containers & Orchestration:
+  Docker, Kubernetes (AKS), Helm, Kustomize, Docker Compose, 
+  Container Registry, Image optimization
+
+Infrastructure as Code:
+  Terraform (modules, state management), Ansible (playbooks, roles),
+  ARM Templates, Bicep, Azure CLI
+
+CI/CD & DevOps:
+  GitLab CI/CD, Jenkins, Azure DevOps, GitHub Actions, ArgoCD,
+  Git workflows, GitOps, Blue-green deployments
+
+Monitoring & Observability:
+  Prometheus, Grafana, ELK Stack (Elasticsearch, Logstash, Kibana),
+  Azure Monitor, Application Insights, Loki, distributed tracing
+
+Programming & Scripting:
+  Python, Bash, PowerShell, YAML, JSON, regex
+
+Databases:
+  PostgreSQL, MongoDB, Redis, Microsoft SQL Server, MySQL, 
+  database clustering, replication, backup/restore
+
+Networking:
+  Nginx, HAProxy, Apache, VPN (Site-to-Site, P2S), BGP, OSPF, 
+  Load Balancing (L4/L7), DNS management, CDN
+
+Security:
+  IAM, RBAC, OAuth 2.0, OIDC, SAML, TLS/SSL, PKI, Azure Key Vault,
+  HashiCorp Vault, Zero Trust Network Access (ZTNA)
+
+Operating Systems:
+  Linux (RHEL, Ubuntu, CentOS, Debian, Alpine), Windows Server,
+  systemd, SELinux, AppArmor
+
+Virtualization:
+  VMware vSphere, ESXi, Hyper-V, KVM, Docker
+
+Version Control:
+  Git, GitLab, GitHub, Bitbucket, GitOps practices
 
 TECHNICAL SKILLS (years of hands-on experience):
 - Microsoft Azure: 8 years (expert)
@@ -28,15 +164,6 @@ TECHNICAL SKILLS (years of hands-on experience):
 - SQL Server: 3 years
 - PostgreSQL: 2 years
 
-TOOLS NOT USED (answer 0):
-- CommVault: 2 years
-- Acronis: 4 years
-- OpenStack: 0 years
-- Ceph: 0 years
-- SAP: 0 years
-- IBM IAM: 0 years
-- Puppet: 0 years
-- Chef: 0 years
 
 LANGUAGES:
 - Indonesian: Native

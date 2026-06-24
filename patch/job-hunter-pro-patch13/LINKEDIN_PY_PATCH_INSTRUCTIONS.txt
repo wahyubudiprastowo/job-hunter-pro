@@ -1,0 +1,250 @@
+================================================================
+PATCH 13 — Easy Apply Detection Fix
+================================================================
+
+Fix konfirmasi bug: bot skip "external apply" walaupun LinkedIn UI 
+menampilkan button "Easy Apply" yang jelas.
+
+Root cause: `easy_apply_btn` selector terlalu sempit — cuma cek 
+"Easy Apply" string + class "jobs-apply-button". LinkedIn modern
+UI pakai banyak variasi (German "Sofortbewerbung", icon-only buttons,
+beda class names, dll).
+
+================================================================
+EDIT 1: Replace easy_apply_btn selector di SELECTORS dict
+================================================================
+
+FIND (line ~80-85 di packages/extractors/linkedin.py):
+
+    "easy_apply_btn": (By.XPATH,
+        "//button[contains(@class,'jobs-apply-button') and "
+        "(contains(.,'Easy Apply') or contains(.,'Candidatura semplice') or "
+        "contains(.,'Solicitud sencilla') or contains(.,'Candidature simplifiée') or "
+        ".//span[contains(.,'Easy Apply')] or @aria-label[contains(.,'Easy Apply')])]"),
+
+REPLACE WITH (multi-strategy detection, language-agnostic):
+
+    # PATCH 13: Multi-strategy Easy Apply detection
+    "easy_apply_btn": (By.XPATH,
+        "//button["
+        # Strategy 1: Class-based (modern + legacy)
+        "contains(@class,'jobs-apply-button') or "
+        "contains(@class,'jobs-apply') or "
+        "contains(@class,'artdeco-button--primary') or "
+        # Strategy 2: aria-label English
+        "contains(@aria-label,'Easy Apply') or "
+        "contains(@aria-label,'easy apply') or "
+        # Strategy 3: aria-label other languages
+        "contains(@aria-label,'Sofortbewerbung') or "        # German
+        "contains(@aria-label,'Candidatura semplice') or "   # Italian
+        "contains(@aria-label,'Solicitud sencilla') or "     # Spanish
+        "contains(@aria-label,'Candidature simplifiée') or " # French
+        "contains(@aria-label,'Eenvoudig solliciteren') or " # Dutch
+        "contains(@aria-label,'Candidatura simples') or "    # Portuguese
+        # Strategy 4: Text content in button or descendant span
+        "contains(.,'Easy Apply') or "
+        "contains(.,'Sofortbewerbung') or "
+        "contains(.,'Candidatura semplice') or "
+        "contains(.,'Solicitud sencilla') or "
+        "contains(.,'Candidature simplifiée') or "
+        "contains(.,'Eenvoudig solliciteren') or "
+        "contains(.,'Candidatura simples') or "
+        ".//span[contains(.,'Easy Apply') or contains(.,'Sofortbewerbung') or "
+        "        contains(.,'Candidatura semplice') or contains(.,'Solicitud sencilla') or "
+        "        contains(.,'Candidature simplifiée') or contains(.,'Eenvoudig solliciteren') or "
+        "        contains(.,'Candidatura simples')]"
+        "]"),
+
+
+================================================================
+EDIT 2: Replace open_job_detail's Easy Apply detection
+================================================================
+
+FIND (in open_job_detail method, around line 270):
+
+        is_easy = False
+        try:
+            d.find_element(*SELECTORS["easy_apply_btn"])
+            is_easy = True
+        except NoSuchElementException:
+            pass
+
+REPLACE WITH (multi-strategy with fallback + debug logging):
+
+        # PATCH 13: Multi-strategy Easy Apply detection
+        is_easy = self._detect_easy_apply(d)
+
+
+================================================================
+EDIT 3: Add new method _detect_easy_apply()
+================================================================
+
+ADD (before "def can_auto_apply" method):
+
+    def _detect_easy_apply(self, driver) -> bool:
+        """
+        PATCH 13: Multi-strategy Easy Apply button detection.
+        Returns True if Easy Apply button is found, False otherwise.
+        
+        Tries multiple detection strategies and logs which one worked
+        for diagnostics.
+        """
+        from selenium.common.exceptions import NoSuchElementException
+        
+        strategies = [
+            # Strategy 1: Main selector (multi-language)
+            ("main_selector", SELECTORS["easy_apply_btn"]),
+            # Strategy 2: Common modern button patterns
+            ("apply_button_class", (By.CSS_SELECTOR, 
+                "button.jobs-apply-button, button.jobs-apply, "
+                "button[data-test-button-action='apply']")),
+            # Strategy 3: aria-label search
+            ("aria_label_apply", (By.XPATH,
+                "//button[@aria-label[contains(translate(.,'EASY APPLY','easy apply'),'easy apply')]]")),
+            # Strategy 4: SVG icon-based Easy Apply (LinkedIn sometimes uses icon button)
+            ("icon_button", (By.XPATH,
+                "//button[.//svg[contains(@class,'jobs-apply-icon') or "
+                "contains(@aria-label,'Easy Apply') or contains(@data-test,'apply')]]")),
+        ]
+        
+        for strategy_name, selector in strategies:
+            try:
+                elem = driver.find_element(*selector)
+                if elem.is_displayed():
+                    logger.debug(f"✅ Easy Apply detected via: {strategy_name}")
+                    return True
+            except (NoSuchElementException, Exception):
+                continue
+        
+        # Strategy 5: Last resort — search by visible text in any button
+        try:
+            buttons = driver.find_elements(By.TAG_NAME, "button")
+            for btn in buttons:
+                try:
+                    text = (btn.text or "").lower()
+                    aria = (btn.get_attribute("aria-label") or "").lower()
+                    combined = f"{text} {aria}"
+                    if any(kw in combined for kw in [
+                        "easy apply", "sofortbewerbung",
+                        "candidatura semplice", "solicitud sencilla",
+                        "candidature simplifiée", "eenvoudig solliciteren",
+                        "candidatura simples"
+                    ]):
+                        if btn.is_displayed():
+                            logger.debug("✅ Easy Apply detected via: text_search_fallback")
+                            return True
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        
+        logger.debug("❌ Easy Apply NOT detected (all strategies failed)")
+        return False
+
+
+================================================================
+EDIT 4: Apply EDIT 3 also to apply() method's button click
+================================================================
+
+FIND in apply() method (around line 305):
+
+        try:
+            btn = WebDriverWait(d, 8).until(
+                EC.element_to_be_clickable(SELECTORS["easy_apply_btn"]))
+            btn.click()
+        except TimeoutException:
+
+REPLACE WITH (more retry-tolerant):
+
+        # PATCH 13: Try multiple selectors for button click
+        btn = self._find_easy_apply_button(d)
+        if btn is None:
+            return ApplicationResult(
+                status=ApplyStatus.SKIPPED, skip_reason=SkipReason.NOT_EASY_APPLY,
+                error_message="Easy Apply button not clickable.")
+        try:
+            btn.click()
+        except Exception:
+            try:
+                d.execute_script("arguments[0].click();", btn)
+            except Exception as e:
+                logger.warning(f"Easy Apply click failed: {e}")
+                return ApplicationResult(
+                    status=ApplyStatus.SKIPPED, skip_reason=SkipReason.NOT_EASY_APPLY,
+                    error_message="Easy Apply click failed.")
+
+
+================================================================
+EDIT 5: Add new method _find_easy_apply_button()
+================================================================
+
+ADD (after _detect_easy_apply method):
+
+    def _find_easy_apply_button(self, driver, timeout: int = 8):
+        """PATCH 13: Find Easy Apply button using multiple strategies."""
+        import time
+        from selenium.common.exceptions import NoSuchElementException
+        
+        end = time.time() + timeout
+        strategies = [
+            SELECTORS["easy_apply_btn"],
+            (By.CSS_SELECTOR, "button.jobs-apply-button, button.jobs-apply"),
+            (By.XPATH, "//button[contains(@aria-label,'Easy Apply') or "
+                       "contains(@aria-label,'Sofortbewerbung')]"),
+        ]
+        
+        while time.time() < end:
+            for selector in strategies:
+                try:
+                    elem = driver.find_element(*selector)
+                    if elem.is_displayed() and elem.is_enabled():
+                        return elem
+                except NoSuchElementException:
+                    continue
+                except Exception:
+                    continue
+            time.sleep(0.5)
+        return None
+
+
+================================================================
+ALSO RECOMMENDED: Add diagnostic log when skipping
+================================================================
+
+This will help debug "external apply" misdetections.
+
+FIND in apps/worker/runner.py:
+
+    if not extractor.can_auto_apply(job):
+        _record_skip_full(job, SkipReason.NOT_EASY_APPLY, "external apply")
+        counters["skipped"] += 1; continue
+
+REPLACE WITH:
+
+    if not extractor.can_auto_apply(job):
+        # PATCH 13: Better diagnostic for external apply skips
+        reason = "external apply"
+        if hasattr(extractor, "_last_detection_failure"):
+            reason = f"external apply (detection: {extractor._last_detection_failure})"
+        _record_skip_full(job, SkipReason.NOT_EASY_APPLY, reason)
+        counters["skipped"] += 1; continue
+
+
+================================================================
+TEST AFTER APPLYING
+================================================================
+
+Run bot for 30 minutes and check log for:
+
+POSITIVE indicators:
+- "Easy Apply detected via: main_selector" (most common)
+- "Easy Apply detected via: aria_label_apply" (German jobs)
+- "Easy Apply detected via: text_search_fallback" (edge cases)
+- More ✅ APPLIED entries
+
+If still seeing "external apply" for jobs that DO have Easy Apply:
+- Check log for "❌ Easy Apply NOT detected (all strategies failed)"
+- Note the job_id + open in browser
+- Inspect button HTML and update selectors
+
+================================================================
