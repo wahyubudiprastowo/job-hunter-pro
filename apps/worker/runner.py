@@ -35,11 +35,16 @@ try:
     from packages.ai.provider import AIProvider
     from packages.ai.cv_extractor import extract_cv_text
     from packages.ai.resume_tailor import generate_tailored_resume
+    from packages.ai.cover_letter import generate_cover_letter
+    from packages.ai.scorer import calculate_fit_score, log_fit_score
     _HAS_AI = True
 except ImportError:
     AIProvider = None
     extract_cv_text = None
     generate_tailored_resume = None
+    generate_cover_letter = None
+    calculate_fit_score = None
+    log_fit_score = None
     _HAS_AI = False
 
 from apps.worker.control import controller
@@ -133,6 +138,13 @@ def run_bot(config_path: str = "config.yaml"):
     if tailoring_enabled:
         logger.success("🎨 Resume tailoring ENABLED — will generate custom resume per job")
 
+    fit_scoring_enabled = bool(
+        ai_cfg.get("fit_scoring", False) and ai_provider and cv_text and calculate_fit_score
+    )
+    fit_threshold = int(ai_cfg.get("fit_threshold", 60))
+    if fit_scoring_enabled:
+        logger.success(f"🎯 Fit scoring ENABLED — threshold: {fit_threshold}")
+
     driver = build_driver(
         headless=os.getenv("HEADLESS", "false").lower() == "true",
         user_data_dir=os.getenv("USER_DATA_DIR", "./.chrome-profile"),
@@ -140,7 +152,17 @@ def run_bot(config_path: str = "config.yaml"):
     )
 
     run_id = store.start_run()
-    counters = {"applied": 0, "skipped": 0, "failed": 0, "needs": 0, "tailored": 0}
+    counters = {
+        "applied": 0,
+        "skipped": 0,
+        "failed": 0,
+        "needs": 0,
+        "tailored": 0,
+        "cover_letters_generated": 0,
+        "cover_letters_uploaded": 0,
+        "fit_scored": 0,
+        "fit_skipped": 0,
+    }
 
     try:
         for platform_name, pcfg in config["platforms"].items():
@@ -235,11 +257,44 @@ def run_bot(config_path: str = "config.yaml"):
                         _record_skip_full(job, SkipReason.DUPLICATE, "already applied on LinkedIn")
                         counters["skipped"] += 1; continue
                     if not extractor.can_auto_apply(job):
-                        _record_skip_full(job, SkipReason.NOT_EASY_APPLY, "external apply")
+                        _record_skip_full(
+                            job,
+                            SkipReason.NOT_EASY_APPLY,
+                            "external apply",
+                            status=ApplyStatus.EXTERNAL,
+                        )
                         counters["skipped"] += 1; continue
+
+                    # === FIT SCORING ===
+                    fit_score_result = None
+                    if fit_scoring_enabled and job.description:
+                        try:
+                            fit_score_result = calculate_fit_score(
+                                ai_provider,
+                                cv_text,
+                                job,
+                                cache_dir=ai_cfg.get("fit_score_output_dir", "data/fit_scores"),
+                            )
+                            if fit_score_result:
+                                counters["fit_scored"] += 1
+                                log_fit_score(fit_score_result, job, job_id=job.job_id)
+                                if fit_score_result.score < fit_threshold:
+                                    _record_skip_full(
+                                        job,
+                                        SkipReason.FIT_SCORE_LOW,
+                                        f"fit score {fit_score_result.score} < threshold {fit_threshold}",
+                                        fit_score=fit_score_result.score,
+                                        fit_reasoning=fit_score_result.reasoning,
+                                    )
+                                    counters["fit_skipped"] += 1
+                                    counters["skipped"] += 1
+                                    continue
+                        except Exception as e:
+                            logger.warning(f"Fit scoring failed: {e}")
 
                     # === RESUME TAILORING ===
                     effective_resume = resume_path
+                    cover_letter_paths = None
                     if tailoring_enabled and job.description:
                         try:
                             tailored = generate_tailored_resume(
@@ -252,21 +307,58 @@ def run_bot(config_path: str = "config.yaml"):
                         except Exception as e:
                             logger.warning(f"Resume tailoring failed: {e}")
 
+                    cover_letter_enabled = bool(
+                        ai_cfg.get("cover_letter", False) and ai_provider and cv_text and job.description
+                    )
+                    if cover_letter_enabled and generate_cover_letter:
+                        try:
+                            generated = generate_cover_letter(
+                                ai_provider,
+                                profile,
+                                cv_text,
+                                job,
+                                output_dir=ai_cfg.get("cover_letter_output_dir", "cover_letters/generated"),
+                                validator_strict=ai_cfg.get("cover_letter_strict", True),
+                            )
+                            if generated:
+                                txt_path, pdf_path = generated
+                                cover_letter_paths = {"txt": txt_path, "pdf": pdf_path}
+                                counters["cover_letters_generated"] += 1
+                        except Exception as e:
+                            logger.warning(f"Cover letter generation failed: {e}")
+
                     try:
-                        result = extractor.apply(job, effective_resume, mode=mode)
+                        result = extractor.apply(
+                            job,
+                            effective_resume,
+                            mode=mode,
+                            cover_letter_paths=cover_letter_paths,
+                        )
                     except Exception as e:
                         logger.exception(f"apply crashed: {e}")
                         result = ApplicationResult(
                             status=ApplyStatus.FAILED, error_message=str(e))
 
-                    store.record_application(job, result, resume_path=effective_resume)
+                    store.record_application(
+                        job,
+                        result,
+                        resume_path=effective_resume,
+                        cover_letter_path=result.cover_letter_path,
+                        fit_score=fit_score_result.score if fit_score_result else None,
+                        fit_reasoning=fit_score_result.reasoning if fit_score_result else None,
+                    )
 
                     if result.status == ApplyStatus.APPLIED:
                         counters["applied"] += 1
+                        if result.cover_letter_path:
+                            counters["cover_letters_uploaded"] += 1
                         suffix = " (tailored)" if effective_resume != resume_path else ""
                         logger.success(f"✅ APPLIED{suffix} [{job.title} @ {job.company}]")
                     elif result.status == ApplyStatus.SKIPPED:
                         counters["skipped"] += 1
+                        logger.debug(
+                            f"⏭️  Apply returned SKIPPED — check if double-count: {result.error_message}"
+                        )
                     elif result.status == ApplyStatus.NEEDS_ANSWERS:
                         counters["needs"] += 1
                         add_unanswered(result.unanswered_questions)
@@ -300,7 +392,7 @@ def run_bot(config_path: str = "config.yaml"):
             pass
 
 
-def _record_skip(card, platform, reason, detail):
+def _record_skip(card, platform, reason, detail, **extra):
     from packages.core.models import JobListing
     job = JobListing(
         platform=platform, job_id=card["job_id"],
@@ -309,14 +401,14 @@ def _record_skip(card, platform, reason, detail):
     )
     result = ApplicationResult(
         status=ApplyStatus.SKIPPED, skip_reason=reason, error_message=detail)
-    store.record_application(job, result)
+    store.record_application(job, result, **extra)
     logger.info(f"⏭️  SKIP [{card.get('title')} @ {card.get('company')}]: {detail}")
 
 
-def _record_skip_full(job, reason, detail):
+def _record_skip_full(job, reason, detail, status=ApplyStatus.SKIPPED, **extra):
     result = ApplicationResult(
-        status=ApplyStatus.SKIPPED, skip_reason=reason, error_message=detail)
-    store.record_application(job, result)
+        status=status, skip_reason=reason, error_message=detail)
+    store.record_application(job, result, **extra)
     logger.info(f"⏭️  SKIP [{job.title} @ {job.company}]: {detail}")
 
 

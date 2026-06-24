@@ -1,14 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
-<a href="/applications" class="btn btn-sm btn-outline-secondary mb-3">← Back</a>
+<a href="/applications" class="btn btn-sm btn-outline-secondary mb-3">&larr; Back</a>
 <div class="card shadow-sm">
   <div class="card-body">
     <h4>{{ row.title }}</h4>
     <p class="text-muted">{{ row.company }} · {{ row.location }} · <span class="badge bg-secondary">{{ row.platform }}</span></p>
     <p><span class="badge badge-{{ row.status }}">{{ row.status }}</span>
        {% if row.skip_reason %} · {{ row.skip_reason }}{% endif %}</p>
-    <p><a href="{{ row.url }}" target="_blank">🔗 View on platform</a></p>
+    <p><a href="{{ row.url }}" target="_blank">View on platform</a></p>
     {% if row.salary %}<p><strong>Salary:</strong> {{ row.salary }}</p>{% endif %}
+    {% if row.fit_score is not none %}<p><strong>Fit score:</strong> <span class="badge bg-info text-dark">{{ row.fit_score }}/100</span></p>{% endif %}
+    {% if row.fit_reasoning %}<p><strong>Fit reasoning:</strong> {{ row.fit_reasoning }}</p>{% endif %}
+    {% if row.resume_path %}<p><strong>Resume:</strong> <code>{{ row.resume_path }}</code></p>{% endif %}
+    {% if row.cover_letter_path %}<p><strong>Cover letter:</strong> <code>{{ row.cover_letter_path }}</code></p>{% endif %}
     {% if row.error_message %}
       <div class="alert alert-warning">{{ row.error_message }}</div>
     {% endif %}
@@ -22,7 +26,7 @@
         <tr>
           <td>{{ q.q }}</td>
           <td>{{ q.a }}</td>
-          <td>{% if q.filled %}✅{% else %}❌{% endif %}</td>
+          <td>{% if q.filled %}Yes{% else %}No{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -30,7 +34,7 @@
     {% endif %}
 
     {% if row.unanswered %}
-    <h5 class="mt-4">❓ Unanswered Questions for this job</h5>
+    <h5 class="mt-4">Unanswered Questions for this job</h5>
     <ul class="list-group">
       {% for u in row.unanswered %}
       <li class="list-group-item">

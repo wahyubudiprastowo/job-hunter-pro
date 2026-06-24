@@ -1,60 +1,33 @@
-# 📜 Changelog
+# Changelog
 
 Newest first.
 
-## v2 Docs Bundle ULTIMATE (2026-06-24)
-**This bundle**. Reorganized + new docs for continuity:
-- NEW: 00_MASTER_CONTINUITY.md (AI handoff)
-- NEW: CURRENT_STATE_SNAPSHOT.md (production state)
-- NEW: PATCH_HISTORY_LEDGER.md (with Patch 4-8 inferred)
-- NEW: ANTI_BREAKAGE_RULES.md
-- NEW: AI_HANDOFF_PROTOCOL.md
-- NEW: VSCODE_GUIDE.md
-- NEW: GITLAB_INTEGRATION.md
-- NEW: PRD_TEMPLATE.md + 17 per-feature PRDs
-- Updated all tier docs (compact, link-rich)
+## 2026-06-24 - Docs Merge Cleanup
 
-## Patches 4-8 [INFERRED — undocumented in this conversation]
-Per evidence in dashboard screenshot:
-- Patch 4: Reset State button
-- Patch 5: Test AI button
-- Patch 6: Diagnostics panel (PID/heartbeat/zombie)
-- Patch 7: Worker heartbeat writer
-- Patch 8: Phase 2b Resume Tailoring + startup speed fix
+- merged active docs with the useful context from the archived snapshot
+- kept `docs/` as canonical documentation source
+- added `DOCS_MERGE_AUDIT.md`
+- removed the need to keep a duplicate backup docs tree in the workspace
 
-**ACTION REQUIRED**: User to share Patch 4-8 source code so they can be properly documented in [PATCH_HISTORY_LEDGER.md](PATCH_HISTORY_LEDGER.md).
+## 2026-06-24 - Patch 15
 
-## Patch 3 — Phase 2a AI Question Fallback (2026-06-23)
-- ADD: `packages/ai/provider.py`, `question_bot.py`
-- MOD: `linkedin.py::_lookup_answer` step 6
-- MOD: `runner.py` instantiate AIProvider
-- MOD: `config.yaml` `ai:` block
-- Validated: 121 saved answers in production
+- CV header now uses country code with phone number
+- CV header can render LinkedIn, GitHub, and portfolio links
 
-## Patch 2 — Multi-Language + Save-Dialog (2026-06-23)
-- Multi-lang buttons (EN/IT/ES/FR/DE/PT/NL)
-- Save dialog auto-Discard
-- Stuck detection
-- Resume auto-selection
-- Progress logging
+## 2026-06-24 - Patch 14
 
-## Patch 1 — EU + Diversity Auto-Decline (2026-06-23)
-- Auto-decline diversity questions
-- Robust radio labels
-- Multi-strategy submit verification
-- Debug screenshots
-- Filter improvements
+- already-applied jobs are detected and classified separately from external apply
 
-## Phase 1 MVP (2026-06-23)
-- Full repo skeleton (47 files)
-- BaseExtractor + LinkedIn
-- Flask dashboard
-- Validated: applied to TRANSATEL
+## 2026-06-24 - Patch 13
 
-## Phase 0 PoC (2026-06-23)
-- Single-file login + apply
+- Easy Apply detection expanded with multiple strategies and broader language handling
 
-## Upcoming
-See [PRDs/INDEX.md](PRDs/INDEX.md).
+## 2026-06-24 - Patches 9-12
 
-## 🔗 [PATCH_HISTORY_LEDGER.md](PATCH_HISTORY_LEDGER.md)
+- validator, cover letter, and configuration improvements landed
+
+## 2026-06-23 to 2026-06-24 - Patches 1-8
+
+- LinkedIn automation, multilingual handling, dashboard operations, and tailoring-era capabilities were introduced
+
+See [PATCH_HISTORY_LEDGER.md](PATCH_HISTORY_LEDGER.md) for the authoritative patch record.

@@ -69,6 +69,8 @@ class ApplicationResult(BaseModel):
     qa_log: list[dict] = Field(default_factory=list)
     resume_path: Optional[str] = None
     cover_letter_path: Optional[str] = None
+    fit_score: Optional[int] = None
+    fit_reasoning: Optional[str] = None
     applied_at: datetime = Field(default_factory=datetime.utcnow)
 
 

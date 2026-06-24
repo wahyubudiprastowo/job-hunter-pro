@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Text, DateTime, func, select
+    create_engine, Column, Integer, String, Text, DateTime, func, select, and_, or_, text
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
@@ -34,6 +34,8 @@ class Application(Base):
     error_message = Column(Text)
     resume_path = Column(String(512))
     cover_letter_path = Column(String(512))
+    fit_score = Column(Integer)
+    fit_reasoning = Column(Text)
     qa_log_json = Column(Text)
     unanswered_json = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -53,9 +55,29 @@ class RunHistory(Base):
 
 def init_db() -> None:
     Base.metadata.create_all(_engine)
+    with _engine.begin() as conn:
+        columns = {row[1] for row in conn.execute(text("PRAGMA table_info(applications)")).fetchall()}
+        if "fit_score" not in columns:
+            conn.execute(text("ALTER TABLE applications ADD COLUMN fit_score INTEGER"))
+        if "fit_reasoning" not in columns:
+            conn.execute(text("ALTER TABLE applications ADD COLUMN fit_reasoning TEXT"))
 
 
-def record_application(job, result, resume_path: Optional[str] = None) -> bool:
+def _legacy_external_condition():
+    return and_(
+        Application.status == "skipped",
+        Application.skip_reason == "not_easy_apply",
+    )
+
+
+def record_application(
+    job,
+    result,
+    resume_path: Optional[str] = None,
+    cover_letter_path: Optional[str] = None,
+    fit_score: Optional[int] = None,
+    fit_reasoning: Optional[str] = None,
+) -> bool:
     """Insert or update. Returns True if newly created."""
     with SessionLocal() as s:
         existing = s.execute(
@@ -80,6 +102,15 @@ def record_application(job, result, resume_path: Optional[str] = None) -> bool:
                 ensure_ascii=False, default=str)
             if resume_path:
                 existing.resume_path = resume_path
+            effective_cover_letter_path = cover_letter_path or getattr(result, "cover_letter_path", None)
+            if effective_cover_letter_path:
+                existing.cover_letter_path = effective_cover_letter_path
+            effective_fit_score = fit_score if fit_score is not None else getattr(result, "fit_score", None)
+            effective_fit_reasoning = fit_reasoning if fit_reasoning is not None else getattr(result, "fit_reasoning", None)
+            if effective_fit_score is not None:
+                existing.fit_score = effective_fit_score
+            if effective_fit_reasoning:
+                existing.fit_reasoning = effective_fit_reasoning
             # Refresh dashboard recency only when the stored status reflects the new event.
             if not preserved_applied:
                 existing.created_at = datetime.utcnow()
@@ -99,6 +130,9 @@ def record_application(job, result, resume_path: Optional[str] = None) -> bool:
             skip_reason=result.skip_reason.value if result.skip_reason else None,
             error_message=result.error_message,
             resume_path=resume_path,
+            cover_letter_path=cover_letter_path or getattr(result, "cover_letter_path", None),
+            fit_score=fit_score if fit_score is not None else getattr(result, "fit_score", None),
+            fit_reasoning=fit_reasoning if fit_reasoning is not None else getattr(result, "fit_reasoning", None),
             qa_log_json=json.dumps(result.qa_log, ensure_ascii=False),
             unanswered_json=json.dumps(
                 [q.model_dump(mode="json") for q in result.unanswered_questions],
@@ -126,15 +160,33 @@ def get_stats() -> dict:
             select(Application.status, func.count(Application.id))
             .group_by(Application.status)
         ).all()
-        return {status: count for status, count in result}
+        stats = {status: count for status, count in result}
+
+        legacy_external = s.execute(
+            select(func.count(Application.id)).where(_legacy_external_condition())
+        ).scalar_one()
+
+        stats["external"] = stats.get("external", 0) + legacy_external
+        if legacy_external:
+            stats["skipped"] = max(0, stats.get("skipped", 0) - legacy_external)
+        return stats
 
 
 def list_applications(status: Optional[str] = None, limit: int = 200) -> list[dict]:
     with SessionLocal() as s:
         q = select(Application).order_by(Application.created_at.desc()).limit(limit)
         if status:
-            q = select(Application).where(Application.status == status)\
-                .order_by(Application.created_at.desc()).limit(limit)
+            if status == "external":
+                q = select(Application).where(
+                    or_(Application.status == "external", _legacy_external_condition())
+                ).order_by(Application.created_at.desc()).limit(limit)
+            elif status == "skipped":
+                q = select(Application).where(
+                    and_(Application.status == "skipped", Application.skip_reason != "not_easy_apply")
+                ).order_by(Application.created_at.desc()).limit(limit)
+            else:
+                q = select(Application).where(Application.status == status)\
+                    .order_by(Application.created_at.desc()).limit(limit)
         rows = s.execute(q).scalars().all()
         return [_row_to_dict(r) for r in rows]
 
@@ -146,6 +198,10 @@ def get_application(app_id: int) -> Optional[dict]:
 
 
 def _row_to_dict(r: Application) -> dict:
+    display_status = r.status
+    if r.status == "skipped" and r.skip_reason == "not_easy_apply":
+        display_status = "external"
+
     return {
         "id": r.id,
         "platform": r.platform,
@@ -155,10 +211,13 @@ def _row_to_dict(r: Application) -> dict:
         "location": r.location,
         "url": r.url,
         "salary": r.salary,
-        "status": r.status,
+        "status": display_status,
         "skip_reason": r.skip_reason,
         "error_message": r.error_message,
         "resume_path": r.resume_path,
+        "cover_letter_path": r.cover_letter_path,
+        "fit_score": r.fit_score,
+        "fit_reasoning": r.fit_reasoning,
         "qa_log": json.loads(r.qa_log_json or "[]"),
         "unanswered": json.loads(r.unanswered_json or "[]"),
         "created_at": r.created_at.isoformat() if r.created_at else None,

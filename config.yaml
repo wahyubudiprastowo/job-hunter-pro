@@ -22,7 +22,7 @@ platforms:
         - "Site Reliability Engineer"
         - "Platform Engineer"
         - "DevOps Engineer"
-      location: "European Union"
+      location: "riyadh"
       remote: true
       hybrid: true
       date_posted: "past_week"
@@ -133,11 +133,13 @@ ai:
   question_fallback: true
   auto_save_answers: true
   resume_tailoring: true
-  validator_strict: false       # PATCH 11: false reduces false positives
+  validator_strict: true       # PATCH 11: false reduces false positives
   cover_letter: true            # PATCH 10
-  cover_letter_strict: false    # PATCH 11: false for tolerance
+  cover_letter_strict: true    # PATCH 11: false for tolerance
   cover_letter_output_dir: "cover_letters/generated"
   fit_scoring: false
+  fit_threshold: 60
+  fit_score_output_dir: "data/fit_scores"
 
   provider: "omnirouter"
   model: "antigravity/gemini-3.5-flash-medium"

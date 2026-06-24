@@ -1,0 +1,64 @@
+{
+  "name": "job-hunter-pro-docs",
+  "version": "3.1",
+  "date": "2026-06-24",
+  "purpose": "Incremental update to v3 \u2014 adds Patches 14 + 15 + FEATURE_CHECKLIST + NEXT_STEPS_ROADMAP",
+  "total_files": 9,
+  "files": [
+    "apply.cmd",
+    "docs/00_INDEX.md",
+    "docs/00_MASTER_CONTINUITY.md",
+    "docs/17_CHANGELOG.md",
+    "docs/CURRENT_STATE_SNAPSHOT.md",
+    "docs/FEATURE_CHECKLIST.md",
+    "docs/NEXT_STEPS_ROADMAP.md",
+    "docs/PATCH_HISTORY_LEDGER.md",
+    "docs/README.md"
+  ],
+  "patches_documented": [
+    "MVP",
+    "Patch1",
+    "Patch2",
+    "Patch3",
+    "Patch5",
+    "Patch6",
+    "Patch7",
+    "Patch8",
+    "Patch9",
+    "Patch9.1",
+    "Patch10",
+    "Patch11",
+    "Patch12",
+    "Patch13",
+    "Patch14 (User)",
+    "Patch15 (User)"
+  ],
+  "new_in_v31": [
+    "FEATURE_CHECKLIST.md \u2014 comprehensive feature tracker",
+    "NEXT_STEPS_ROADMAP.md \u2014 prioritized patch plan",
+    "Updated PATCH_HISTORY_LEDGER with P14+P15",
+    "Updated CURRENT_STATE_SNAPSHOT post-P15",
+    "Updated 17_CHANGELOG with P14+P15"
+  ],
+  "production_status": {
+    "cumulative_applied": "50+",
+    "per_run_applied": "6-10",
+    "saved_answers": "138+",
+    "cv_length_chars": 6023,
+    "tech_terms_in_cv": 82,
+    "reject_rate": "30-40%",
+    "languages_supported": 8,
+    "easy_apply_strategies": 5,
+    "already_applied_detection": "WORKING",
+    "cv_header_quality": "GOOD"
+  },
+  "next_actions": [
+    "Patch 16: Cover Letter LinkedIn Upload (Phase 2c \u2192 DONE)",
+    "Patch 17: Phase 2d Fit Scoring",
+    "Patch 18: UI/UX improvements (timezone, stats)",
+    "Patch 19: Phase 3a Ghosting Detector",
+    "Patch 20: Phase 4a Indeed Extractor"
+  ],
+  "repo_gitlab": "https://gitlab.com/1bulan1m/job-hunter-pro",
+  "repo_github": "https://github.com/wahyubudiprastowo/job-hunter-pro"
+}

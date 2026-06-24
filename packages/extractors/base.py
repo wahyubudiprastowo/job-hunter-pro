@@ -67,7 +67,7 @@ class BaseExtractor(ABC):
 
     @abstractmethod
     def apply(self, job: JobListing, resume_path: str,
-              mode: str = "semi_auto") -> ApplicationResult:
+              mode: str = "semi_auto", cover_letter_paths: dict | None = None) -> ApplicationResult:
         """Run the full apply flow and return the result."""
 
     # ------------------------------------------------------------------

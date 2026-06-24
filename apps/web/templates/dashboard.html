@@ -44,6 +44,9 @@
 </div>
 
 <div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="text-muted small">All-time totals from the applications database.</div>
+  </div>
   {% set order = ['applied','skipped','needs_answers','failed','external'] %}
   {% for k in order %}
     {% set v = stats.get(k, 0) %}
@@ -56,6 +59,51 @@
       </div>
     </div>
   {% endfor %}
+</div>
+
+<div class="card mb-4 shadow-sm">
+  <div class="card-header"><strong>Latest Run</strong></div>
+  <div class="card-body">
+    <p id="latest-run-empty" class="text-muted mb-3 {% if latest_run %}d-none{% endif %}">No completed run yet. Start the bot to create the first run summary.</p>
+    <div id="latest-run-grid" class="row g-3 {% if not latest_run %}d-none{% endif %}">
+      <div class="col-md">
+        <div class="small text-muted">Started</div>
+        <div id="run-started">{{ latest_run.started_at | localdt if latest_run else '' }}</div>
+      </div>
+      <div class="col-md">
+        <div class="small text-muted">Finished</div>
+        <div id="run-finished">{{ latest_run.finished_at | localdt if latest_run and latest_run.finished_at else 'Still running / not finished yet' }}</div>
+      </div>
+      <div class="col-md">
+        <div class="small text-muted">Applied</div>
+        <div id="run-applied">{{ (latest_run.applied or 0) if latest_run else 0 }}</div>
+      </div>
+      <div class="col-md">
+        <div class="small text-muted">Skipped</div>
+        <div id="run-skipped">{{ (latest_run.skipped or 0) if latest_run else 0 }}</div>
+      </div>
+      <div class="col-md">
+        <div class="small text-muted">Needs Answers</div>
+        <div id="run-needs">{{ (latest_run.needs_answers or 0) if latest_run else 0 }}</div>
+      </div>
+      <div class="col-md">
+        <div class="small text-muted">Failed</div>
+        <div id="run-failed">{{ (latest_run.failed or 0) if latest_run else 0 }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4 shadow-sm">
+  <div class="card-header"><strong>Debug Screenshot</strong></div>
+  <div class="card-body">
+    <p id="screenshot-empty" class="text-muted mb-0 {% if latest_screenshot %}d-none{% endif %}">No debug screenshots yet. If a modal gets stuck or submit verification fails, a screenshot will appear here.</p>
+    <div id="screenshot-summary" class="{% if not latest_screenshot %}d-none{% endif %}">
+      <div><strong>Latest:</strong> <code id="screenshot-name">{{ latest_screenshot.name if latest_screenshot else '' }}</code></div>
+      <div class="small text-muted">Saved at <span id="screenshot-modified">{{ latest_screenshot.modified_at if latest_screenshot else '' }}</span></div>
+      <div class="small text-muted">Review in <code>data/screenshots/</code></div>
+    </div>
+  </div>
 </div>
 
 <div class="card mb-4 shadow-sm">
@@ -82,7 +130,7 @@
       </ul>
       <a href="/questions" class="btn btn-sm btn-primary mt-2">Answer all</a>
     {% else %}
-      <p class="text-muted mb-0">None.</p>
+      <p class="text-muted mb-0">No unanswered questions right now. New unknown form questions will show up here.</p>
     {% endif %}
   </div>
 </div>
@@ -95,6 +143,7 @@
         <tr><th>Title</th><th>Company</th><th>Platform</th><th>Status</th><th>When</th></tr>
       </thead>
       <tbody id="recent-body">
+        {% if recent %}
         {% for r in recent %}
         <tr>
           <td><a href="/application/{{ r.id }}">{{ r.title or '?' }}</a></td>
@@ -104,6 +153,11 @@
           <td><small>{{ r.created_at | localdt }}</small></td>
         </tr>
         {% endfor %}
+        {% else %}
+        <tr id="recent-empty-row">
+          <td colspan="5" class="text-muted">No applications recorded yet. After the first run, the newest items will appear here.</td>
+        </tr>
+        {% endif %}
       </tbody>
     </table>
   </div>
@@ -114,6 +168,11 @@
 <script>
 function renderRecent(rows) {
   const tbody = document.getElementById('recent-body');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = `<tr id="recent-empty-row"><td colspan="5" class="text-muted">No applications recorded yet. After the first run, the newest items will appear here.</td></tr>`;
+    return;
+  }
   tbody.innerHTML = rows.map(r => `
     <tr>
       <td><a href="/application/${r.id}">${r.title || '?'}</a></td>
@@ -123,6 +182,48 @@ function renderRecent(rows) {
       <td><small>${r.created_at_display || ''}</small></td>
     </tr>
   `).join('');
+}
+
+function renderLatestRun(run) {
+  const empty = document.getElementById('latest-run-empty');
+  const grid = document.getElementById('latest-run-grid');
+  const started = document.getElementById('run-started');
+  const finished = document.getElementById('run-finished');
+  const applied = document.getElementById('run-applied');
+  const skipped = document.getElementById('run-skipped');
+  const needs = document.getElementById('run-needs');
+  const failed = document.getElementById('run-failed');
+  if (!empty || !grid || !started || !finished || !applied || !skipped || !needs || !failed) return;
+  if (!run) {
+    empty.classList.remove('d-none');
+    grid.classList.add('d-none');
+    return;
+  }
+  empty.classList.add('d-none');
+  grid.classList.remove('d-none');
+  started.textContent = run.started_at_display || '';
+  finished.textContent = run.finished_at_display || 'Still running / not finished yet';
+  applied.textContent = run.applied || 0;
+  skipped.textContent = run.skipped || 0;
+  needs.textContent = run.needs_answers || 0;
+  failed.textContent = run.failed || 0;
+}
+
+function renderLatestScreenshot(shot) {
+  const empty = document.getElementById('screenshot-empty');
+  const box = document.getElementById('screenshot-summary');
+  const name = document.getElementById('screenshot-name');
+  const modified = document.getElementById('screenshot-modified');
+  if (!empty || !box || !name || !modified) return;
+  if (!shot) {
+    empty.classList.remove('d-none');
+    box.classList.add('d-none');
+    return;
+  }
+  empty.classList.add('d-none');
+  box.classList.remove('d-none');
+  name.textContent = shot.name || '';
+  modified.textContent = shot.modified_at || '';
 }
 
 async function loadDashboardSnapshot() {
@@ -153,6 +254,9 @@ async function loadDashboardSnapshot() {
 
   document.getElementById('unanswered-title').textContent =
     `Unanswered Questions (${data.unanswered_count || 0})`;
+
+  renderLatestRun(data.latest_run || null);
+  renderLatestScreenshot(data.latest_screenshot || null);
 
   if (Array.isArray(data.recent)) {
     renderRecent(data.recent);

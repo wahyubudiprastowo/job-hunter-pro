@@ -118,7 +118,7 @@ answers.json ─┘                       ├──► Orchestrator
                 Glassdoor, etc.
 ```
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the deep dive.
+See [docs/02_ARCHITECTURE.md](docs/02_ARCHITECTURE.md) for the deep dive.
 
 ---
 
@@ -179,7 +179,7 @@ job-hunter-pro/
 │   ├── worker/runner.py     # Orchestrator
 │   ├── worker/control.py    # Pause/Resume/Stop
 │   └── web/app.py           # Flask dashboard
-├── docs/                    # ARCHITECTURE, PLUGIN_GUIDE, ROADMAP, TROUBLESHOOTING
+├── docs/                    # Indexed project documentation
 └── docker-compose.yml
 ```
 
@@ -189,11 +189,11 @@ job-hunter-pro/
 
 | Doc | Purpose |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design + data flow |
+| [docs/02_ARCHITECTURE.md](docs/02_ARCHITECTURE.md) | System design + data flow |
 | [docs/PLUGIN_GUIDE.md](docs/PLUGIN_GUIDE.md) | How to add Indeed/Glassdoor/JobStreet |
 | [docs/SETUP.md](docs/SETUP.md) | Step-by-step install (Win/Mac/Linux/Docker) |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common errors + fixes |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Phase 2 → Phase 5 plan |
+| [docs/16_TROUBLESHOOTING.md](docs/16_TROUBLESHOOTING.md) | Common errors + fixes |
+| [docs/12_PHASE_ROADMAP.md](docs/12_PHASE_ROADMAP.md) | Phase 2 → Phase 5 plan |
 
 ---
 

@@ -128,7 +128,11 @@ SELECTORS = {
     "detail_salary": (By.CSS_SELECTOR, ".jobs-unified-top-card__salary-info, .salary-main-rail__salary"),
     # PATCH 13: New multi-strategy Easy Apply selector
     "easy_apply_btn": (By.XPATH, _build_easy_apply_xpath()),
-    "modal": (By.CSS_SELECTOR, ".jobs-easy-apply-modal, div[role='dialog']"),
+    "modal": (By.CSS_SELECTOR,
+        ".jobs-easy-apply-modal, "
+        ".jobs-easy-apply-content, "
+        ".artdeco-modal[role='dialog'], "
+        "div[role='dialog']"),
     "btn_next": (By.XPATH, _xpath_button_any(BTN_NEXT_LABELS)),
     "btn_review": (By.XPATH, _xpath_button_any(BTN_REVIEW_LABELS)),
     "btn_submit": (By.XPATH, _xpath_button_any(BTN_SUBMIT_LABELS)),
@@ -498,9 +502,10 @@ class LinkedInExtractor(BaseExtractor):
     # ------------------------------------------------------------------
     # APPLY (rest unchanged from your current version)
     # ------------------------------------------------------------------
-    def apply(self, job, resume_path, mode="semi_auto"):
+    def apply(self, job, resume_path, mode="semi_auto", cover_letter_paths=None):
         d = self.driver
         qa_log, unanswered = [], []
+        uploaded_cover_letter_path = None
 
         if not job.is_easy_apply:
             return ApplicationResult(
@@ -531,10 +536,8 @@ class LinkedInExtractor(BaseExtractor):
         max_steps = 15
 
         for step in range(max_steps):
-            try:
-                modal = WebDriverWait(d, 8).until(
-                    EC.presence_of_element_located(SELECTORS["modal"]))
-            except TimeoutException:
+            modal = self._wait_for_apply_modal(btn if step == 0 else None, timeout=12)
+            if modal is None:
                 return ApplicationResult(
                     status=ApplyStatus.FAILED, error_message="Modal not found.",
                     qa_log=qa_log, unanswered_questions=unanswered)
@@ -563,6 +566,10 @@ class LinkedInExtractor(BaseExtractor):
             self._fill_radios(modal, qa_log, unanswered, job)
             self._fill_checkboxes(modal, qa_log, unanswered, job)
             self._upload_resume(modal, resume_path)
+            uploaded_cover_letter_path = (
+                uploaded_cover_letter_path
+                or self._upload_cover_letter(modal, cover_letter_paths)
+            )
             self._ensure_resume_selected(modal)
 
             if self._click_if_present(SELECTORS["btn_submit"]):
@@ -573,7 +580,8 @@ class LinkedInExtractor(BaseExtractor):
                 if self._verify_submitted():
                     return ApplicationResult(
                         status=ApplyStatus.APPLIED, qa_log=qa_log,
-                        unanswered_questions=unanswered, resume_path=resume_path)
+                        unanswered_questions=unanswered, resume_path=resume_path,
+                        cover_letter_path=uploaded_cover_letter_path)
                 else:
                     self._screenshot_for_debug(job.job_id, "verify_failed")
                     return ApplicationResult(
@@ -608,6 +616,143 @@ class LinkedInExtractor(BaseExtractor):
         return ApplicationResult(
             status=ApplyStatus.FAILED, error_message="Max steps exceeded.",
             qa_log=qa_log, unanswered_questions=unanswered)
+
+    def _upload_cover_letter(self, modal, cover_letter_paths):
+        if not cover_letter_paths:
+            return None
+
+        txt_path = cover_letter_paths.get("txt")
+        pdf_path = cover_letter_paths.get("pdf")
+        field = self._find_cover_letter_field(modal)
+        if not field:
+            return None
+
+        field_type, element = field
+
+        try:
+            if field_type == "file" and pdf_path:
+                abs_path = os.path.abspath(pdf_path)
+                if os.path.exists(abs_path):
+                    element.send_keys(abs_path)
+                    human_sleep(1, 2)
+                    logger.info(f"💌 Uploaded cover letter PDF: {pdf_path}")
+                    return pdf_path
+
+            if field_type == "textarea" and txt_path:
+                abs_txt = os.path.abspath(txt_path)
+                if os.path.exists(abs_txt):
+                    text = Path(abs_txt).read_text(encoding="utf-8").strip()
+                    if text and not element.get_attribute("value"):
+                        element.clear()
+                        type_human(
+                            element,
+                            text,
+                            self.stealth_cfg["typing_min_delay"],
+                            self.stealth_cfg["typing_max_delay"],
+                        )
+                        logger.info(f"💌 Filled cover letter textarea: {txt_path}")
+                        return txt_path
+        except StaleElementReferenceException:
+            return None
+        except Exception as e:
+            logger.warning(f"Cover letter upload skipped: {e}")
+            return None
+
+        return None
+
+    def _wait_for_apply_modal(self, trigger_btn=None, timeout: int = 12):
+        end = time.time() + timeout
+        retried_click = False
+
+        while time.time() < end:
+            try:
+                candidates = self.driver.find_elements(*SELECTORS["modal"])
+                for candidate in candidates:
+                    try:
+                        if candidate.is_displayed():
+                            return candidate
+                    except StaleElementReferenceException:
+                        continue
+            except Exception:
+                pass
+
+            if trigger_btn is not None and not retried_click and time.time() + 3 < end:
+                try:
+                    self.driver.execute_script("arguments[0].click();", trigger_btn)
+                    retried_click = True
+                    human_sleep(1, 1.8)
+                    continue
+                except Exception:
+                    retried_click = True
+
+            time.sleep(0.5)
+
+        return None
+
+    def _find_cover_letter_field(self, modal):
+        keywords = [
+            "cover", "cover letter",
+            "lettera", "presentazione",
+            "anschreiben",
+            "carta de presentación",
+            "lettre de motivation",
+        ]
+
+        file_selectors = [
+            "input[type='file'][name*='cover' i]",
+            "input[type='file'][id*='cover' i]",
+            "input[type='file'][name*='letter' i]",
+            "input[type='file'][id*='letter' i]",
+        ]
+        for selector in file_selectors:
+            try:
+                elem = modal.find_element(By.CSS_SELECTOR, selector)
+                if elem.is_displayed():
+                    return ("file", elem)
+            except NoSuchElementException:
+                continue
+
+        textarea_selectors = [
+            "textarea[id*='cover' i]",
+            "textarea[name*='cover' i]",
+            "textarea[id*='letter' i]",
+            "textarea[name*='letter' i]",
+        ]
+        for selector in textarea_selectors:
+            try:
+                elem = modal.find_element(By.CSS_SELECTOR, selector)
+                if elem.is_displayed():
+                    return ("textarea", elem)
+            except NoSuchElementException:
+                continue
+
+        try:
+            textareas = modal.find_elements(By.TAG_NAME, "textarea")
+        except Exception:
+            textareas = []
+
+        for elem in textareas:
+            try:
+                label = self._label_for(elem).lower()
+                if any(keyword in label for keyword in keywords):
+                    return ("textarea", elem)
+            except Exception:
+                continue
+
+        try:
+            file_inputs = modal.find_elements(By.CSS_SELECTOR, "input[type='file']")
+        except Exception:
+            file_inputs = []
+
+        for elem in file_inputs:
+            try:
+                label = self._label_for(elem).lower()
+                if any(keyword in label for keyword in keywords):
+                    return ("file", elem)
+            except Exception:
+                continue
+
+        return None
 
     def _read_progress(self) -> int:
         try:

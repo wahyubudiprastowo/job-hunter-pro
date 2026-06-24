@@ -47,18 +47,36 @@ def _format_local_datetime(value):
 app.jinja_env.filters["localdt"] = _format_local_datetime
 
 
+def _latest_debug_screenshot():
+    shots_dir = Path("data/screenshots")
+    if not shots_dir.exists():
+        return None
+    files = [p for p in shots_dir.glob("*.png") if p.is_file()]
+    if not files:
+        return None
+    latest = max(files, key=lambda p: p.stat().st_mtime)
+    return {
+        "name": latest.name,
+        "path": str(latest),
+        "modified_at": _format_local_datetime(datetime.fromtimestamp(latest.stat().st_mtime)),
+    }
+
+
 # ---------- PAGES ----------
 @app.route("/")
 def dashboard():
     stats = store.get_stats()
     recent = store.list_applications(limit=10)
     runs = store.recent_runs(limit=5)
+    latest_run = runs[0] if runs else None
     unanswered = load_unanswered()
     diag = controller.get_diagnostics()
+    latest_screenshot = _latest_debug_screenshot()
     return render_template(
         "dashboard.html",
-        stats=stats, recent=recent, runs=runs,
+        stats=stats, recent=recent, runs=runs, latest_run=latest_run,
         unanswered=unanswered, state=diag["state"], diag=diag,
+        latest_screenshot=latest_screenshot,
     )
 
 
@@ -195,13 +213,20 @@ def api_state():
 def api_dashboard():
     unanswered = load_unanswered()
     recent = store.list_applications(limit=10)
+    runs = store.recent_runs(limit=1)
+    latest_run = runs[0] if runs else None
     for row in recent:
         row["created_at_display"] = _format_local_datetime(row.get("created_at"))
+    if latest_run:
+        latest_run["started_at_display"] = _format_local_datetime(latest_run.get("started_at"))
+        latest_run["finished_at_display"] = _format_local_datetime(latest_run.get("finished_at"))
     return jsonify({
         "state": controller.get_state(),
         "stats": store.get_stats(),
         "diag": controller.get_diagnostics(),
         "recent": recent,
+        "latest_run": latest_run,
+        "latest_screenshot": _latest_debug_screenshot(),
         "unanswered_count": len(unanswered),
     })
 
