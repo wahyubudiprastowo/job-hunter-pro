@@ -1,0 +1,82 @@
+=================================================================
+PATCH 12 — apps/worker/runner.py modifications
+=================================================================
+
+EDIT 1: Wrap open_job_detail in try/except with stale retry
+----------------------------------------------------------
+FIND:
+    try:
+        job = extractor.open_job_detail(card)
+    except Exception as e:
+        logger.exception(f"open_job_detail: {e}")
+        counters["failed"] += 1
+        continue
+
+REPLACE with:
+    try:
+        job = extractor.open_job_detail(card)
+    except Exception as e:
+        from selenium.common.exceptions import StaleElementReferenceException
+        if isinstance(e, StaleElementReferenceException):
+            # PATCH 12: stale element retry — refresh cards & try once more
+            logger.warning(f"Stale element on job {card.get('job_id')} — refreshing cards")
+            try:
+                # Re-collect cards from current page state
+                fresh_cards = extractor.collect_job_cards(max_cards=20)
+                for fc in fresh_cards:
+                    if fc.get("job_id") == card.get("job_id"):
+                        card = fc  # use fresh element
+                        break
+                job = extractor.open_job_detail(card)
+            except Exception as e2:
+                logger.warning(f"Stale retry failed for job {card.get('job_id')}: {e2}")
+                counters["failed"] += 1
+                continue
+        else:
+            logger.exception(f"open_job_detail: {e}")
+            counters["failed"] += 1
+            continue
+
+
+EDIT 2: Improve cleanup logic — preserve state files for diagnosis  
+-----------------------------------------------------------------
+FIND in _cleanup:
+    def _cleanup():
+        logger.info("🧹 Cleanup: clearing state files")
+        controller.reset()
+
+REPLACE with:
+    def _cleanup():
+        logger.info("🧹 Cleanup: marking idle (preserving state for diagnosis)")
+        try:
+            controller.set_state("idle")
+            controller.clear_command()
+            # Don't full reset — keep heartbeat + state files for post-mortem
+        except Exception as e:
+            logger.warning(f"Cleanup error: {e}")
+
+
+EDIT 3: Print final summary with timing
+---------------------------------------
+FIND:
+    logger.info(f"🎉 Run done. Counters: {counters}")
+
+ADD BEFORE:
+    # PATCH 12: Detailed final summary
+    if ai_provider:
+        ai_provider.log_stats()
+
+    import datetime as dt
+    run_dur = (dt.datetime.utcnow() - dt.datetime.utcfromtimestamp(
+        run_id if isinstance(run_id, (int, float)) else 0)).total_seconds()
+    
+    logger.info(
+        f"📊 Run summary:\n"
+        f"   Duration: {int(run_dur)}s ({int(run_dur/60)}m)\n"
+        f"   Applied: {counters.get('applied', 0)}\n"
+        f"   Tailored: {counters.get('tailored', 0)} (rejected: {counters.get('tailored_rejected', 0)})\n"
+        f"   Cover letters: {counters.get('cover_letters', 0)} (rejected: {counters.get('cover_letters_rejected', 0)})\n"
+        f"   Skipped: {counters.get('skipped', 0)}\n"
+        f"   Failed: {counters.get('failed', 0)}\n"
+        f"   Needs answers: {counters.get('needs', 0)}"
+    )

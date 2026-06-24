@@ -1,0 +1,62 @@
+# === PATCH 12: Stale-element retry helpers ===
+# Add these to top of packages/extractors/linkedin.py
+# (or as a separate module if you prefer)
+
+from selenium.common.exceptions import StaleElementReferenceException
+import time
+
+
+def retry_on_stale(max_retries: int = 3, backoff: float = 0.5):
+    """Decorator to retry function on StaleElementReferenceException."""
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            last_exc = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except StaleElementReferenceException as e:
+                    last_exc = e
+                    if attempt < max_retries - 1:
+                        time.sleep(backoff * (attempt + 1))
+                        continue
+                    raise
+            raise last_exc
+        return wrapper
+    return decorator
+
+
+def _safe_scroll_into_view(driver, element, retries: int = 3):
+    """Safely scroll element into view with stale-retry."""
+    for attempt in range(retries):
+        try:
+            driver.execute_script(
+                "arguments[0].scrollIntoView({block:'center'});",
+                element
+            )
+            return True
+        except StaleElementReferenceException:
+            if attempt == retries - 1:
+                raise
+            time.sleep(0.3)
+        except Exception:
+            return False
+    return False
+
+
+# === Usage in open_job_detail method ===
+# Replace:
+#     d.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
+# With:
+#     try:
+#         _safe_scroll_into_view(d, el, retries=3)
+#     except StaleElementReferenceException:
+#         logger.warning(f"Stale element for job {card['job_id']}, refreshing...")
+#         # Re-find the card by job_id
+#         try:
+#             from selenium.webdriver.common.by import By
+#             el = d.find_element(By.CSS_SELECTOR, 
+#                 f"[data-occludable-job-id='{card['job_id']}']")
+#             card['_element'] = el
+#             _safe_scroll_into_view(d, el)
+#         except Exception:
+#             raise  # Bubble up to runner.py which handles it

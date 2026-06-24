@@ -1,0 +1,52 @@
+=================================================================
+PATCH 12 — Web Templates Timezone Fix
+=================================================================
+
+The "When" column shows UTC time. To show local time:
+
+OPTION A: Quick fix in template (JavaScript)
+---------------------------------------------
+Find in apps/web/templates/dashboard.html and applications.html:
+    {{ row.applied_at }}
+
+REPLACE with:
+    <span class="local-time" data-utc="{{ row.applied_at }}">
+        {{ row.applied_at }}
+    </span>
+
+Then add this script before </body> in apps/web/templates/base.html:
+    <script>
+    document.querySelectorAll('.local-time').forEach(el => {
+        const utc = el.dataset.utc;
+        if (!utc) return;
+        const utcDate = new Date(utc.replace(' ', 'T') + 'Z');
+        const opts = {year:'numeric',month:'2-digit',day:'2-digit',
+                      hour:'2-digit',minute:'2-digit',second:'2-digit',
+                      hour12:false};
+        el.textContent = utcDate.toLocaleString('id-ID', opts);
+    });
+    </script>
+
+
+OPTION B: Backend fix in app.py
+--------------------------------
+Add helper in apps/web/app.py:
+    from datetime import datetime, timezone, timedelta
+    
+    @app.template_filter('local_time')
+    def local_time_filter(utc_str, tz_offset_hours=7):
+        if not utc_str:
+            return ''
+        try:
+            dt = datetime.fromisoformat(utc_str.replace('Z', '+00:00'))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            local = dt.astimezone(timezone(timedelta(hours=tz_offset_hours)))
+            return local.strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            return utc_str
+
+Then in templates change:
+    {{ row.applied_at }}
+to:
+    {{ row.applied_at | local_time(7) }}    # 7 for WIB (UTC+7)
