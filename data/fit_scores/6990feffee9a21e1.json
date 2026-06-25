@@ -1,0 +1,16 @@
+{
+  "score": 0,
+  "matched_skills": [],
+  "missing_skills": [
+    "Administrative support",
+    "Lease administration",
+    "Invoicing and basic accounting",
+    "Tenant communication",
+    "Filing and document management"
+  ],
+  "red_flags": [
+    "Complete career mismatch (Senior IT/Cloud Architect applying for an Administrative Executive role)"
+  ],
+  "reasoning": "The candidate is a highly specialized Senior IT Infrastructure Specialist and Cloud Architect, whereas the job description is for an Administrative Executive. There is no overlap between the candidate's technical expertise and the administrative, clerical, and lease management duties required for this role.",
+  "recommendation": "SKIP"
+}

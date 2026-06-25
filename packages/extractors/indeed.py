@@ -35,7 +35,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
     TimeoutException, NoSuchElementException,
     StaleElementReferenceException, ElementClickInterceptedException,
-    NoSuchFrameException,
+    NoSuchFrameException, ElementNotInteractableException,
 )
 
 from packages.extractors.base import BaseExtractor
@@ -193,16 +193,35 @@ REGION_HOST_ALIASES = {
     "great britain": "uk",
 }
 
+INDEED_REGION_KEYWORDS = {
+    "sg": ["singapore"],
+    "uk": ["uk", "united kingdom", "great britain", "london", "manchester", "birmingham"],
+    "de": ["germany", "deutschland", "berlin", "munich", "hamburg"],
+    "fr": ["france", "paris", "lyon"],
+    "ca": ["canada", "toronto", "vancouver", "montreal"],
+    "au": ["australia", "sydney", "melbourne", "brisbane"],
+    "in": ["india", "bangalore", "mumbai", "delhi", "hyderabad"],
+    "nl": ["netherlands", "amsterdam", "rotterdam"],
+    "ie": ["ireland", "dublin"],
+}
 
-def _resolve_indeed_base_url(region: str) -> str:
+
+def _resolve_indeed_base_url(region: str, search_location: str = "") -> str:
     raw = (region or "").strip().lower()
-    if not raw:
-        return "https://www.indeed.com"
+    location = (search_location or "").strip().lower()
+
+    if raw in {"", "auto", "global"}:
+        inferred = ""
+        for alias, keywords in INDEED_REGION_KEYWORDS.items():
+            if any(keyword in location for keyword in keywords):
+                inferred = alias
+                break
+        raw = inferred or "us"
 
     token = REGION_HOST_ALIASES.get(raw, raw)
     token = token.replace("https://", "").replace("http://", "").strip("/")
 
-    if token in {"indeed.com", "www.indeed.com", "www"}:
+    if token in {"indeed.com", "www.indeed.com", "www", "us"}:
         return "https://www.indeed.com"
     if token.endswith(".indeed.com"):
         return f"https://{token}"
@@ -238,7 +257,15 @@ class IndeedExtractor(BaseExtractor):
         self._answers_file = Path("data/answers.json")
         self._last_detection_failure = None
 
-        self.base_url = _resolve_indeed_base_url(config.get("region", ""))
+        search_cfg = config.get("search", {}) or {}
+        self.base_url = _resolve_indeed_base_url(
+            config.get("region", ""),
+            search_cfg.get("location", ""),
+        )
+        logger.info(f"Indeed base URL resolved to {self.base_url}")
+        self._last_search_time = 0.0
+        self.pause_current_run = False
+        self.pause_reason = ""
 
         if self.ai and _HAS_AI:
             try:
@@ -427,18 +454,35 @@ class IndeedExtractor(BaseExtractor):
 
     def search(self, filters: SearchFilters) -> None:
         """Navigate to Indeed search results page."""
+        self.pause_current_run = False
+        self.pause_reason = ""
         if not filters.queries:
-            return
+            return False
+        if self._last_search_time:
+            elapsed = time.time() - self._last_search_time
+            if elapsed < 15:
+                sleep_for = 15 - elapsed
+                logger.info(f"Indeed throttle: sleeping {sleep_for:.1f}s before next search")
+                time.sleep(sleep_for)
         q = filters.queries[0]
         url = self._build_search_url(q, filters)
         logger.info(f"Indeed search: {q} -> {url}")
         self.driver.get(url)
         human_sleep(3, 5)
+        self._last_search_time = time.time()
         if not handle_cloudflare_safely(self.driver, timeout=300, return_to_url=url):
-            logger.warning("Cloudflare challenge could not be cleared for this search - skipping query")
-            return
+            logger.warning("Cloudflare challenge could not be cleared for this search - pausing Indeed for this run")
+            self.pause_current_run = True
+            self.pause_reason = "Cloudflare challenge not cleared"
+            try:
+                self.driver.get(self.base_url)
+                human_sleep(2, 4)
+            except Exception:
+                pass
+            return False
 
         self._dismiss_search_overlay()
+        return True
 
     def _dismiss_search_overlay(self) -> None:
         """
@@ -484,6 +528,8 @@ class IndeedExtractor(BaseExtractor):
             return_to_url=self.driver.current_url,
         ):
             logger.warning("Could not clear Cloudflare on Indeed results page - returning no cards")
+            self.pause_current_run = True
+            self.pause_reason = "Cloudflare challenge persisted on results page"
             return []
         return collect_indeed_cards_v2(
             driver=self.driver,
@@ -504,6 +550,7 @@ class IndeedExtractor(BaseExtractor):
         """Click card and extract detail."""
         d = self.driver
         el = card.get("_element")
+        detail_url = card.get("url") or f"{self.base_url}/viewjob?jk={card['job_id']}"
 
         if el is None:
             el = self._refind_card_element(card["job_id"])
@@ -524,25 +571,48 @@ class IndeedExtractor(BaseExtractor):
                     except Exception:
                         pass
 
+        click_target = el
         if el is not None:
             try:
-                ActionChains(d).move_to_element(el).pause(0.2).click().perform()
-            except (ElementClickInterceptedException, StaleElementReferenceException):
+                if (el.tag_name or "").lower() not in {"a", "button"}:
+                    click_target = el.find_element(
+                        By.CSS_SELECTOR,
+                        "a[data-jk], h2.jobTitle a, a.jcs-JobTitle, a[href*='jk=']",
+                    )
+            except Exception:
+                click_target = el
+
+        clicked = False
+        if click_target is not None:
+            try:
+                d.execute_script("arguments[0].scrollIntoView({block:'center'});", click_target)
+                ActionChains(d).move_to_element(click_target).pause(0.2).click().perform()
+                clicked = True
+            except (
+                ElementClickInterceptedException,
+                StaleElementReferenceException,
+                ElementNotInteractableException,
+            ):
                 try:
-                    d.execute_script("arguments[0].click();", el)
+                    d.execute_script("arguments[0].click();", click_target)
+                    clicked = True
                 except Exception:
-                    pass
-        else:
-            d.get(f"{self.base_url}/viewjob?jk={card['job_id']}")
+                    clicked = False
+        if not clicked:
+            d.get(detail_url)
 
         human_sleep(2, 3.5)
 
-        title = card.get("title") or (self._safe_text(el, SELECTORS["job_card_title"]) if el is not None else "")
+        title = card.get("title") or (
+            self._safe_text(el, SELECTORS["job_card_title"]) if el is not None else ""
+        )
         if not title and el is not None:
             title = _extract_title_v2(el)
-        if not title:
-            title = self._safe_text(d, SELECTORS["detail_title"])
-        company = card["company"] or self._safe_text(d, SELECTORS["detail_company"])
+        detail_title = self._safe_text(d, SELECTORS["detail_title"])
+        if detail_title:
+            title = detail_title
+        company = card.get("company") or self._safe_text(d, SELECTORS["detail_company"])
+        location = card.get("location", "") or self._safe_text(d, SELECTORS["detail_location"])
 
         try:
             desc = WebDriverWait(d, 10).until(
@@ -556,10 +626,10 @@ class IndeedExtractor(BaseExtractor):
         return JobListing(
             platform=self.name,
             job_id=card["job_id"],
-            title=title,
+            title=title or f"Untitled indeed @ {company}" if company else "Untitled indeed",
             company=company,
-            location=card.get("location", ""),
-            url=f"{self.base_url}/viewjob?jk={card['job_id']}",
+            location=location,
+            url=detail_url,
             description=desc,
             salary=salary,
             is_easy_apply=is_easy,
@@ -567,9 +637,10 @@ class IndeedExtractor(BaseExtractor):
 
     def _refind_card_element(self, job_id):
         selectors = [
-            f"[data-jk='{job_id}']",
             f"a[data-jk='{job_id}']",
             f"a[href*='jk={job_id}']",
+            f"[data-jk='{job_id}']",
+            f"[data-testid='slider_item'] a[href*='jk={job_id}']",
         ]
         for selector in selectors:
             try:

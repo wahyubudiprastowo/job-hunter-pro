@@ -1,0 +1,22 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Identity & Access Management (IAM) concepts",
+    "Automation",
+    "Security policy enforcement",
+    "Version control (Git)"
+  ],
+  "missing_skills": [
+    "Okta administration",
+    "Kandji / Iru MDM",
+    "macOS fleet management",
+    "SaaS portfolio management (Slack, Google Workspace)",
+    "Joiner-Mover-Leaver (JML) workflows",
+    "YubiKey / FIDO2 deployment"
+  ],
+  "red_flags": [
+    "Role misalignment: Candidate is a Senior Cloud/DevOps Architect, whereas the role is a Corporate IT/Endpoint Systems Administrator."
+  ],
+  "reasoning": "The candidate is a highly experienced Cloud Architect and DevOps Specialist, which represents a significant misalignment with this Corporate IT Systems Administrator role. They lack direct experience with the core requirements of the role, specifically Okta IAM, macOS MDM (Kandji), and corporate SaaS administration.",
+  "recommendation": "SKIP"
+}

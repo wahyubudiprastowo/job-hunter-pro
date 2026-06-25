@@ -1,0 +1,22 @@
+{
+  "score": 10,
+  "matched_skills": [
+    "SSO",
+    "VPN"
+  ],
+  "missing_skills": [
+    "macOS support",
+    "Windows 11 support",
+    "JAMF",
+    "Microsoft Intune",
+    "Apple Business Manager",
+    "Deskside hardware support",
+    "Mobile Device Management (MDM)"
+  ],
+  "red_flags": [
+    "Extreme overqualification (Senior Cloud Architect applying for Desktop Support)",
+    "Complete mismatch of core domain (Cloud/DevOps vs. Helpdesk/Desktop Support)"
+  ],
+  "reasoning": "The candidate is a Senior Cloud Architect and DevOps Specialist, whereas the job description is for an on-site Mac/Desktop Support Engineer. There is almost no overlap in required skills, as the candidate lacks experience with macOS, JAMF, Intune, and deskside hardware support.",
+  "recommendation": "SKIP"
+}

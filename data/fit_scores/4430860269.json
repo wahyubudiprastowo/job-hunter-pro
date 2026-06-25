@@ -1,0 +1,19 @@
+{
+  "score": 62,
+  "matched_skills": [
+    "Microservices architecture",
+    "Cloud platforms (Azure)",
+    "DevOps and automation",
+    "Databases (PostgreSQL, MongoDB, Redis, SQL Server)",
+    "Scalable architectures"
+  ],
+  "missing_skills": [
+    "Experience in the banking or financial services industry",
+    "Application design principles and design patterns",
+    "Proficiency in programming languages (application development)",
+    "System architecture governance and standards"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate is a highly experienced Cloud Architect and Infrastructure Specialist with strong DevOps and Azure skills. However, the job description specifically requires experience in the banking/financial services industry and a strong focus on application design principles and programming languages, which are notable gaps in the candidate's infrastructure-heavy CV.",
+  "recommendation": "MAYBE"
+}

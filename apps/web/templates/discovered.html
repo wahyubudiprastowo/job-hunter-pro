@@ -39,11 +39,20 @@
         </form>
 
         <form method="post" action="{{ url_for('discovered_trigger') }}" style="display: inline;">
-          <input type="hidden" name="platforms" value="linkedin,indeed">
-          <input type="hidden" name="max_per_session" value="200">
+          <input type="hidden" name="platforms" value="glassdoor">
+          <input type="hidden" name="max_per_session" value="100">
+          <input type="hidden" name="scroll_depth" value="15">
+          <button type="submit" class="btn btn-warning btn-sm" {% if state == 'running' %}disabled{% endif %}>
+            <i class="bi bi-star"></i> Scrape Glassdoor (100)
+          </button>
+        </form>
+
+        <form method="post" action="{{ url_for('discovered_trigger') }}" style="display: inline;">
+          <input type="hidden" name="platforms" value="linkedin,indeed,glassdoor">
+          <input type="hidden" name="max_per_session" value="300">
           <input type="hidden" name="scroll_depth" value="15">
           <button type="submit" class="btn btn-success btn-sm" {% if state == 'running' %}disabled{% endif %}>
-            <i class="bi bi-globe2"></i> Scrape Both (200)
+            <i class="bi bi-globe2"></i> Scrape All Platforms (300)
           </button>
         </form>
 
@@ -60,7 +69,9 @@
           <select name="platforms" class="filter-select">
             <option value="linkedin">LinkedIn only</option>
             <option value="indeed">Indeed only</option>
-            <option value="linkedin,indeed">Both</option>
+            <option value="glassdoor">Glassdoor only</option>
+            <option value="linkedin,indeed">LinkedIn + Indeed</option>
+            <option value="linkedin,indeed,glassdoor">All platforms</option>
           </select>
         </div>
         <div>
@@ -110,7 +121,7 @@
   <div class="kpi-card purple">
     <div class="kpi-icon"><i class="bi bi-bullseye"></i></div>
     <div class="kpi-label">Avg Fit Score</div>
-    <div class="kpi-value">{{ stats.avg_fit_score if stats.avg_fit_score is not none else '—' }}</div>
+    <div class="kpi-value">{{ stats.avg_fit_score if stats.avg_fit_score is not none else '-' }}</div>
   </div>
 </div>
 
@@ -203,15 +214,15 @@
       <thead>
         <tr>
           <th style="width:40px;"></th>
-          <th>Title</th>
-          <th>Company</th>
-          <th>Location</th>
-          <th>Platform</th>
-          <th>Fit</th>
-          <th>Salary</th>
-          <th>Easy?</th>
-          <th>Status</th>
-          <th>Discovered</th>
+          <th><button type="button" class="table-sort-button" onclick="sortTableByColumn(1, 'text', this)">Title <span class="sort-indicator">↕</span></button></th>
+          <th><button type="button" class="table-sort-button" onclick="sortTableByColumn(2, 'text', this)">Company <span class="sort-indicator">↕</span></button></th>
+          <th><button type="button" class="table-sort-button" onclick="sortTableByColumn(3, 'text', this)">Location <span class="sort-indicator">↕</span></button></th>
+          <th><button type="button" class="table-sort-button" onclick="sortTableByColumn(4, 'text', this)">Platform <span class="sort-indicator">↕</span></button></th>
+          <th><button type="button" class="table-sort-button" onclick="sortTableByColumn(5, 'number', this)">Fit <span class="sort-indicator">↕</span></button></th>
+          <th><button type="button" class="table-sort-button" onclick="sortTableByColumn(6, 'number', this)">Salary <span class="sort-indicator">↕</span></button></th>
+          <th><button type="button" class="table-sort-button" onclick="sortTableByColumn(7, 'number', this)">Easy? <span class="sort-indicator">↕</span></button></th>
+          <th><button type="button" class="table-sort-button" onclick="sortTableByColumn(8, 'text', this)">Status <span class="sort-indicator">↕</span></button></th>
+          <th><button type="button" class="table-sort-button" onclick="sortTableByColumn(9, 'text', this)">Discovered <span class="sort-indicator">↕</span></button></th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -219,7 +230,7 @@
         {% for job in jobs %}
         <tr data-id="{{ job.id }}" data-title="{{ (job.title or '')|lower }}" data-company="{{ (job.company or '')|lower }}">
           <td><input type="checkbox" class="job-checkbox" value="{{ job.id }}" onchange="updateSelectedCount()"></td>
-          <td>
+          <td data-sort-value="{{ (job.title or '')|lower }}">
             {% if job.url %}
               <a href="{{ job.url }}" target="_blank" rel="noopener noreferrer" title="{{ job.title }}">{{ job.title|truncate(60) }}</a>
             {% else %}
@@ -229,28 +240,41 @@
               <i class="bi bi-info-circle text-muted ms-1" title="{{ job.fit_reasoning }}"></i>
             {% endif %}
           </td>
-          <td>{{ job.company|truncate(28) }}</td>
-          <td>{{ job.location|truncate(24) }}</td>
-          <td><span class="badge bg-secondary">{{ job.platform }}</span></td>
-          <td>
+          <td data-sort-value="{{ (job.company or '')|lower }}">{{ job.company|truncate(28) }}</td>
+          <td data-sort-value="{{ (job.location or '')|lower }}">{{ job.location|truncate(24) }}</td>
+          <td data-sort-value="{{ (job.platform or '')|lower }}"><span class="badge bg-secondary">{{ job.platform }}</span></td>
+          <td data-sort-value="{{ job.fit_score if job.fit_score is not none else -1 }}">
             {% if job.fit_score is not none %}
               <span class="fit-score {% if job.fit_score >= 80 %}fit-score-high{% elif job.fit_score >= 60 %}fit-score-mid{% else %}fit-score-low{% endif %}">
                 {{ job.fit_score }}
               </span>
             {% else %}
-              —
+              &mdash;
             {% endif %}
           </td>
-          <td><small>{{ job.salary or '—' }}</small></td>
-          <td>
+          <td data-sort-value="{{ job.salary or '' }}">
+            {% if job.salary %}
+              {% if job.salary.startswith('Est.') %}
+                <div class="salary-cell">
+                  <small>{{ job.salary }}</small>
+                  <span class="salary-estimate-badge">AI estimate</span>
+                </div>
+              {% else %}
+                <small>{{ job.salary }}</small>
+              {% endif %}
+            {% else %}
+              <small>&mdash;</small>
+            {% endif %}
+          </td>
+          <td data-sort-value="{{ 1 if job.is_easy_apply else 0 }}">
             {% if job.is_easy_apply %}
               <i class="bi bi-check-circle-fill text-success" title="Easy Apply"></i>
             {% else %}
               <i class="bi bi-x-circle text-muted" title="External"></i>
             {% endif %}
           </td>
-          <td><span class="badge badge-{{ job.status }}">{{ job.status|upper }}</span></td>
-          <td><small class="text-muted">{{ job.discovered_at_display or '—' }}</small></td>
+          <td data-sort-value="{{ (job.status or '')|lower }}"><span class="badge badge-{{ job.status }}">{{ job.status|upper }}</span></td>
+          <td data-sort-value="{{ job.discovered_at_display or '' }}"><small class="text-muted">{{ job.discovered_at_display or '-' }}</small></td>
           <td>
             <div class="d-flex gap-1">
               <form method="post" action="{{ url_for('discovered_action', job_id=job.id) }}" style="display:inline;">
@@ -301,6 +325,8 @@
 
 {% block scripts %}
 <script>
+let currentSort = { index: null, direction: 'asc' };
+
 function toggleSelectAll(checkbox) {
   document.querySelectorAll('.job-checkbox').forEach(cb => {
     cb.checked = checkbox.checked;
@@ -333,6 +359,48 @@ function filterRows() {
   });
 }
 
+function parseSortValue(value, type) {
+  if (type === 'number') {
+    const normalized = String(value || '').replace(/[^0-9.,-]/g, '').replace(/,/g, '');
+    const match = normalized.match(/-?\d+(?:\.\d+)?/);
+    return match ? Number(match[0]) : -1;
+  }
+  return String(value || '').toLowerCase();
+}
+
+function sortTableByColumn(index, type, button) {
+  const tbody = document.querySelector('#jobs-table tbody');
+  if (!tbody) return;
+
+  const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+  if (!rows.length) return;
+
+  const nextDirection =
+    currentSort.index === index && currentSort.direction === 'asc' ? 'desc' : 'asc';
+  currentSort = { index, direction: nextDirection };
+
+  rows.sort((a, b) => {
+    const aCell = a.children[index];
+    const bCell = b.children[index];
+    const aValue = parseSortValue(aCell?.dataset.sortValue ?? aCell?.innerText ?? '', type);
+    const bValue = parseSortValue(bCell?.dataset.sortValue ?? bCell?.innerText ?? '', type);
+
+    if (aValue < bValue) return nextDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return nextDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  rows.forEach(row => tbody.appendChild(row));
+
+  document.querySelectorAll('.table-sort-button .sort-indicator').forEach(icon => {
+    icon.textContent = '↕';
+  });
+  const indicator = button?.querySelector('.sort-indicator');
+  if (indicator) {
+    indicator.textContent = nextDirection === 'asc' ? '↑' : '↓';
+  }
+}
+
 function showScheduleModal(ids) {
   document.getElementById('schedule-ids').value = ids;
   document.getElementById('schedule-modal').style.display = 'block';
@@ -357,4 +425,46 @@ function toggleCustomScan() {
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
 </script>
+<style>
+.table-sort-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.table-sort-button:hover {
+  color: var(--color-primary);
+}
+
+.sort-indicator {
+  display: inline-block;
+  min-width: 14px;
+  margin-left: 4px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.salary-cell {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.salary-estimate-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+</style>
 {% endblock %}

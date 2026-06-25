@@ -1,0 +1,15 @@
+{
+  "score": 5,
+  "matched_skills": [],
+  "missing_skills": [
+    "Executive Assistant experience",
+    "Meeting coordination and minutes-taking",
+    "Filing and archiving",
+    "Administrative and HR support"
+  ],
+  "red_flags": [
+    "Extreme overqualification (Senior Cloud Architect with 8 years of deep technical experience applying for an entry-level administrative role)"
+  ],
+  "reasoning": "The candidate is a highly specialized Senior IT Infrastructure Specialist and Cloud Architect, whereas the job is an administrative Executive Assistant role. There is a complete mismatch in skills, experience level, and career alignment.",
+  "recommendation": "SKIP"
+}

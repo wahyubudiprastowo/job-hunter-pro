@@ -1,0 +1,20 @@
+{
+  "score": 80,
+  "matched_skills": [
+    "CI/CD",
+    "DevOps",
+    "Infrastructure Automation",
+    "Git",
+    "Version Control",
+    "Troubleshooting",
+    "Documentation & Runbooks",
+    "Incident Handling"
+  ],
+  "missing_skills": [
+    "Monorepo design and governance",
+    "Java ecosystem support"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate is a highly experienced Senior Infrastructure and DevOps Specialist with strong expertise in CI/CD pipelines, Git workflows, and automation. While they lack explicit experience in monorepo governance and Java-specific tooling mentioned in the JD, their deep technical background in platform engineering makes them a strong fit for this enablement-focused DevOps role.",
+  "recommendation": "APPLY"
+}

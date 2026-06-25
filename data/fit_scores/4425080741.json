@@ -1,0 +1,21 @@
+{
+  "score": 55,
+  "matched_skills": [
+    "Linux",
+    "High Availability (HA)",
+    "Disaster Recovery (DR)",
+    "Data Center Migration",
+    "Infrastructure Optimization"
+  ],
+  "missing_skills": [
+    "WebSphere",
+    "WebLogic",
+    "Tomcat",
+    "Enterprise Application Architecture"
+  ],
+  "red_flags": [
+    "Candidate's background is primarily in Cloud/Infrastructure and DevOps rather than Software/Application Architecture."
+  ],
+  "reasoning": "The candidate is a strong Cloud/Infrastructure Architect with solid experience in Linux, HA/DR, and migrations. However, the role requires a Software Architect with specific experience in enterprise application and middleware platforms like WebSphere, WebLogic, and Tomcat, which are missing from the candidate's profile.",
+  "recommendation": "MAYBE"
+}

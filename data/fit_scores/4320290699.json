@@ -1,0 +1,18 @@
+{
+  "score": 78,
+  "matched_skills": [
+    "IT infrastructure design",
+    "Cloud computing",
+    "Networking",
+    "System architecture",
+    "Technical documentation"
+  ],
+  "missing_skills": [
+    "Pre-sales support",
+    "Technical proposal writing",
+    "Client-facing consultation"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate has 8 years of strong technical experience in cloud architecture and IT infrastructure, which easily covers the technical design aspects of the role. However, the job description has a strong pre-sales and consultative focus (creating proposals, supporting sales, presenting to clients) which is not explicitly detailed in the candidate's hands-on engineering CV.",
+  "recommendation": "APPLY"
+}

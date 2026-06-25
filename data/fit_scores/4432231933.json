@@ -1,0 +1,25 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Kubernetes",
+    "Docker",
+    "CI/CD",
+    "Cloud-Native",
+    "Git",
+    "DevOps"
+  ],
+  "missing_skills": [
+    "Java",
+    "Spring Boot / Quarkus / Micronaut",
+    "Maven",
+    "Kubernetes Operators & CRDs",
+    "Dutch language proficiency",
+    "Test Driven Development (TDD)"
+  ],
+  "red_flags": [
+    "No Java development experience (JD requires an experienced Java Developer)",
+    "Language barrier: Candidate is based in Indonesia and likely does not speak Dutch, which is required for the role"
+  ],
+  "reasoning": "The candidate is a strong Cloud/Infrastructure Specialist with excellent Kubernetes and DevOps experience, but the role specifically requires an experienced Java Developer to build platform tools. The candidate lacks Java, Maven, and Java framework experience, and does not meet the Dutch language requirement.",
+  "recommendation": "SKIP"
+}

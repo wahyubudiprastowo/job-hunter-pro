@@ -1,0 +1,17 @@
+{
+  "score": 5,
+  "matched_skills": [],
+  "missing_skills": [
+    "Singapore Residency/Permanent Residency (Pink/Blue NRIC)",
+    "Office management experience",
+    "Executive secretarial experience",
+    "Calendar management",
+    "Administrative support"
+  ],
+  "red_flags": [
+    "Candidate is based in Indonesia, but the job strictly requires Singapore Residents/PRs (Pink/Blue NRIC).",
+    "Complete career mismatch: Candidate is a Senior Cloud Architect/IT Specialist, while the job is for an Admin Coordinator."
+  ],
+  "reasoning": "The candidate is a highly technical IT Infrastructure Specialist based in Indonesia, whereas the role is a local Singapore-based administrative position requiring residency. There is a complete mismatch in both legal eligibility and professional skill sets.",
+  "recommendation": "SKIP"
+}

@@ -1,0 +1,26 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Linux",
+    "Docker",
+    "Kubernetes",
+    "Azure",
+    "Terraform",
+    "Git",
+    "GitLab CI",
+    "Jenkins",
+    "Prometheus",
+    "Grafana",
+    "ELK",
+    "Ansible",
+    "Networking",
+    "Security"
+  ],
+  "missing_skills": [],
+  "red_flags": [
+    "Candidate is located in Jakarta, Indonesia, whereas the job requires hybrid work in Milan, Italy",
+    "The daily rate of 250€ for a freelance contract is highly unlikely to support international relocation"
+  ],
+  "reasoning": "Technically, the candidate is an outstanding match with over 8 years of experience covering almost all must-have and nice-to-have requirements. However, the role requires hybrid attendance in Milan, Italy, making it logistically impossible for a candidate based in Indonesia.",
+  "recommendation": "SKIP"
+}

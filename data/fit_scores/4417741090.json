@@ -1,0 +1,24 @@
+{
+  "score": 30,
+  "matched_skills": [
+    "VMware",
+    "Hyper-V",
+    "Microsoft Azure",
+    "Monitoring tools"
+  ],
+  "missing_skills": [
+    "Windows Server administration",
+    "Active Directory (GPO, trusts)",
+    "DNS/DHCP/DFS/WSUS",
+    "French language (C1)",
+    "PowerShell",
+    "Veeam/Commvault"
+  ],
+  "red_flags": [
+    "Candidate is based in Indonesia while the role requires 3-4 days onsite in Lille, France",
+    "No indication of French language proficiency (C1 required)",
+    "Candidate's core expertise is in Linux, DevOps, and Cloud Architecture rather than Windows System Administration"
+  ],
+  "reasoning": "While the candidate has strong infrastructure experience with Azure and virtualization (VMware/Hyper-V), their profile is heavily focused on Linux and DevOps. They lack the required depth in Windows Server administration, Active Directory, and Windows-specific tooling, and do not meet the location or French language requirements.",
+  "recommendation": "SKIP"
+}

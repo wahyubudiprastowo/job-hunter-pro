@@ -1,0 +1,20 @@
+{
+  "score": 45,
+  "matched_skills": [
+    "Cloud Architecture",
+    "CI/CD",
+    "Technical Leadership",
+    "Infrastructure as Code"
+  ],
+  "missing_skills": [
+    "Full-stack development",
+    "Generative AI integration",
+    "GitHub Copilot / AI-assisted coding"
+  ],
+  "red_flags": [
+    "Candidate is an Infrastructure/DevOps specialist, not a Full-Stack Developer as required",
+    "No mentioned experience with AI/Generative AI tools"
+  ],
+  "reasoning": "The candidate is a highly skilled IT Infrastructure and DevOps Specialist, but the role demands a Forward Deployed Engineer with full-stack development expertise and a strong focus on AI-native engineering. The lack of application development experience and Generative AI familiarity represents a significant gap.",
+  "recommendation": "SKIP"
+}

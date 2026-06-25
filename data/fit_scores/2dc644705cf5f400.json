@@ -1,0 +1,17 @@
+{
+  "score": 5,
+  "matched_skills": [],
+  "missing_skills": [
+    "Prior admin experience",
+    "Data entry",
+    "Mail distribution",
+    "Claims processing",
+    "Invoice posting"
+  ],
+  "red_flags": [
+    "Candidate is vastly overqualified (Senior Cloud Architect vs. Temp Data Entry)",
+    "Location mismatch (Candidate is based in Indonesia, job is in Singapore)"
+  ],
+  "reasoning": "The candidate is a highly specialized Senior Cloud Architect with 8 years of experience, making them extremely overqualified for this entry-level temporary data entry role. There is no alignment between the candidate's technical IT infrastructure skillset and the administrative tasks required by the job.",
+  "recommendation": "SKIP"
+}

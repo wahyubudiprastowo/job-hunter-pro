@@ -1,0 +1,25 @@
+{
+  "score": 15,
+  "matched_skills": [
+    "GitLab",
+    "Jenkins",
+    "Linux environments",
+    "Infrastructure as Code",
+    "Ansible",
+    "Firewalling"
+  ],
+  "missing_skills": [
+    "Dutch nationality (mandatory)",
+    "Strong Python development skills (OOP and functional programming)",
+    "Maven",
+    "Jira",
+    "OSPF",
+    "Multicast"
+  ],
+  "red_flags": [
+    "Candidate does not possess the mandatory Dutch nationality required for the defence sector role.",
+    "Candidate is an Infrastructure/DevOps specialist and lacks the required Python software development experience."
+  ],
+  "reasoning": "The candidate is a strong Cloud Infrastructure Specialist but is a poor fit for this Software Engineer role. Crucially, they lack the mandatory Dutch nationality and do not list Python or Maven, which are core requirements for the position.",
+  "recommendation": "SKIP"
+}

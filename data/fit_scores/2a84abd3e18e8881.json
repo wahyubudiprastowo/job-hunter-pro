@@ -1,0 +1,18 @@
+{
+  "score": 62,
+  "matched_skills": [
+    "Linux/Unix administration",
+    "Virtualization tools (VMware, Hyper-V)",
+    "Network technologies (TCP/IP)",
+    "Infrastructure operations",
+    "Monitoring and observability (Prometheus, Grafana)"
+  ],
+  "missing_skills": [
+    "C++/Python programming",
+    "Development of distributed systems",
+    "Classical algorithms and data structures"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate has a strong background in Linux system administration, virtualization, networking, and infrastructure operations. However, the role requires software development capabilities in C++ or Python to help build and develop custom distributed systems, whereas the candidate's experience is primarily focused on DevOps tooling, cloud infrastructure, and scripting (Bash).",
+  "recommendation": "MAYBE"
+}

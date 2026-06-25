@@ -12,17 +12,17 @@ platforms:
     search:
       # PATCH 11: De-duplicated, prioritized queries
       queries:
-        - "Cloud Infrastructure Engineer"
-        - "Azure Cloud Engineer"
-        - "Azure DevOps Engineer"
         - "IT Infrastructure Specialist"
         - "Senior System Administrator"
         - "Linux System Administrator"
-        - "Cloud Platform Engineer"
+        - "Cloud Infrastructure Engineer"
         - "Hybrid Cloud Engineer"
+        - "Azure Cloud Engineer"
+        - "Azure DevOps Engineer"
+        - "Cloud Platform Engineer"
         - "Site Reliability Engineer"
         - "Platform Engineer"
-      location: "europan union"
+      location: "European Union"
       remote: true
       hybrid: true
       date_posted: "past_week"
@@ -33,23 +33,82 @@ platforms:
       easy_apply_only: true
 
   indeed:
-    enabled: false   # PATCH 22: keep off until credentials + first manual login/captcha verification
-    max_apply_per_run: 50
-    scroll_count: 15
-    region: "global"      # use global Indeed domain; target market comes from search.location
+    enabled: true   # PATCH 22: keep off until credentials + first manual login/captcha verification
+    max_apply_per_run: 10
+    scroll_count: 8
+    query_limit_per_run: 5
+    discovery_max_per_session: 20
+    region: "auto"      # auto-detect subdomain from search.location, e.g. Singapore -> sg.indeed.com
+    title_gate:
+      enabled: true
+      positive_hints:
+        - "cloud"
+        - "devops"
+        - "platform"
+        - "site reliability"
+        - "sre"
+        - "infrastructure"
+        - "linux"
+        - "linux engineer"
+        - "system administrator"
+        - "systems engineer"
+        - "azure"
+        - "aws"
+        - "kubernetes"
+        - "architect"
+      negative_hints:
+        - "data entry"
+        - "administrative"
+        - "admin coordinator"
+        - "bank admin"
+        - "executive assistant"
+        - "assistant"
+        - "coordinator"
+        - "secretary"
+        - "receptionist"
+        - "desktop support"
+        - "helpdesk"
+        - "mac support"
+        - "customer service"
+        - "hr support"
+        - "scanning"
     search:
       queries:
         - "Cloud Infrastructure Engineer"
         - "Azure Cloud Engineer"
-        - "Azure DevOps Engineer"
-        - "IT Infrastructure Specialist"
-        - "Senior System Administrator"
-        - "Linux System Administrator"
+        - "Azure Engineer"
         - "Cloud Platform Engineer"
-        - "Hybrid Cloud Engineer"
         - "Site Reliability Engineer"
         - "Platform Engineer"
       location: "singapore"
+      remote: true
+      hybrid: true
+      date_posted: "past_week"
+      experience_levels:
+        - "Mid level"
+        - "Senior level"
+      job_type: "Full-time"
+      easy_apply_only: true
+
+  glassdoor:
+    enabled: true
+    max_apply_per_run: 5
+    scroll_count: 8
+    region: "auto"
+    login_method: "auto"   # rekomendasi: pakai session/profile dulu, fallback ke email bila perlu
+    search:
+      queries:
+        - "IT Infrastructure Specialist"
+        - "Senior System Administrator"
+        - "Linux System Administrator"
+        - "Cloud Infrastructure Engineer"
+        - "Hybrid Cloud Engineer"
+        - "Azure Cloud Engineer"
+        - "Azure DevOps Engineer"
+        - "Cloud Platform Engineer"
+        - "Site Reliability Engineer"
+        - "Platform Engineer"
+      location: "Singapore"
       remote: true
       hybrid: true
       date_posted: "past_week"
@@ -165,6 +224,8 @@ ai:
   cover_letter_strict: true    # PATCH 11: false for tolerance
   cover_letter_output_dir: "cover_letters/generated"
   fit_scoring: true
+  salary_estimation: true
+  salary_estimation_output_dir: "data/salary_estimates"
 
   provider: "omnirouter"
   model: "antigravity/gemini-3.5-flash-medium"

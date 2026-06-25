@@ -1,0 +1,26 @@
+{
+  "score": 40,
+  "matched_skills": [
+    "Cloud environments",
+    "System administration",
+    "CI/CD pipelines",
+    "Infrastructure orchestration"
+  ],
+  "missing_skills": [
+    "Python",
+    "API development",
+    "LLMs",
+    "RAG",
+    "Vector databases",
+    "Machine Learning",
+    "GPU environment administration",
+    "AI model operationalization"
+  ],
+  "red_flags": [
+    "No Python experience listed in CV",
+    "No AI/ML or LLM experience",
+    "Primarily an infrastructure/DevOps specialist rather than a backend/AI engineer"
+  ],
+  "reasoning": "The candidate is a highly experienced Cloud and Infrastructure Specialist with strong DevOps and Kubernetes skills, but lacks the required Python programming and API development experience. Furthermore, they have no exposure to AI/ML technologies, LLMs, RAG, or GPU environment management, which are central to this AI Platform Engineer role.",
+  "recommendation": "SKIP"
+}

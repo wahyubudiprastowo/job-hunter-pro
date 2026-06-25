@@ -13,6 +13,7 @@ import json
 import time
 import atexit
 import threading
+import re
 import yaml
 from pathlib import Path
 from dotenv import load_dotenv
@@ -26,6 +27,7 @@ from packages.core.models import (
 from packages.core.filters import (
     title_passes, description_passes, company_passes, salary_passes
 )
+from packages.core.discovery_filter_helper import should_apply_filter
 from packages.storage import db as store
 from packages.storage import discovered_jobs as discovered_store
 from packages.storage.answers import (
@@ -40,11 +42,19 @@ except ImportError:
     _HAS_INDEED = False
 
 try:
+    from packages.extractors.glassdoor import GlassdoorExtractor
+    _HAS_GLASSDOOR = True
+except ImportError:
+    GlassdoorExtractor = None
+    _HAS_GLASSDOOR = False
+
+try:
     from packages.ai.provider import AIProvider
     from packages.ai.cv_extractor import extract_cv_text
     from packages.ai.resume_tailor import generate_tailored_resume
     from packages.ai.cover_letter import generate_cover_letter
     from packages.ai.scorer import calculate_fit_score, log_fit_score
+    from packages.ai.salary_estimator import estimate_salary_range
     _HAS_AI = True
 except ImportError:
     AIProvider = None
@@ -53,6 +63,7 @@ except ImportError:
     generate_cover_letter = None
     calculate_fit_score = None
     log_fit_score = None
+    estimate_salary_range = None
     _HAS_AI = False
 
 try:
@@ -125,10 +136,53 @@ EXTRACTOR_REGISTRY = {
 
 if _HAS_INDEED:
     EXTRACTOR_REGISTRY["indeed"] = IndeedExtractor
+if _HAS_GLASSDOOR:
+    EXTRACTOR_REGISTRY["glassdoor"] = GlassdoorExtractor
 
 
 def load_config(path: str = "config.yaml") -> dict:
     return yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+
+
+def _normalize_title_gate_text(value: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9+/#.-]+", " ", (value or "").lower())).strip()
+
+
+def _indeed_title_gate(job, query: str, config: dict) -> tuple[bool, str]:
+    title_gate_cfg = (((config.get("platforms", {}) or {}).get("indeed", {}) or {}).get("title_gate", {}) or {})
+    if not title_gate_cfg.get("enabled", False):
+        return True, ""
+
+    normalized_title = _normalize_title_gate_text(getattr(job, "title", "") or "")
+    normalized_query = _normalize_title_gate_text(query or "")
+    if not normalized_title:
+        return False, "indeed title gate: empty title"
+
+    negative_hints = [
+        _normalize_title_gate_text(item)
+        for item in title_gate_cfg.get("negative_hints", [])
+        if _normalize_title_gate_text(item)
+    ]
+    for hint in negative_hints:
+        if hint in normalized_title:
+            return False, f"indeed title gate: matched negative hint '{hint}'"
+
+    positive_hints = [
+        _normalize_title_gate_text(item)
+        for item in title_gate_cfg.get("positive_hints", [])
+        if _normalize_title_gate_text(item)
+    ]
+
+    query_tokens = [
+        token for token in normalized_query.split()
+        if token not in {"engineer", "senior", "lead", "remote", "hybrid"}
+    ]
+    query_matched = any(token and token in normalized_title for token in query_tokens)
+    positive_matched = any(hint in normalized_title for hint in positive_hints)
+
+    if query_matched or positive_matched:
+        return True, ""
+    return False, "indeed title gate: title does not match cloud/devops hints"
 
 
 def _heartbeat_thread(stop_event: threading.Event):
@@ -327,6 +381,12 @@ def run_bot(config_path: str = "config.yaml"):
     if fit_scoring_enabled:
         logger.success(f"🎯 Fit scoring ENABLED — threshold: {fit_threshold}")
 
+    salary_estimation_enabled = bool(
+        ai_cfg.get("salary_estimation", False) and ai_provider and estimate_salary_range
+    )
+    if salary_estimation_enabled:
+        logger.success("💰 Salary estimation ENABLED for jobs with missing salary")
+
     captcha_solver = None
     if _HAS_CAPTCHA_SOLVER and CaptchaSolver:
         try:
@@ -425,6 +485,7 @@ def run_bot(config_path: str = "config.yaml"):
 
             platform_applied = 0
             platform_skipped = 0
+            platform_discovered = 0
             platform_final_state = "idle"
             platform_final_extra = {}
             extractor = None
@@ -577,6 +638,10 @@ def run_bot(config_path: str = "config.yaml"):
 
             stop_platform_processing = False
             query_sequence = ["__apply_queue__"] if queued_cards else search_cfg["queries"]
+            if (not queued_cards) and discovery_mode:
+                query_limit = int(pcfg.get("query_limit_per_run", 0) or 0)
+                if query_limit > 0:
+                    query_sequence = query_sequence[:query_limit]
             for query in query_sequence:
                 if stop_platform_processing or counters["applied"] >= run_cap:
                     break
@@ -602,13 +667,39 @@ def run_bot(config_path: str = "config.yaml"):
                         easy_apply_only=search_cfg.get("easy_apply_only", True),
                     )
                     try:
-                        extractor.search(filters)
+                        search_ok = extractor.search(filters)
+                        if search_ok is False:
+                            if getattr(extractor, "pause_current_run", False):
+                                note = getattr(extractor, "pause_reason", "platform paused for this run")
+                                logger.warning(f"{platform_name} paused for this run: {note}")
+                                if _tracker:
+                                    _tracker.add_activity(f"{platform_name.upper()} paused", "warning")
+                                    _tracker.add_log(f"{platform_name.upper()}: paused - {note}")
+                                platform_final_state = "paused"
+                                platform_final_extra = {"note": note}
+                                stop_platform_processing = True
+                                break
+                            continue
+                        discovery_cap = int(discovery_cfg.get("max_per_session", 100) or 100)
+                        platform_discovery_cap = int(
+                            pcfg.get("discovery_max_per_session", discovery_cap) or discovery_cap
+                        )
                         max_cards = (
-                            int(discovery_cfg.get("max_per_session", 100) or 100)
+                            min(discovery_cap, platform_discovery_cap)
                             if discovery_mode
                             else pcfg["max_apply_per_run"] * 3
                         )
                         cards = extractor.collect_job_cards(max_cards=max_cards)
+                        if not cards and getattr(extractor, "pause_current_run", False):
+                            note = getattr(extractor, "pause_reason", "platform paused for this run")
+                            logger.warning(f"{platform_name} paused for this run: {note}")
+                            if _tracker:
+                                _tracker.add_activity(f"{platform_name.upper()} paused", "warning")
+                                _tracker.add_log(f"{platform_name.upper()}: paused - {note}")
+                            platform_final_state = "paused"
+                            platform_final_extra = {"note": note}
+                            stop_platform_processing = True
+                            break
                     except Exception as e:
                         logger.exception(f"{platform_name} search failed for '{query}': {e}")
                         if _tracker:
@@ -636,7 +727,7 @@ def run_bot(config_path: str = "config.yaml"):
                         )
                         _tracker.set_step("Filtering", 10)
 
-                    if not queue_item:
+                    if should_apply_filter("company_blacklist", discovery_mode, queue_item):
                         ok, reason = company_passes(card["company"],
                             config["filters"]["company_blacklist"])
                         if not ok:
@@ -645,6 +736,7 @@ def run_bot(config_path: str = "config.yaml"):
                             platform_skipped += 1
                             _sync_run_progress()
                             continue
+                    if should_apply_filter("title_keywords", discovery_mode, queue_item):
                         ok, reason = title_passes(card["title"],
                             config["filters"]["title_keywords_include"],
                             config["filters"]["title_keywords_exclude"])
@@ -679,7 +771,16 @@ def run_bot(config_path: str = "config.yaml"):
                         _sync_run_progress()
                         continue
 
-                    if not queue_item:
+                    if platform_name == "indeed" and discovery_mode:
+                        ok, reason = _indeed_title_gate(job, query, config)
+                        if not ok:
+                            logger.info(f"Indeed title gate rejected [{job.title} @ {job.company}]: {reason}")
+                            counters["skipped"] += 1
+                            platform_skipped += 1
+                            _sync_run_progress()
+                            continue
+
+                    if should_apply_filter("description_keywords_exclude", discovery_mode, queue_item):
                         ok, reason = description_passes(job.description,
                             config["filters"]["description_keywords_exclude"])
                         if not ok:
@@ -688,6 +789,7 @@ def run_bot(config_path: str = "config.yaml"):
                             platform_skipped += 1
                             _sync_run_progress()
                             continue
+                    if should_apply_filter("min_salary", discovery_mode, queue_item):
                         ok, reason = salary_passes(job.salary, config["filters"]["min_salary"])
                         if not ok:
                             _record_skip_full(job, SkipReason.SALARY_TOO_LOW, reason)
@@ -776,6 +878,18 @@ def run_bot(config_path: str = "config.yaml"):
                             logger.warning(f"Fit scoring failed: {e}")
 
                     if discovery_mode:
+                        salary_value = job.salary
+                        if salary_estimation_enabled and not (salary_value or "").strip():
+                            try:
+                                salary_estimate = estimate_salary_range(
+                                    ai_provider,
+                                    job,
+                                    cache_dir=ai_cfg.get("salary_estimation_output_dir", "data/salary_estimates"),
+                                )
+                                if salary_estimate:
+                                    salary_value = salary_estimate
+                            except Exception as e:
+                                logger.warning(f"Salary estimation failed: {e}")
                         discovered_status = discovered_store.STATUS_DISCOVERED
                         auto_threshold = int(discovery_cfg.get("auto_apply_threshold", 90) or 90)
                         auto_skip_threshold = int(discovery_cfg.get("auto_skip_threshold", 30) or 30)
@@ -795,7 +909,7 @@ def run_bot(config_path: str = "config.yaml"):
                             "location": job.location,
                             "url": job.url,
                             "description": job.description,
-                            "salary": job.salary,
+                            "salary": salary_value,
                             "fit_score": score_value,
                             "fit_reasoning": reasoning_value,
                             "is_easy_apply": job.is_easy_apply,
@@ -804,13 +918,24 @@ def run_bot(config_path: str = "config.yaml"):
                         })
                         if discovered_id:
                             counters["discovered"] += 1
+                            platform_discovered += 1
                             logger.info(
                                 f"Discovered [{job.title} @ {job.company}]"
                                 f" status={discovered_status}"
                                 f" fit={score_value if score_value is not None else '-'}"
                             )
-                        if counters["discovered"] >= int(discovery_cfg.get("max_per_session", 100) or 100):
+                        discovery_cap = int(discovery_cfg.get("max_per_session", 100) or 100)
+                        platform_discovery_cap = int(
+                            pcfg.get("discovery_max_per_session", discovery_cap) or discovery_cap
+                        )
+                        if counters["discovered"] >= discovery_cap:
                             logger.info(f"Discovery cap reached ({counters['discovered']})")
+                            stop_platform_processing = True
+                        elif platform_discovered >= platform_discovery_cap:
+                            logger.info(
+                                f"{platform_name} discovery cap reached "
+                                f"({platform_discovered}/{platform_discovery_cap})"
+                            )
                             stop_platform_processing = True
                         _sync_run_progress()
                         continue

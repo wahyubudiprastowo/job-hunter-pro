@@ -1,0 +1,22 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Linux system administration",
+    "Access control / IAM concepts",
+    "Troubleshooting",
+    "Incident response"
+  ],
+  "missing_skills": [
+    "End-user desktop support",
+    "IT procurement and RFQ management",
+    "Asset and inventory management",
+    "Printer and peripheral support",
+    "Client PC environment management (Windows/macOS)"
+  ],
+  "red_flags": [
+    "Extreme overqualification (Senior Cloud Architect applying for a local IT Support/Helpdesk role)",
+    "Lack of recent desktop support and helpdesk experience"
+  ],
+  "reasoning": "The candidate is a Senior Cloud Architect and Infrastructure Specialist with 8 years of experience in Kubernetes, Azure, and DevOps. The job description is for a local IT Supporter focusing on desktop support, printer setup, asset management, and procurement, representing a significant mismatch in career level and daily responsibilities.",
+  "recommendation": "SKIP"
+}

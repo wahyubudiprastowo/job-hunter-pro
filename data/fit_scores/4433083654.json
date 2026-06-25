@@ -1,0 +1,16 @@
+{
+  "score": 85,
+  "matched_skills": [
+    "Azure",
+    "Kubernetes / AKS",
+    "CI/CD",
+    "Infrastructure as Code (Terraform)",
+    "Scalable systems"
+  ],
+  "missing_skills": [],
+  "red_flags": [
+    "Geographic location mismatch (Candidate is based in Jakarta, Indonesia, while the job is a hybrid role in Capelle aan den IJssel, Netherlands)"
+  ],
+  "reasoning": "The candidate is technically overqualified, possessing 8 years of experience with Azure, AKS, Terraform, and CI/CD compared to the 2 years requested. However, the hybrid location requirement in the Netherlands represents a major logistical gap for an international candidate.",
+  "recommendation": "MAYBE"
+}

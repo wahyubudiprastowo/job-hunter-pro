@@ -1,0 +1,22 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Virtualization (VMware/Hyper-V)",
+    "Network administration",
+    "Server administration",
+    "Technical documentation"
+  ],
+  "missing_skills": [
+    "Microsoft SCCM / Endpoint Management",
+    "Windows Client administration",
+    "Active Directory & Group Policies (GPOs)",
+    "German language proficiency"
+  ],
+  "red_flags": [
+    "Candidate is based in Indonesia, while the job is hybrid in Halberstadt, Germany",
+    "No German language skills indicated for a German-speaking role",
+    "Significant role mismatch (Senior Cloud/DevOps Architect vs. Mid-level Windows Client/SysAdmin)"
+  ],
+  "reasoning": "The candidate is a senior-level Cloud Architect and DevOps Specialist, which is a mismatch for this mid-level Windows System Administrator role focused on client management and SCCM. Furthermore, the candidate is located in Indonesia and does not list the German language skills required for this Germany-based, hybrid position.",
+  "recommendation": "SKIP"
+}

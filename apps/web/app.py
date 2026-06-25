@@ -368,11 +368,16 @@ def _normalize_discovered_row(row: dict) -> dict:
     company = (normalized.get("company") or "").strip()
     job_id = str(normalized.get("job_id") or "").strip()
     platform = (normalized.get("platform") or "").strip().lower()
+    synthetic_prefix = f"{platform.upper()} job " if platform else ""
+    if synthetic_prefix and title.startswith(synthetic_prefix):
+        title = ""
     if not title:
         if company and job_id:
-            title = f"{platform.upper() or 'JOB'} job {job_id} @ {company}"
+            title = f"Untitled {platform or 'job'} @ {company}"
         elif job_id:
-            title = f"{platform.upper() or 'JOB'} job {job_id}"
+            title = f"Untitled {platform or 'job'}"
+        elif company:
+            title = f"Untitled job @ {company}"
         else:
             title = "Untitled job"
     normalized["title"] = title
@@ -491,6 +496,11 @@ def settings():
         return redirect(url_for("dashboard"))
 
 
+@app.route("/settings/profiles")
+def settings_profiles():
+    return redirect(url_for("settings", section="profiles"))
+
+
 @app.route("/settings/notifications")
 def settings_notifications():
     return redirect(url_for("settings", section="credentials"))
@@ -499,7 +509,7 @@ def settings_notifications():
 @app.route("/settings/profiles/reset/<platform>", methods=["POST"])
 def settings_profile_reset(platform):
     platform = (platform or "").strip().lower()
-    if platform not in ("linkedin", "indeed"):
+    if platform not in ("linkedin", "indeed", "glassdoor"):
         flash(f"Unknown platform: {platform}")
         return redirect(url_for("settings", section="profiles"))
 
@@ -699,6 +709,13 @@ def discovered_trigger():
     if not platforms:
         flash("No platforms selected for discovery.")
         return redirect(url_for("discovered"))
+
+    # Discovery must always start in scrape/curation mode, not resume a stale apply queue.
+    queue_path = Path("data/.control/apply_queue.json")
+    try:
+        queue_path.unlink(missing_ok=True)
+    except Exception:
+        pass
 
     try:
         max_per_session = max(1, min(500, int(request.form.get("max_per_session", "100"))))

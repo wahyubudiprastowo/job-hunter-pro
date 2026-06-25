@@ -1,0 +1,22 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Enterprise IT Solutions",
+    "Virtualization",
+    "Networking",
+    "Cloud Architecture"
+  ],
+  "missing_skills": [
+    "Technical Presales",
+    "Solution Selling",
+    "RFP Response",
+    "OEM Solutions",
+    "10+ years experience"
+  ],
+  "red_flags": [
+    "Lacks the minimum 10 years of experience (has 8 years)",
+    "No prior presales or customer-facing sales engineering experience"
+  ],
+  "reasoning": "The candidate is a strong Infrastructure and Cloud Engineer but lacks the required 10+ years of experience and has no background in technical presales or solution selling. Their experience is purely technical and operational, making them a weak fit for a customer-facing OEM Presales role.",
+  "recommendation": "SKIP"
+}

@@ -1,0 +1,25 @@
+{
+  "score": 70,
+  "matched_skills": [
+    "Terraform",
+    "Ansible",
+    "Kubernetes",
+    "Docker",
+    "Bash",
+    "CI/CD",
+    "Prometheus",
+    "Grafana",
+    "ELK Stack",
+    "Network Security",
+    "Certificate Management"
+  ],
+  "missing_skills": [
+    "Python",
+    "AWS (advanced/production experience)",
+    "GCP (advanced/production experience)",
+    "Huawei Cloud"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate has 8 years of solid DevOps experience with strong expertise in Kubernetes, Terraform, Ansible, and CI/CD pipelines. However, their primary cloud experience is in Azure, while the role specifically targets AWS, GCP, or Huawei Cloud. There is also no mention of Python, which is a required skill.",
+  "recommendation": "MAYBE"
+}

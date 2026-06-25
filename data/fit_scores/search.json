@@ -1,0 +1,20 @@
+{
+  "score": 88,
+  "matched_skills": [
+    "virtualization",
+    "servers",
+    "storage",
+    "backup systems",
+    "network infrastructure",
+    "cloud environments",
+    "disaster recovery procedures",
+    "technical documentation",
+    "capacity planning"
+  ],
+  "missing_skills": [
+    "physical data center facility operations"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate is a highly experienced Senior IT Infrastructure Specialist with 8 years of experience spanning cloud (Azure) and on-premises virtualization (VMware, Hyper-V). They possess all the core technical skills required for the role, including networking, backup management, disaster recovery planning, and capacity planning. The only minor gap is direct experience with physical data center facility management (power, cooling, racking), which is relevant for a data center provider like Bitera.",
+  "recommendation": "APPLY"
+}

@@ -1,0 +1,20 @@
+{
+  "score": 65,
+  "matched_skills": [
+    "Linux (RHEL)",
+    "Azure",
+    "Ansible",
+    "Bash scripting",
+    "CI/CD practices",
+    "Elastic (SIEM)"
+  ],
+  "missing_skills": [
+    "EDR solutions (Microsoft Defender for Endpoint)",
+    "Windows Server (Active Directory, Group Policy)",
+    "Azure DevOps Pipelines",
+    "PowerShell / PowerShell DSC"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate is a strong Infrastructure and Cloud Specialist with extensive Azure, Linux (RHEL), and Ansible automation experience. However, the role is focused on Cybersecurity Platform Engineering, and the candidate lacks specific experience with EDR tools (Defender for Endpoint), Windows Active Directory, and Azure DevOps.",
+  "recommendation": "MAYBE"
+}

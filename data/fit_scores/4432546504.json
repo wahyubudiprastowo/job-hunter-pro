@@ -1,0 +1,25 @@
+{
+  "score": 55,
+  "matched_skills": [
+    "Azure",
+    "Terraform",
+    "AKS",
+    "Container-based deployments",
+    "CI/CD",
+    "DevOps"
+  ],
+  "missing_skills": [
+    "Python development",
+    "pytest",
+    "Databricks",
+    "Unity Catalog",
+    "SOLID principles",
+    "Domain-Driven Design (DDD)"
+  ],
+  "red_flags": [
+    "Lacks Python programming experience (only Bash scripting is mentioned)",
+    "No experience with Databricks or Data Lake platforms"
+  ],
+  "reasoning": "The candidate has stellar credentials in Azure infrastructure, AKS, and Terraform, which covers the platform hosting side of the role. However, the job description heavily emphasizes software engineering in Python (SOLID, DDD, pytest) and Databricks, which are completely absent from the candidate's CV.",
+  "recommendation": "MAYBE"
+}

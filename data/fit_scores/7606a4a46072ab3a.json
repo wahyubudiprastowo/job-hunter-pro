@@ -1,0 +1,18 @@
+{
+  "score": 58,
+  "matched_skills": [
+    "Virtualization",
+    "Containers",
+    "Kubernetes",
+    "Cloud-based management",
+    "Hybrid Cloud"
+  ],
+  "missing_skills": [
+    "Software Development (product-level coding)",
+    "AI Infrastructure (GPU orchestration, AI workloads)",
+    "Edge Computing"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate has strong expertise in cloud infrastructure, virtualization, and container orchestration, which aligns with Dell's private cloud platform. However, the role is for a Software Engineer focused on product development, whereas the candidate's background is primarily in IT infrastructure operations and DevOps. There is also no explicit experience with AI infrastructure or edge computing in the CV.",
+  "recommendation": "MAYBE"
+}

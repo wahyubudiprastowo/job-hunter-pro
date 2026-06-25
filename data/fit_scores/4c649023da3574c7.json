@@ -1,0 +1,17 @@
+{
+  "score": 5,
+  "matched_skills": [],
+  "missing_skills": [
+    "Document imaging services",
+    "High-speed production scanner operation",
+    "Physical document preparation and batching",
+    "Manual data entry",
+    "Physical lifting and archive box management (6-10kg)"
+  ],
+  "red_flags": [
+    "Extreme overqualification (Senior Cloud Architect applying for an entry-level clerical scanning role)",
+    "Complete mismatch of career path and technical skills"
+  ],
+  "reasoning": "The candidate is a Senior IT Infrastructure Specialist and Cloud Architect with 8 years of experience in cloud technologies, Kubernetes, and DevOps. The job description is for an entry-level administrative role focused on physical document scanning, manual data entry, and lifting archive boxes. There is no alignment between the candidate's profile and the job requirements.",
+  "recommendation": "SKIP"
+}

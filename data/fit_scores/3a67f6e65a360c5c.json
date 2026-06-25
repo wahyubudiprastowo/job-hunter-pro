@@ -1,0 +1,20 @@
+{
+  "score": 5,
+  "matched_skills": [],
+  "missing_skills": [
+    "JavaScript",
+    "NodeJS",
+    "React",
+    "Vue",
+    "Web3.js",
+    "Ethers.js",
+    "Frontend development",
+    "Webpack",
+    "Vite"
+  ],
+  "red_flags": [
+    "Complete career profile mismatch: The candidate is an Infrastructure/DevOps Specialist, while the role requires a Senior Frontend/Web3 Developer."
+  ],
+  "reasoning": "The candidate is a cloud infrastructure and DevOps specialist with no indicated experience in frontend development, JavaScript frameworks, or Web3 technologies. The job requires a senior frontend engineer to build user interfaces and integrate with blockchain networks. There is a complete mismatch between the candidate's experience and the job requirements.",
+  "recommendation": "SKIP"
+}

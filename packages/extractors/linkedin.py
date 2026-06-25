@@ -10,6 +10,7 @@ Fixes:
 """
 from __future__ import annotations
 import os
+import re
 import time
 import json
 from datetime import datetime
@@ -148,6 +149,10 @@ SELECTORS = {
         "normalize-space(.)='Verwerfen']"),
     "modal_progress": (By.CSS_SELECTOR, "progress, [role='progressbar']"),
 }
+
+SALARY_PATTERN = re.compile(
+    r"(?i)(?:[$€£¥]|Rp|IDR|USD|EUR|SGD|AUD|CAD|CHF)\s?\d[\d.,kK]*(?:\s*(?:-|–|to)\s*(?:[$€£¥]|Rp|IDR|USD|EUR|SGD|AUD|CAD|CHF)?\s?\d[\d.,kK]*)?"
+)
 
 DATE_CODE = {"past_24h": "r86400", "past_week": "r604800", "past_month": "r2592000", "any": ""}
 EXP_CODE = {"Internship": 1, "Entry level": 2, "Associate": 3, "Mid-Senior level": 4, "Director": 5, "Executive": 6}
@@ -342,6 +347,33 @@ class LinkedInExtractor(BaseExtractor):
         except NoSuchElementException:
             return ""
 
+    def _extract_salary_text(self, driver):
+        salary = self._safe_text(driver, SELECTORS["detail_salary"])
+        if salary:
+            return salary
+
+        fallback_selectors = [
+            (By.CSS_SELECTOR, ".job-details-jobs-unified-top-card__job-insight-view-model-secondary"),
+            (By.CSS_SELECTOR, ".jobs-unified-top-card__job-insight"),
+            (By.CSS_SELECTOR, ".job-details-jobs-unified-top-card__primary-description-container"),
+            (By.CSS_SELECTOR, ".jobs-unified-top-card__content"),
+        ]
+        for selector in fallback_selectors:
+            try:
+                for node in driver.find_elements(*selector):
+                    text = (node.text or "").strip()
+                    if not text:
+                        continue
+                    for line in [part.strip() for part in text.splitlines() if part.strip()]:
+                        if SALARY_PATTERN.search(line):
+                            return line
+                        lowered = line.lower()
+                        if any(keyword in lowered for keyword in ("salary", "compensation", "pay range", "salary range")):
+                            return line
+            except Exception:
+                continue
+        return ""
+
     def open_job_detail(self, card):
         d = self.driver
         el = card.get("_element")
@@ -356,7 +388,7 @@ class LinkedInExtractor(BaseExtractor):
                     EC.presence_of_element_located(SELECTORS["detail_description"])).text
             except TimeoutException:
                 desc = ""
-            salary = self._safe_text(d, SELECTORS["detail_salary"])
+            salary = self._extract_salary_text(d)
             already_applied = self._detect_already_applied(d)
             is_easy = False
             if not already_applied:
@@ -403,7 +435,7 @@ class LinkedInExtractor(BaseExtractor):
                 EC.presence_of_element_located(SELECTORS["detail_description"])).text
         except TimeoutException:
             desc = ""
-        salary = self._safe_text(d, SELECTORS["detail_salary"])
+        salary = self._extract_salary_text(d)
         already_applied = self._detect_already_applied(d, card)
 
         # PATCH 13: Multi-strategy Easy Apply detection with click-finder fallback

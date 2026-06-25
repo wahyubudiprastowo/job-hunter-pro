@@ -30,7 +30,7 @@ INDEED_SELECTORS_2026 = {
     "job_card_title": (
         By.CSS_SELECTOR,
         "h2.jobTitle span[title], h2.jobTitle a span, h2.jobTitle, "
-        "[data-testid='job-title'], span[title]",
+        "[data-testid='job-title'], a[data-jk], a.jcs-JobTitle, span[title]",
     ),
     "job_card_company": (
         By.CSS_SELECTOR,
@@ -138,7 +138,7 @@ def collect_job_cards_2026(driver, selectors=None, max_cards=50, scroll_count=8,
             seen.add(jid)
             cards.append({
                 "job_id": jid,
-                "title": _safe_text(node, sels["job_card_title"]),
+                "title": _extract_title_multi_strategy(node, sels),
                 "company": _safe_text(node, sels["job_card_company"]),
                 "location": _safe_text(node, sels["job_card_location"]),
                 "_element": node,
@@ -205,6 +205,32 @@ def _safe_text(parent, selector):
         return elem.text.strip() or elem.get_attribute("title") or elem.get_attribute("aria-label") or ""
     except Exception:
         return ""
+
+
+def _extract_title_multi_strategy(node, selectors):
+    text = _safe_text(node, selectors["job_card_title"])
+    if text:
+        return text
+
+    for css in (
+        "h2.jobTitle a",
+        "a.jcs-JobTitle",
+        "a[data-jk]",
+        "[data-testid='job-title'] a",
+        "[data-testid='job-title']",
+    ):
+        try:
+            elem = node.find_element(By.CSS_SELECTOR, css)
+        except Exception:
+            continue
+        for candidate in (
+            (elem.text or "").strip(),
+            (elem.get_attribute("title") or "").strip(),
+            (elem.get_attribute("aria-label") or "").strip(),
+        ):
+            if candidate:
+                return candidate
+    return ""
 
 
 def _parse_embedded_jobs_json(driver):

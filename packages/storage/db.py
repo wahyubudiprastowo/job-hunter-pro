@@ -1,6 +1,7 @@
 """SQLite storage layer."""
 from __future__ import annotations
 import json
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -83,6 +84,11 @@ def record_application(
     fit_reasoning: Optional[str] = None,
 ) -> bool:
     """Insert or update. Returns True if newly created."""
+    resolved_title = _resolve_job_field_from_history(job.platform, job.job_id, job.title, "title")
+    resolved_company = _resolve_job_field_from_history(job.platform, job.job_id, job.company, "company")
+    resolved_location = _resolve_job_field_from_history(job.platform, job.job_id, job.location, "location")
+    resolved_url = _resolve_job_field_from_history(job.platform, job.job_id, job.url, "url")
+
     with SessionLocal() as s:
         existing = s.execute(
             select(Application).where(Application.job_id == job.job_id)
@@ -104,6 +110,14 @@ def record_application(
             existing.unanswered_json = json.dumps(
                 [q.model_dump(mode="json") for q in result.unanswered_questions],
                 ensure_ascii=False, default=str)
+            if resolved_title:
+                existing.title = resolved_title
+            if resolved_company:
+                existing.company = resolved_company
+            if resolved_location:
+                existing.location = resolved_location
+            if resolved_url:
+                existing.url = resolved_url
             if resume_path:
                 existing.resume_path = resume_path
             effective_cover_letter_path = cover_letter_path or getattr(result, "cover_letter_path", None)
@@ -124,10 +138,10 @@ def record_application(
         row = Application(
             platform=job.platform,
             job_id=job.job_id,
-            title=job.title,
-            company=job.company,
-            location=job.location,
-            url=job.url,
+            title=resolved_title,
+            company=resolved_company,
+            location=resolved_location,
+            url=resolved_url,
             salary=job.salary,
             description=job.description[:8000] if job.description else "",
             status=result.status.value,
@@ -145,6 +159,31 @@ def record_application(
         s.add(row)
         s.commit()
         return True
+
+
+def _resolve_job_field_from_history(platform: str, job_id: str, current_value: Optional[str], field_name: str) -> str:
+    value = (current_value or "").strip()
+    if value:
+        return value
+    if not platform or not job_id:
+        return value
+    try:
+        with sqlite3.connect(str(DB_PATH)) as conn:
+            row = conn.execute(
+                f"""
+                SELECT {field_name}
+                FROM discovered_jobs
+                WHERE LOWER(platform) = ? AND job_id = ? AND TRIM(COALESCE({field_name}, '')) != ''
+                ORDER BY discovered_at DESC
+                LIMIT 1
+                """,
+                ((platform or "").lower(), job_id),
+            ).fetchone()
+            if row and row[0]:
+                return str(row[0]).strip()
+    except Exception:
+        return value
+    return value
 
 
 def already_applied(job_id: str) -> bool:
@@ -217,13 +256,14 @@ def _resolve_application_url(r: Application) -> str:
 
 
 def _resolve_application_title(r: Application) -> str:
-    if r.title:
+    platform = (r.platform or "job").strip().lower() or "job"
+    synthetic_prefix = f"{platform.upper()} job "
+    if r.title and not r.title.startswith(synthetic_prefix):
         return r.title
-    platform = (r.platform or "job").upper()
     if r.company and r.job_id:
-        return f"{platform} job {r.job_id} @ {r.company}"
+        return f"Untitled {platform} @ {r.company}"
     if r.job_id:
-        return f"{platform} job {r.job_id}"
+        return f"Untitled {platform}"
     if r.company:
         return f"Untitled job @ {r.company}"
     return "Untitled job"

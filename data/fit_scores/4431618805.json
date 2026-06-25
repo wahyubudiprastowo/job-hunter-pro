@@ -1,0 +1,21 @@
+{
+  "score": 82,
+  "matched_skills": [
+    "Azure",
+    "Kubernetes",
+    "Infrastructure as Code (IaC)",
+    "Terraform",
+    "Virtualization",
+    "Networking",
+    "Security",
+    "IT Infrastructure Architecture"
+  ],
+  "missing_skills": [
+    "AWS Certified Solutions Architect certification",
+    "TOGAF certification",
+    "Advanced AWS/GCP experience"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate is a strong technical match with 8 years of experience in Azure, Kubernetes, and Infrastructure as Code (Terraform). Minor gaps include a lack of explicit AWS/TOGAF certifications requested by the JD, and his cloud experience is heavily skewed towards Azure rather than AWS/GCP.",
+  "recommendation": "APPLY"
+}

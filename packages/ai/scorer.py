@@ -29,14 +29,14 @@ CRITICAL RULES:
 - Score 0-29: POOR match (very few skills match)
 
 OUTPUT FORMAT (strict JSON, no other text):
-{
+{{
   "score": <integer 0-100>,
   "matched_skills": [<list of skills present in BOTH CV and JD>],
   "missing_skills": [<list of REQUIRED JD skills NOT in CV>],
   "red_flags": [<list of disqualifiers>],
   "reasoning": "<2-3 sentence explanation>",
   "recommendation": "APPLY" | "SKIP" | "MAYBE"
-}
+}}
 
 CANDIDATE CV:
 {cv_text}

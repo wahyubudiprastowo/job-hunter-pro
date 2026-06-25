@@ -1,0 +1,22 @@
+{
+  "score": 55,
+  "matched_skills": [
+    "Microsoft Azure",
+    "Azure Kubernetes Service (AKS)",
+    "Infrastructure as Code",
+    "CI/CD Pipelines",
+    "Azure Monitoring & Security",
+    "Git & DevOps"
+  ],
+  "missing_skills": [
+    "Microsoft Intune",
+    "Microsoft 365"
+  ],
+  "red_flags": [
+    "Candidate is located in Jakarta, Indonesia, whereas the position is a hybrid role based in Hoofddorp, Netherlands.",
+    "The job description is in Dutch, and there is no indication the candidate speaks Dutch.",
+    "Missing workplace management experience (Microsoft 365 and Intune)."
+  ],
+  "reasoning": "The candidate is a strong technical match for the Azure, AKS, and DevOps components of the role. However, they lack the required Microsoft 365 and Intune administration experience. Crucially, the hybrid nature of the role in the Netherlands makes relocation from Indonesia highly impractical without sponsorship, which is not mentioned.",
+  "recommendation": "SKIP"
+}

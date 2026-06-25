@@ -64,20 +64,67 @@ def init_schema(db_path: Optional[Path] = None) -> None:
 
 def save_discovered(job_data: dict, db_path: Optional[Path] = None) -> Optional[int]:
     path = Path(db_path or DB_PATH)
+    platform = (job_data.get("platform") or "").strip().lower()
+    job_id = str(job_data.get("job_id") or "").strip()
+    discovered_at = int(time.time())
     try:
         with sqlite3.connect(str(path)) as conn:
-            cursor = conn.execute(
+            conn.execute(
                 """
-                INSERT OR IGNORE INTO discovered_jobs (
+                INSERT INTO discovered_jobs (
                     platform, job_id, title, company, location, url, description,
                     salary, fit_score, fit_reasoning, is_easy_apply, status,
                     discovered_at, metadata
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(platform, job_id) DO UPDATE SET
+                    title = CASE
+                        WHEN excluded.title != '' THEN excluded.title
+                        ELSE discovered_jobs.title
+                    END,
+                    company = CASE
+                        WHEN excluded.company != '' THEN excluded.company
+                        ELSE discovered_jobs.company
+                    END,
+                    location = CASE
+                        WHEN excluded.location != '' THEN excluded.location
+                        ELSE discovered_jobs.location
+                    END,
+                    url = CASE
+                        WHEN excluded.url != '' THEN excluded.url
+                        ELSE discovered_jobs.url
+                    END,
+                    description = CASE
+                        WHEN excluded.description != '' THEN excluded.description
+                        ELSE discovered_jobs.description
+                    END,
+                    salary = CASE
+                        WHEN excluded.salary != '' THEN excluded.salary
+                        ELSE discovered_jobs.salary
+                    END,
+                    fit_score = COALESCE(excluded.fit_score, discovered_jobs.fit_score),
+                    fit_reasoning = CASE
+                        WHEN excluded.fit_reasoning != '' THEN excluded.fit_reasoning
+                        ELSE discovered_jobs.fit_reasoning
+                    END,
+                    is_easy_apply = CASE
+                        WHEN excluded.is_easy_apply IS NOT NULL THEN excluded.is_easy_apply
+                        ELSE discovered_jobs.is_easy_apply
+                    END,
+                    status = CASE
+                        WHEN discovered_jobs.status IN ('selected', 'saved', 'applied', 'failed', 'auto_apply')
+                            THEN discovered_jobs.status
+                        ELSE excluded.status
+                    END,
+                    discovered_at = excluded.discovered_at,
+                    metadata = CASE
+                        WHEN excluded.metadata != '{}' THEN excluded.metadata
+                        ELSE discovered_jobs.metadata
+                    END
                 """,
                 (
-                    (job_data.get("platform") or "").strip().lower(),
-                    str(job_data.get("job_id") or "").strip(),
+                    platform,
+                    job_id,
                     job_data.get("title") or "",
                     job_data.get("company") or "",
                     job_data.get("location") or "",
@@ -88,14 +135,113 @@ def save_discovered(job_data: dict, db_path: Optional[Path] = None) -> Optional[
                     job_data.get("fit_reasoning") or "",
                     1 if job_data.get("is_easy_apply") else 0,
                     job_data.get("status") or STATUS_DISCOVERED,
-                    int(time.time()),
+                    discovered_at,
                     json.dumps(job_data.get("metadata") or {}, ensure_ascii=False),
                 ),
             )
-            return cursor.lastrowid or None
+            row = conn.execute(
+                "SELECT id FROM discovered_jobs WHERE platform = ? AND job_id = ?",
+                (platform, job_id),
+            ).fetchone()
+            return int(row[0]) if row and row[0] is not None else None
     except Exception as e:
         logger.debug(f"save_discovered failed: {e}")
         return None
+
+
+def list_missing_fit_scores(
+    limit: int = 100,
+    platform: Optional[str] = None,
+    db_path: Optional[Path] = None,
+) -> list[dict]:
+    path = Path(db_path or DB_PATH)
+    try:
+        with sqlite3.connect(str(path)) as conn:
+            conn.row_factory = sqlite3.Row
+            where = ["fit_score IS NULL", "COALESCE(description, '') != ''"]
+            params: list[object] = []
+            if platform:
+                where.append("LOWER(platform) = ?")
+                params.append(platform.lower())
+            rows = conn.execute(
+                f"""
+                SELECT *
+                FROM discovered_jobs
+                WHERE {' AND '.join(where)}
+                ORDER BY discovered_at DESC
+                LIMIT ?
+                """,
+                [*params, limit],
+            ).fetchall()
+            return [dict(row) for row in rows]
+    except Exception as e:
+        logger.error(f"list_missing_fit_scores failed: {e}")
+        return []
+
+
+def list_missing_salaries(
+    limit: int = 100,
+    platform: Optional[str] = None,
+    db_path: Optional[Path] = None,
+) -> list[dict]:
+    path = Path(db_path or DB_PATH)
+    try:
+        with sqlite3.connect(str(path)) as conn:
+            conn.row_factory = sqlite3.Row
+            where = ["COALESCE(salary, '') = ''", "COALESCE(description, '') != ''"]
+            params: list[object] = []
+            if platform:
+                where.append("LOWER(platform) = ?")
+                params.append(platform.lower())
+            rows = conn.execute(
+                f"""
+                SELECT *
+                FROM discovered_jobs
+                WHERE {' AND '.join(where)}
+                ORDER BY discovered_at DESC
+                LIMIT ?
+                """,
+                [*params, limit],
+            ).fetchall()
+            return [dict(row) for row in rows]
+    except Exception as e:
+        logger.error(f"list_missing_salaries failed: {e}")
+        return []
+
+
+def update_enrichment(
+    record_id: int,
+    *,
+    fit_score: Optional[int] = None,
+    fit_reasoning: Optional[str] = None,
+    salary: Optional[str] = None,
+    db_path: Optional[Path] = None,
+) -> bool:
+    path = Path(db_path or DB_PATH)
+    updates: list[str] = []
+    params: list[object] = []
+    if fit_score is not None:
+        updates.append("fit_score = ?")
+        params.append(int(fit_score))
+    if fit_reasoning is not None:
+        updates.append("fit_reasoning = ?")
+        params.append(str(fit_reasoning))
+    if salary is not None:
+        updates.append("salary = ?")
+        params.append(str(salary))
+    if not updates:
+        return False
+    params.append(int(record_id))
+    try:
+        with sqlite3.connect(str(path)) as conn:
+            cursor = conn.execute(
+                f"UPDATE discovered_jobs SET {', '.join(updates)} WHERE id = ?",
+                params,
+            )
+            return bool(cursor.rowcount)
+    except Exception as e:
+        logger.error(f"update_enrichment failed: {e}")
+        return False
 
 
 def list_discovered(

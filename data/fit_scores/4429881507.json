@@ -1,0 +1,22 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Microsoft Azure",
+    "MS SQL Server",
+    "Infrastructure monitoring",
+    "Networking",
+    "Multi-tier architectures"
+  ],
+  "missing_skills": [
+    "Fluent Spanish",
+    "Windows Server (2016, 2019, 2022)",
+    "PowerShell scripting"
+  ],
+  "red_flags": [
+    "No indication of Spanish language proficiency (mandatory requirement)",
+    "Candidate is based in Indonesia for a Madrid-based hybrid/remote role",
+    "Candidate is primarily a Linux specialist, whereas the role requires a Windows Systems Administrator background"
+  ],
+  "reasoning": "The candidate is a strong Azure DevOps engineer but lacks the mandatory Spanish language skills required for this Madrid-based role. Furthermore, their technical expertise is heavily centered on Linux and Kubernetes, while the position specifically demands Windows Server administration and PowerShell scripting.",
+  "recommendation": "SKIP"
+}

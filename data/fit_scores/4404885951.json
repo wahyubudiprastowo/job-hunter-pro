@@ -1,0 +1,23 @@
+{
+  "score": 20,
+  "matched_skills": [
+    "Azure",
+    "Terraform",
+    "Cloud Security",
+    "Disaster Recovery",
+    "Monitoring and Alerting"
+  ],
+  "missing_skills": [
+    "AWS (production-level experience)",
+    "ITIL processes",
+    "CMDB management",
+    "Banking/Financial services experience",
+    "Bachelor's degree"
+  ],
+  "red_flags": [
+    "Candidate is located in Jakarta, Indonesia and requires US visa sponsorship for a hybrid NYC role",
+    "No Bachelor's degree listed on CV"
+  ],
+  "reasoning": "The candidate is based in Indonesia and lacks US work authorization, which is a hard requirement for this hybrid NYC role. Furthermore, the role is heavily focused on AWS and financial services experience, whereas the candidate's background is primarily Azure-based within the telecommunications sector.",
+  "recommendation": "SKIP"
+}

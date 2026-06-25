@@ -10,25 +10,28 @@
 {% endblock %}
 
 {% block top_controls %}
-  {% if state == 'running' %}
-    <form method="post" action="/control/pause" style="display:inline">
-      <button type="submit" class="btn btn-warning btn-sm"><i class="bi bi-pause-fill"></i> Pause</button>
-    </form>
-    <form method="post" action="/control/stop" style="display:inline">
-      <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-stop-fill"></i> Stop</button>
-    </form>
-  {% elif state == 'paused' %}
-    <form method="post" action="/control/resume" style="display:inline">
-      <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-play-fill"></i> Resume</button>
-    </form>
-    <form method="post" action="/control/stop" style="display:inline">
-      <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-stop-fill"></i> Stop</button>
-    </form>
-  {% else %}
+  <span style="display:inline-flex; gap:8px; flex-wrap:wrap; align-items:center;">
     <form method="post" action="/control/start" style="display:inline">
-      <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-play-fill"></i> Start</button>
+      <button type="submit" class="btn btn-success btn-sm" {% if state in ['running', 'paused'] %}disabled{% endif %}>
+        <i class="bi bi-play-fill"></i> Start
+      </button>
     </form>
-  {% endif %}
+    <form method="post" action="/control/pause" style="display:inline">
+      <button type="submit" class="btn btn-warning btn-sm" {% if state != 'running' %}disabled{% endif %}>
+        <i class="bi bi-pause-fill"></i> Pause
+      </button>
+    </form>
+    <form method="post" action="/control/resume" style="display:inline">
+      <button type="submit" class="btn btn-info btn-sm" {% if state != 'paused' %}disabled{% endif %}>
+        <i class="bi bi-play-fill"></i> Resume
+      </button>
+    </form>
+    <form method="post" action="/control/stop" style="display:inline">
+      <button type="submit" class="btn btn-danger btn-sm" {% if state not in ['running', 'paused'] %}disabled{% endif %}>
+        <i class="bi bi-stop-fill"></i> Stop
+      </button>
+    </form>
+  </span>
   <form method="post" action="/control/reset" style="display:inline"
         onsubmit="return confirm('Force-reset all state files? Use only if bot is stuck.');">
     <button type="submit" class="btn btn-outline-dark btn-sm" title="Reset State"><i class="bi bi-arrow-clockwise"></i> Reset</button>
@@ -124,6 +127,8 @@
                 <i class="bi bi-linkedin"></i>
               {% elif p.name == 'indeed' %}
                 <i class="bi bi-briefcase"></i>
+              {% elif p.name == 'glassdoor' %}
+                <i class="bi bi-star"></i>
               {% else %}
                 <i class="bi bi-box"></i>
               {% endif %}
@@ -742,33 +747,32 @@ function renderTopControls(state) {
   const actions = document.getElementById('top-action-buttons');
   const currentRunState = document.getElementById('current-run-state');
   if (actions) {
-    let html = '';
-    if (state === 'running') {
-      html += `
-        <form method="post" action="/control/pause" style="display:inline">
-          <button type="submit" class="btn btn-warning btn-sm"><i class="bi bi-pause-fill"></i> Pause</button>
-        </form>
-        <form method="post" action="/control/stop" style="display:inline">
-          <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-stop-fill"></i> Stop</button>
-        </form>
-      `;
-    } else if (state === 'paused') {
-      html += `
-        <form method="post" action="/control/resume" style="display:inline">
-          <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-play-fill"></i> Resume</button>
-        </form>
-        <form method="post" action="/control/stop" style="display:inline">
-          <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-stop-fill"></i> Stop</button>
-        </form>
-      `;
-    } else {
-      html += `
+    const isRunning = state === 'running';
+    const isPaused = state === 'paused';
+    const isBusy = isRunning || isPaused;
+    actions.innerHTML = `
+      <span style="display:inline-flex; gap:8px; flex-wrap:wrap; align-items:center;">
         <form method="post" action="/control/start" style="display:inline">
-          <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-play-fill"></i> Start</button>
+          <button type="submit" class="btn btn-success btn-sm" ${isBusy ? 'disabled' : ''}>
+            <i class="bi bi-play-fill"></i> Start
+          </button>
         </form>
-      `;
-    }
-    html += `
+        <form method="post" action="/control/pause" style="display:inline">
+          <button type="submit" class="btn btn-warning btn-sm" ${isRunning ? '' : 'disabled'}>
+            <i class="bi bi-pause-fill"></i> Pause
+          </button>
+        </form>
+        <form method="post" action="/control/resume" style="display:inline">
+          <button type="submit" class="btn btn-info btn-sm" ${isPaused ? '' : 'disabled'}>
+            <i class="bi bi-play-fill"></i> Resume
+          </button>
+        </form>
+        <form method="post" action="/control/stop" style="display:inline">
+          <button type="submit" class="btn btn-danger btn-sm" ${isBusy ? '' : 'disabled'}>
+            <i class="bi bi-stop-fill"></i> Stop
+          </button>
+        </form>
+      </span>
       <form method="post" action="/control/reset" style="display:inline" onsubmit="return confirm('Force-reset all state files? Use only if bot is stuck.');">
         <button type="submit" class="btn btn-outline-dark btn-sm" title="Reset State"><i class="bi bi-arrow-clockwise"></i> Reset</button>
       </form>
@@ -776,7 +780,6 @@ function renderTopControls(state) {
         <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-cpu"></i> Test AI</button>
       </form>
     `;
-    actions.innerHTML = html;
   }
   if (currentRunState) {
     currentRunState.className = `state-badge state-${state || 'idle'}`;

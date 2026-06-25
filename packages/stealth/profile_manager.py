@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import time
+import yaml
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -35,6 +36,46 @@ def find_chrome_binary() -> Optional[str]:
         if candidate and Path(candidate).exists():
             return candidate
     return None
+
+
+def _resolve_glassdoor_target_url() -> str:
+    region = (os.getenv("GLASSDOOR_REGION") or "").strip().lower()
+    if not region:
+        try:
+            cfg_path = Path("config.yaml")
+            cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+            gd_cfg = ((cfg.get("platforms") or {}).get("glassdoor") or {})
+            region = str(gd_cfg.get("region") or "").strip().lower()
+            if region in ("", "auto"):
+                location = str(((gd_cfg.get("search") or {}).get("location") or "")).lower()
+                if "singapore" in location:
+                    region = "sg"
+                elif "germany" in location or "berlin" in location or "munich" in location:
+                    region = "de"
+                elif "france" in location or "paris" in location:
+                    region = "fr"
+                elif "netherlands" in location or "amsterdam" in location:
+                    region = "nl"
+                elif "ireland" in location or "dublin" in location:
+                    region = "ie"
+                else:
+                    region = ""
+        except Exception:
+            region = ""
+
+    region_map = {
+        "us": "https://www.glassdoor.com/",
+        "uk": "https://www.glassdoor.co.uk/",
+        "ca": "https://www.glassdoor.ca/",
+        "de": "https://www.glassdoor.de/",
+        "fr": "https://www.glassdoor.fr/",
+        "sg": "https://www.glassdoor.sg/",
+        "in": "https://www.glassdoor.co.in/",
+        "au": "https://www.glassdoor.com.au/",
+        "nl": "https://www.glassdoor.nl/",
+        "ie": "https://www.glassdoor.ie/",
+    }
+    return region_map.get(region, "https://www.glassdoor.com/")
 
 
 def _resolve_platform_profile(platform: str) -> tuple[Path, str]:
@@ -91,7 +132,7 @@ def get_profile_info(platform: str) -> dict:
 
 
 def list_all_profiles() -> list[dict]:
-    return [get_profile_info(platform) for platform in ("linkedin", "indeed")]
+    return [get_profile_info(platform) for platform in ("linkedin", "indeed", "glassdoor")]
 
 
 def backup_profile(platform: str) -> Optional[str]:
@@ -150,7 +191,11 @@ def reset_profile(platform: str, launch_chrome: bool = True) -> dict:
     target_url = {
         "linkedin": "https://www.linkedin.com/jobs/",
         "indeed": "https://www.indeed.com/",
-    }.get(platform.lower(), f"https://www.{platform.lower()}.com/")
+    }.get(platform.lower(), "")
+    if platform.lower() == "glassdoor":
+        target_url = _resolve_glassdoor_target_url()
+    if not target_url:
+        target_url = f"https://www.{platform.lower()}.com/"
 
     try:
         args = [
@@ -218,7 +263,7 @@ def get_profile_history(platform: Optional[str] = None) -> list[dict]:
 
 def cleanup_old_backups(keep_count: int = 3) -> int:
     deleted = 0
-    for platform in ("linkedin", "indeed"):
+    for platform in ("linkedin", "indeed", "glassdoor"):
         user_data_dir, _ = _resolve_platform_profile(platform)
         parent = user_data_dir.parent
         prefix = f"{user_data_dir.name}.bak_"

@@ -1,0 +1,27 @@
+{
+  "score": 62,
+  "matched_skills": [
+    "Kubernetes",
+    "Linux (RHEL, CentOS, Ubuntu)",
+    "Ansible",
+    "VMware",
+    "PostgreSQL",
+    "MongoDB",
+    "Bash scripting",
+    "Security hardening"
+  ],
+  "missing_skills": [
+    "OpenStack (RHOSP)",
+    "Oracle Linux Virtualization Manager (OLVM)",
+    "Red Hat OpenShift",
+    "SUSE Rancher",
+    "Python",
+    "checkmk"
+  ],
+  "red_flags": [
+    "Geographic mismatch: Candidate is based in Jakarta, Indonesia, while the position is located in Milan, Italy.",
+    "Potential language barrier: The job description is in Italian, but the candidate's CV does not list Italian language proficiency."
+  ],
+  "reasoning": "The candidate is a strong DevOps and Systems Specialist with solid experience in Linux, Kubernetes, VMware, and Ansible. However, they lack experience with key required platforms like OpenStack, OLVM, and OpenShift. The significant geographical distance and potential language barrier make this a difficult match.",
+  "recommendation": "SKIP"
+}

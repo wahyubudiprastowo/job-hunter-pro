@@ -131,13 +131,24 @@ def collect_indeed_cards_v2(driver, max_cards=50, scroll_count=8, sleep_func=Non
                 continue
             if jid in seen:
                 continue
+            title = _extract_title_v2(node)
+            company = _safe_text_v2(node, INDEED_SELECTORS_V2["job_card_company"])
+            location = _safe_text_v2(node, INDEED_SELECTORS_V2["job_card_location"])
+            url = _extract_card_url_v2(node, jid, base_url)
+
+            # Guard against non-job or broken nodes that produce no meaningful metadata.
+            if not title and not company and not location:
+                html = (node.get_attribute("outerHTML") or "")[:180].replace("\n", " ")
+                logger.debug(f"Card {idx} ignored: empty title/company/location (HTML: {html})")
+                continue
+
             seen.add(jid)
             cards.append({
                 "job_id": jid,
-                "title": _extract_title_v2(node),
-                "company": _safe_text_v2(node, INDEED_SELECTORS_V2["job_card_company"]),
-                "location": _safe_text_v2(node, INDEED_SELECTORS_V2["job_card_location"]),
-                "url": f"{base_url}/viewjob?jk={jid}",
+                "title": title,
+                "company": company,
+                "location": location,
+                "url": url,
                 "_element": node,
             })
         except StaleElementReferenceException:
@@ -191,10 +202,13 @@ def _extract_job_id_v2(node) -> Optional[str]:
 def _extract_title_v2(node) -> str:
     strategies = [
         ("h2.jobTitle span[title]", "title"),
-        ("h2.jobTitle a", "text"),
         ("h2.jobTitle a", "aria-label"),
+        ("h2.jobTitle a", "text"),
         ("h2.jobTitle span", "text"),
+        ("h2.jobTitle", "text"),
         ("[data-testid='job-title']", "text"),
+        ("a[data-jk]", "text"),
+        ("[role='group'][aria-label]", "aria-label"),
     ]
     for selector, attr in strategies:
         try:
@@ -203,11 +217,23 @@ def _extract_title_v2(node) -> str:
                 text = elem.text.strip()
             else:
                 text = elem.get_attribute(attr) or ""
-            if text:
+            if text and len(text.strip()) > 3:
                 return text.strip()
         except Exception:
             continue
     return ""
+
+
+def _extract_card_url_v2(node, jid: str, base_url: str) -> str:
+    for selector in ("a[data-jk]", "h2.jobTitle a", "a[id^='job_']", "a[href*='jk=']"):
+        try:
+            link = node.find_element(By.CSS_SELECTOR, selector)
+            href = (link.get_attribute("href") or "").strip()
+            if href and "jk=" in href:
+                return href
+        except Exception:
+            continue
+    return f"{base_url}/viewjob?jk={jid}"
 
 
 def _safe_text_v2(parent, selector_tuple):

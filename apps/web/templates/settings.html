@@ -32,7 +32,7 @@
   <a href="?section=credentials" class="filter-pill {% if active_section == 'credentials' %}active{% endif %}">
     <i class="bi bi-key"></i> Credentials
   </a>
-  <a href="?section=profiles" class="filter-pill {% if active_section == 'profiles' %}active{% endif %}">
+  <a href="{{ url_for('settings_profiles') }}" class="filter-pill {% if active_section == 'profiles' %}active{% endif %}">
     <i class="bi bi-person-badge"></i> Browser Profiles
   </a>
 </div>

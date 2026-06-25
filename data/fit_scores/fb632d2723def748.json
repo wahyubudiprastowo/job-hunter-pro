@@ -1,0 +1,18 @@
+{
+  "score": 78,
+  "matched_skills": [
+    "Cloud Architecture",
+    "IT Infrastructure",
+    "Enterprise Architecture",
+    "High-Availability Design",
+    "Disaster Recovery Planning",
+    "Security Architecture"
+  ],
+  "missing_skills": [
+    "Management Consulting Experience",
+    "IT Strategy & Governance"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate has 8 years of strong experience in cloud architecture and enterprise infrastructure, which aligns well with the technical requirements of an IT Architect. However, their background is heavily focused on hands-on engineering and operations rather than strategic management consulting, which is a key component of BCG Platinion roles.",
+  "recommendation": "APPLY"
+}

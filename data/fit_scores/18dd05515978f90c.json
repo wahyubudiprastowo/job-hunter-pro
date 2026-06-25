@@ -1,0 +1,22 @@
+{
+  "score": 40,
+  "matched_skills": [
+    "Systems Engineering",
+    "VMware virtualization",
+    "Linux system administration",
+    "Infrastructure design"
+  ],
+  "missing_skills": [
+    "Pre-sales technical support",
+    "Product demonstrations and sales presentations",
+    "Dell Technologies product portfolio",
+    "Data management solutions integration"
+  ],
+  "red_flags": [
+    "Lacks pre-sales/sales engineering experience",
+    "No experience with Dell hardware or storage solutions",
+    "Located in Indonesia (Job is in Singapore)"
+  ],
+  "reasoning": "The candidate is a highly technical cloud and infrastructure specialist, but this is a customer-facing pre-sales role requiring experience with Dell's product suite. The candidate lacks pre-sales experience, client presentation skills, and specific familiarity with Dell data management solutions.",
+  "recommendation": "SKIP"
+}

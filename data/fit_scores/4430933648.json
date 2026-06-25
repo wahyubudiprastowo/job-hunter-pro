@@ -1,0 +1,24 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Virtualization (VMware, Hyper-V)",
+    "SQL Server",
+    "Firewall management",
+    "IT Infrastructure administration"
+  ],
+  "missing_skills": [
+    "Active Directory",
+    "Windows Domain administration (DNS, DHCP)",
+    "Microsoft Exchange",
+    "Citrix",
+    "LAN/WAN/WLAN physical networking",
+    "German language proficiency"
+  ],
+  "red_flags": [
+    "Location mismatch (Candidate is in Indonesia, job is in Germany with travel required)",
+    "Language barrier (Job description is in German, candidate CV is in English with no German language skills listed)",
+    "Role mismatch (Candidate is a Cloud/DevOps specialist, whereas the job is for a traditional on-premises Windows/Citrix System Administrator)"
+  ],
+  "reasoning": "While the candidate has strong infrastructure experience, their profile is heavily focused on Cloud (Azure), DevOps, and Linux, whereas this role requires a traditional on-premises Windows, Exchange, and Citrix administrator. Furthermore, the candidate is based in Indonesia and does not list the German language skills necessary for this local German-speaking support role.",
+  "recommendation": "SKIP"
+}

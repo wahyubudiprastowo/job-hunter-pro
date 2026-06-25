@@ -1,0 +1,28 @@
+{
+  "score": 38,
+  "matched_skills": [
+    "Docker",
+    "Kubernetes",
+    "CI/CD",
+    "Redis",
+    "SRE methodologies",
+    "Infrastructure-as-Code"
+  ],
+  "missing_skills": [
+    "5+ years of formal leadership experience",
+    "Experience managing manager-level direct reports",
+    "Financial services or banking industry experience",
+    "Google Cloud Platform (GCP)",
+    "Amazon Web Services (AWS)",
+    "Apache Kafka",
+    "MySQL"
+  ],
+  "red_flags": [
+    "Lacks required 5+ years of formal leadership experience",
+    "No experience managing manager-level direct reports",
+    "No background in financial services or banking",
+    "Primary cloud experience is Azure, whereas JD requires GCP/AWS"
+  ],
+  "reasoning": "The candidate is a strong Senior DevOps/Infrastructure Specialist with solid technical skills in Azure, Kubernetes, and CI/CD. However, they lack the required 10+ years of overall experience, 5+ years of formal leadership (specifically managing managers), and financial services industry experience. Additionally, their cloud expertise is heavily focused on Azure rather than the requested GCP and AWS.",
+  "recommendation": "SKIP"
+}
