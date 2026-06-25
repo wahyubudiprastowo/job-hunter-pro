@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+
+{% block title %}Discovered Jobs — Job-Hunter Pro{% endblock %}
+
+{% block content %}
+
+<div class='page-header'>
+  <h1 class='page-title'>🔍 Discovered Jobs</h1>
+  <p class='page-subtitle'>
+    Browse {{ total }} discovered jobs · Filter, review, then apply selectively
+  </p>
+</div>
+
+{# Stats Cards #}
+<div class='kpi-grid' style='grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;'>
+  <div class='kpi-card blue'>
+    <div class='kpi-icon'><i class='bi bi-search'></i></div>
+    <div class='kpi-label'>Total Discovered</div>
+    <div class='kpi-value'>{{ stats.total }}</div>
+  </div>
+  
+  <div class='kpi-card green'>
+    <div class='kpi-icon'><i class='bi bi-check2-circle'></i></div>
+    <div class='kpi-label'>Selected</div>
+    <div class='kpi-value'>{{ stats.by_status.get('selected', 0) }}</div>
+  </div>
+  
+  <div class='kpi-card yellow'>
+    <div class='kpi-icon'><i class='bi bi-bookmark'></i></div>
+    <div class='kpi-label'>Saved</div>
+    <div class='kpi-value'>{{ stats.by_status.get('saved', 0) }}</div>
+  </div>
+  
+  <div class='kpi-card purple'>
+    <div class='kpi-icon'><i class='bi bi-bullseye'></i></div>
+    <div class='kpi-label'>Avg Fit Score</div>
+    <div class='kpi-value'>{{ stats.avg_fit_score or '—' }}</div>
+  </div>
+</div>
+
+{# Status Filter Pills #}
+<div class='filter-pills'>
+  <a href='?' class='filter-pill {% if not current_status %}active{% endif %}'>
+    All <span class='small'>({{ stats.total }})</span>
+  </a>
+  <a href='?status=discovered' class='filter-pill {% if current_status == "discovered" %}active{% endif %}'>
+    Pending Review <span class='small'>({{ stats.by_status.get('discovered', 0) }})</span>
+  </a>
+  <a href='?status=selected' class='filter-pill {% if current_status == "selected" %}active{% endif %}'>
+    Selected <span class='small'>({{ stats.by_status.get('selected', 0) }})</span>
+  </a>
+  <a href='?status=auto_apply' class='filter-pill {% if current_status == "auto_apply" %}active{% endif %}'>
+    Auto-Apply <span class='small'>({{ stats.by_status.get('auto_apply', 0) }})</span>
+  </a>
+  <a href='?status=saved' class='filter-pill {% if current_status == "saved" %}active{% endif %}'>
+    Saved <span class='small'>({{ stats.by_status.get('saved', 0) }})</span>
+  </a>
+  <a href='?status=applied' class='filter-pill {% if current_status == "applied" %}active{% endif %}'>
+    Applied <span class='small'>({{ stats.by_status.get('applied', 0) }})</span>
+  </a>
+</div>
+
+{# Advanced Filters #}
+<div class='search-bar mb-3'>
+  <input type='text' class='search-input' placeholder='🔍 Search title or company...' 
+         id='search-input' oninput='filterRows()' style='flex: 2;'>
+  
+  <select class='filter-select' onchange='applyFilter("min_fit", this.value)'>
+    <option value=''>All Fit Scores</option>
+    <option value='80' {% if request.args.get('min_fit') == '80' %}selected{% endif %}>Fit ≥ 80 (Excellent)</option>
+    <option value='60' {% if request.args.get('min_fit') == '60' %}selected{% endif %}>Fit ≥ 60 (Good)</option>
+    <option value='40' {% if request.args.get('min_fit') == '40' %}selected{% endif %}>Fit ≥ 40 (Maybe)</option>
+  </select>
+  
+  <select class='filter-select' onchange='applyFilter("platform", this.value)'>
+    <option value=''>All Platforms</option>
+    <option value='linkedin' {% if request.args.get('platform') == 'linkedin' %}selected{% endif %}>LinkedIn</option>
+    <option value='indeed' {% if request.args.get('platform') == 'indeed' %}selected{% endif %}>Indeed</option>
+  </select>
+  
+  <select class='filter-select' onchange='applyFilter("days", this.value)'>
+    <option value=''>Any Time</option>
+    <option value='1' {% if request.args.get('days') == '1' %}selected{% endif %}>Last 24h</option>
+    <option value='3' {% if request.args.get('days') == '3' %}selected{% endif %}>Last 3 days</option>
+    <option value='7' {% if request.args.get('days') == '7' %}selected{% endif %}>Last week</option>
+  </select>
+</div>
+
+{# Bulk Actions Bar #}
+<div class='card mb-3' style='padding: 14px;'>
+  <div class='d-flex align-items-center gap-3 flex-wrap'>
+    <div>
+      <input type='checkbox' id='select-all' onchange='toggleSelectAll(this)'>
+      <label for='select-all' class='ms-2'>
+        Select all on page
+      </label>
+    </div>
+    
+    <span class='text-muted'>|</span>
+    
+    <span class='small text-muted'>Selected: <strong id='selected-count'>0</strong></span>
+    
+    <div style='flex: 1;'></div>
+    
+    <form method='post' action='/discovered/bulk-action' style='display: flex; gap: 8px;' id='bulk-form'>
+      <input type='hidden' name='job_ids' id='bulk-job-ids' value=''>
+      
+      <select name='action' class='filter-select' style='min-width: 200px;'>
+        <option value='selected'>⭐ Mark for Apply</option>
+        <option value='auto_apply'>🤖 Auto-Apply (Queue Now)</option>
+        <option value='saved'>💾 Save for Later</option>
+        <option value='skipped'>❌ Skip</option>
+        <option value='discovered'>↩️ Reset to Discovered</option>
+      </select>
+      
+      <button type='submit' class='btn btn-primary'>
+        <i class='bi bi-check2-square'></i> Apply Action
+      </button>
+    </form>
+    
+    <form method='post' action='/discovered/apply-selected' style='display: inline;'>
+      <button type='submit' class='btn btn-success' 
+              {% if not stats.by_status.get('selected', 0) %}disabled{% endif %}>
+        <i class='bi bi-rocket-takeoff'></i> 
+        Apply Now ({{ stats.by_status.get('selected', 0) }})
+      </button>
+    </form>
+  </div>
+</div>
+
+{# Jobs Table #}
+<div class='card'>
+  <div class='card-body' style='padding: 0;'>
+    <table class='table' id='jobs-table'>
+      <thead>
+        <tr>
+          <th style='width: 40px;'></th>
+          <th>Title</th>
+          <th>Company</th>
+          <th>Location</th>
+          <th>Platform</th>
+          <th>Fit</th>
+          <th>Salary</th>
+          <th>Easy?</th>
+          <th>Status</th>
+          <th>Discovered</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+          <tr data-id='{{ job.id }}' data-title='{{ (job.title or "")|lower }}' data-company='{{ (job.company or "")|lower }}'>
+            <td>
+              <input type='checkbox' class='job-checkbox' value='{{ job.id }}' onchange='updateSelectedCount()'>
+            </td>
+            <td>
+              <a href='{{ job.url }}' target='_blank' title='{{ job.title }}'>
+                {{ (job.title or "?")|truncate(45) }}
+              </a>
+              {% if job.fit_reasoning %}
+                <i class='bi bi-info-circle text-muted ms-1' title='{{ job.fit_reasoning }}'></i>
+              {% endif %}
+            </td>
+            <td>{{ (job.company or "?")|truncate(25) }}</td>
+            <td>{{ (job.location or "—")|truncate(20) }}</td>
+            <td>
+              <span class='badge bg-secondary'>{{ job.platform }}</span>
+            </td>
+            <td>
+              {% if job.fit_score is not none %}
+                <span class='fit-score {% if job.fit_score >= 80 %}fit-score-high{% elif job.fit_score >= 60 %}fit-score-mid{% else %}fit-score-low{% endif %}'>
+                  {{ job.fit_score }}
+                </span>
+              {% else %}—{% endif %}
+            </td>
+            <td><small>{{ job.salary or '—' }}</small></td>
+            <td>
+              {% if job.is_easy_apply %}
+                <i class='bi bi-check-circle-fill text-success' title='Easy Apply'></i>
+              {% else %}
+                <i class='bi bi-x-circle text-muted' title='External'></i>
+              {% endif %}
+            </td>
+            <td>
+              <span class='badge badge-{{ job.status }}'>
+                {{ job.status|upper }}
+              </span>
+            </td>
+            <td><small class='text-muted'>{{ job.discovered_at | timeago if job.discovered_at else '—' }}</small></td>
+            <td>
+              <div class='d-flex gap-1'>
+                <form method='post' action='/discovered/action/{{ job.id }}' style='display: inline;'>
+                  <input type='hidden' name='action' value='selected'>
+                  <button type='submit' class='btn btn-success btn-sm' title='Mark for Apply'>
+                    <i class='bi bi-check'></i>
+                  </button>
+                </form>
+                <form method='post' action='/discovered/action/{{ job.id }}' style='display: inline;'>
+                  <input type='hidden' name='action' value='saved'>
+                  <button type='submit' class='btn btn-light btn-sm' title='Save'>
+                    <i class='bi bi-bookmark'></i>
+                  </button>
+                </form>
+                <form method='post' action='/discovered/action/{{ job.id }}' style='display: inline;'>
+                  <input type='hidden' name='action' value='skipped'>
+                  <button type='submit' class='btn btn-outline-secondary btn-sm' title='Skip'>
+                    <i class='bi bi-x'></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan='11' class='text-muted text-center' style='padding: 60px;'>
+              <i class='bi bi-search' style='font-size: 48px; opacity: 0.3;'></i>
+              <p class='mt-3'>No discovered jobs match the filter.</p>
+              <p class='small'>Run bot in <strong>Discovery Mode</strong> to populate this list.</p>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Schedule Apply Modal (optional) #}
+<div id='schedule-modal' style='display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;'>
+  <div style='background: var(--color-bg-elevated); max-width: 500px; margin: 80px auto; padding: 30px; border-radius: 12px;'>
+    <h3>📅 Schedule Apply</h3>
+    <p class='text-muted small'>Bot will apply at scheduled time.</p>
+    <form method='post' action='/discovered/schedule'>
+      <input type='hidden' name='job_ids' id='schedule-ids' value=''>
+      <label>Apply when:</label>
+      <input type='datetime-local' name='schedule_time' class='search-input' style='width: 100%;'>
+      <div class='mt-3 d-flex justify-content-end gap-2'>
+        <button type='button' class='btn btn-light' onclick='closeScheduleModal()'>Cancel</button>
+        <button type='submit' class='btn btn-primary'>Schedule</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleSelectAll(checkbox) {
+  document.querySelectorAll('.job-checkbox').forEach(cb => {
+    cb.checked = checkbox.checked;
+  });
+  updateSelectedCount();
+}
+
+function updateSelectedCount() {
+  const checked = document.querySelectorAll('.job-checkbox:checked');
+  document.getElementById('selected-count').textContent = checked.length;
+  
+  // Update hidden field for bulk form
+  const ids = Array.from(checked).map(cb => cb.value);
+  document.getElementById('bulk-job-ids').value = ids.join(',');
+}
+
+function applyFilter(param, value) {
+  const url = new URL(window.location);
+  if (value) {
+    url.searchParams.set(param, value);
+  } else {
+    url.searchParams.delete(param);
+  }
+  window.location.href = url.toString();
+}
+
+function filterRows() {
+  const query = document.getElementById('search-input').value.toLowerCase();
+  const rows = document.querySelectorAll('#jobs-table tbody tr[data-id]');
+  rows.forEach(row => {
+    const title = row.dataset.title || '';
+    const company = row.dataset.company || '';
+    const match = title.includes(query) || company.includes(query);
+    row.style.display = match ? '' : 'none';
+  });
+}
+
+function showScheduleModal(ids) {
+  document.getElementById('schedule-ids').value = ids;
+  document.getElementById('schedule-modal').style.display = 'block';
+}
+
+function closeScheduleModal() {
+  document.getElementById('schedule-modal').style.display = 'none';
+}
+</script>
+{% endblock %}

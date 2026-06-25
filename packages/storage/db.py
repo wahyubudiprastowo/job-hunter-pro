@@ -211,7 +211,22 @@ def _resolve_application_url(r: Application) -> str:
     job_id = (r.job_id or "").strip()
     if platform == "linkedin" and job_id:
         return f"https://www.linkedin.com/jobs/view/{job_id}/"
+    if platform == "indeed" and job_id:
+        return f"https://www.indeed.com/viewjob?jk={job_id}"
     return ""
+
+
+def _resolve_application_title(r: Application) -> str:
+    if r.title:
+        return r.title
+    platform = (r.platform or "job").upper()
+    if r.company and r.job_id:
+        return f"{platform} job {r.job_id} @ {r.company}"
+    if r.job_id:
+        return f"{platform} job {r.job_id}"
+    if r.company:
+        return f"Untitled job @ {r.company}"
+    return "Untitled job"
 
 
 def _row_to_dict(r: Application) -> dict:
@@ -227,7 +242,7 @@ def _row_to_dict(r: Application) -> dict:
         "id": r.id,
         "platform": r.platform,
         "job_id": r.job_id,
-        "title": r.title,
+        "title": _resolve_application_title(r),
         "company": r.company,
         "location": r.location,
         "url": _resolve_application_url(r),

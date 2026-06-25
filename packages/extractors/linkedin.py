@@ -314,7 +314,32 @@ class LinkedInExtractor(BaseExtractor):
 
     def open_job_detail(self, card):
         d = self.driver
-        el = card["_element"]
+        el = card.get("_element")
+        if el is None:
+            target_url = card.get("url") or f"{self.base_url}/jobs/view/{card['job_id']}/"
+            d.get(target_url)
+            human_sleep(2, 3.5)
+            title = card.get("title") or self._safe_text(d, SELECTORS["detail_title"])
+            company = card.get("company") or self._safe_text(d, SELECTORS["detail_company"])
+            try:
+                desc = WebDriverWait(d, 10).until(
+                    EC.presence_of_element_located(SELECTORS["detail_description"])).text
+            except TimeoutException:
+                desc = ""
+            salary = self._safe_text(d, SELECTORS["detail_salary"])
+            already_applied = self._detect_already_applied(d)
+            is_easy = False
+            if not already_applied:
+                is_easy = self._detect_easy_apply(d)
+                if not is_easy:
+                    is_easy = self._find_easy_apply_button(d, timeout=2) is not None
+            return JobListing(
+                platform=self.name, job_id=card["job_id"],
+                title=title, company=company, location=card.get("location", ""),
+                url=target_url,
+                description=desc, salary=salary, is_easy_apply=is_easy,
+                raw={"already_applied": already_applied},
+            )
         # PATCH 13: Stale-element-safe scroll
         try:
             d.execute_script("arguments[0].scrollIntoView({block:'center'});", el)

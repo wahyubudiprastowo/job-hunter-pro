@@ -17,22 +17,33 @@ def build_driver(headless: bool = False, user_data_dir: str = None,
                  version_main: int = None, profile_directory: str = None):
     """Build undetected Chrome driver with speed optimizations."""
     import undetected_chromedriver as uc
+    try:
+        from packages.extractors.indeed_2026_fixes import get_stealth_chrome_options
+    except Exception:
+        get_stealth_chrome_options = None
 
     options = uc.ChromeOptions()
     if headless:
         options.add_argument("--headless=new")
 
-    # Speed optimizations
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--disable-extensions")
-    options.add_argument("--disable-default-apps")
-    options.add_argument("--disable-popup-blocking")
-    options.add_argument("--no-first-run")
-    options.add_argument("--no-default-browser-check")
-    options.add_argument("--disable-translate")
-    options.add_argument("--disable-notifications")
+    option_args = [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-extensions",
+        "--disable-default-apps",
+        "--disable-popup-blocking",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-translate",
+        "--disable-notifications",
+    ]
+    if get_stealth_chrome_options:
+        for opt in get_stealth_chrome_options():
+            if opt not in option_args:
+                option_args.append(opt)
+    for opt in option_args:
+        options.add_argument(opt)
 
     # Reduce logs
     options.add_argument("--log-level=3")

@@ -245,3 +245,11 @@ global_limits:
   cooldown_hours_on_limit: 24
   cap_reduction_factor: 0.5
   cap_reduction_days: 7
+
+discovery:
+  enabled: false
+  max_per_session: 100
+  scroll_depth: 15
+  auto_apply_threshold: 90
+  auto_skip_threshold: 30
+  cleanup_after_days: 30

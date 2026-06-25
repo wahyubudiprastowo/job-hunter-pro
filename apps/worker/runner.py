@@ -9,6 +9,7 @@ NEW vs PATCH 6:
 """
 from __future__ import annotations
 import os
+import json
 import time
 import atexit
 import threading
@@ -26,6 +27,7 @@ from packages.core.filters import (
     title_passes, description_passes, company_passes, salary_passes
 )
 from packages.storage import db as store
+from packages.storage import discovered_jobs as discovered_store
 from packages.storage.answers import (
     load_answers, save_answers, add_unanswered
 )
@@ -101,6 +103,12 @@ except ImportError:
     def notify(*args, **kwargs):
         return None
 
+try:
+    from apps.web.realtime_tracker import get_tracker
+    _tracker = get_tracker()
+except ImportError:
+    _tracker = None
+
 from apps.worker.control import controller
 
 EXTRACTOR_REGISTRY = {
@@ -147,17 +155,65 @@ def _resolve_browser_profile(session_platforms: list[str] | None) -> tuple[str, 
     platform_user_data_dir = (os.getenv(f"{platform}_USER_DATA_DIR") or "").strip()
     platform_profile_dir = (os.getenv(f"{platform}_CHROME_PROFILE_DIRECTORY") or "").strip()
 
+    # If a platform-specific profile folder exists but env still points to the
+    # shared default profile, prefer the dedicated one to preserve login state.
+    conventional_platform_dir = f"./.chrome-profile-{platform.lower()}"
+    if (
+        platform_user_data_dir in ("", default_user_data_dir)
+        and Path(conventional_platform_dir).exists()
+    ):
+        platform_user_data_dir = conventional_platform_dir
+
     return (
         platform_user_data_dir or default_user_data_dir,
         platform_profile_dir or default_profile_dir,
     )
 
 
+def _load_apply_queue(path: str = "data/.control/apply_queue.json") -> list[dict]:
+    queue_path = Path(path)
+    if not queue_path.exists():
+        return []
+    try:
+        data = json.loads(queue_path.read_text(encoding="utf-8"))
+        return [item for item in data if isinstance(item, dict)]
+    except Exception as e:
+        logger.warning(f"Could not read apply queue: {e}")
+        return []
+
+
+def _load_due_discovered_queue(limit: int = 200) -> list[dict]:
+    now_ts = int(time.time())
+    rows = discovered_store.list_discovered(
+        status=discovered_store.STATUS_AUTO_APPLY,
+        limit=limit,
+    )
+    due_rows = []
+    for row in rows:
+        scheduled_at = row.get("scheduled_at")
+        if scheduled_at and int(scheduled_at) > now_ts:
+            continue
+        due_rows.append({
+            "discovered_id": row.get("id"),
+            "platform": row.get("platform"),
+            "job_id": row.get("job_id"),
+            "title": row.get("title"),
+            "company": row.get("company"),
+            "location": row.get("location"),
+            "url": row.get("url"),
+            "fit_score": row.get("fit_score"),
+            "fit_reasoning": row.get("fit_reasoning"),
+        })
+    return due_rows
+
+
 def run_bot(config_path: str = "config.yaml"):
     load_dotenv()
     store.init_db()
+    discovered_store.init_schema()
     config = load_config(config_path)
     orchestration_cfg = config.get("orchestration", {}) or {}
+    discovery_cfg = config.get("discovery", {}) or {}
 
     session = get_session_platforms()
     session_platforms = session.get("platforms") if session else None
@@ -171,6 +227,19 @@ def run_bot(config_path: str = "config.yaml"):
     run_cap = int(global_limits_cfg.get("total_apply_per_run", 20))
     ai_cfg = config.get("ai", {}) or {}
     captcha_cfg = config.get("captcha", {}) or {}
+    discovery_mode = bool(discovery_cfg.get("enabled", False))
+    apply_queue_items = _load_apply_queue()
+    if not apply_queue_items and not discovery_mode:
+        apply_queue_items = _load_due_discovered_queue()
+    if apply_queue_items:
+        discovery_mode = False
+        run_cap = max(run_cap, len(apply_queue_items))
+        logger.info(f"Queued apply mode enabled for {len(apply_queue_items)} discovered job(s)")
+    if discovery_mode:
+        logger.info("Discovery mode enabled: scrape and curate only, no apply")
+        cleanup_days = int(discovery_cfg.get("cleanup_after_days", 30) or 30)
+        if cleanup_days > 0:
+            discovered_store.cleanup_old(cleanup_days)
     notif_manager = None
 
     Path("data/logs").mkdir(parents=True, exist_ok=True)
@@ -188,6 +257,13 @@ def run_bot(config_path: str = "config.yaml"):
     controller.clear_command()
     controller.set_state("running")
     controller.beat()
+    if _tracker:
+        _tracker.reset(keep_logs=False)
+        _tracker.set_state("running")
+        _tracker.set_run_progress(0, run_cap)
+        _tracker.set_run_counters(0, 0, 0, 0)
+        _tracker.add_activity("Bot started", "info")
+        _tracker.add_log("Bot started.")
 
     def _cleanup():
         logger.info("🧹 Cleanup: clearing state files")
@@ -266,14 +342,29 @@ def run_bot(config_path: str = "config.yaml"):
         "skipped": 0,
         "failed": 0,
         "needs": 0,
+        "discovered": 0,
         "tailored": 0,
         "cover_letters_generated": 0,
         "cover_letters_uploaded": 0,
         "fit_scored": 0,
         "fit_skipped": 0,
+        "auto_apply_queued": 0,
         "cap_reached": 0,
         "rate_limit_detected": 0,
     }
+
+    notify(
+        notif_manager,
+        title="Bot started",
+        message="Job-Hunter Pro run started.",
+        level=NotificationLevel.INFO if NotificationLevel else None,
+        category=NotificationCategory.BOT_STATE if NotificationCategory else None,
+        metadata={
+            "mode": mode,
+            "platforms": ",".join(session_platforms or []),
+            "run_cap": run_cap,
+        },
+    )
 
     def _sync_run_progress():
         store.update_run_progress(
@@ -283,10 +374,35 @@ def run_bot(config_path: str = "config.yaml"):
             counters["failed"],
             counters["needs"],
         )
+        if _tracker:
+            _tracker.set_run_progress(counters["applied"], run_cap)
+            _tracker.set_run_counters(
+                counters["applied"],
+                counters["skipped"],
+                counters["failed"],
+                counters["needs"],
+            )
 
     current_platform_name = None
     current_platform_applied = 0
     current_platform_skipped = 0
+    apply_queue_consumed = False
+
+    def _mark_discovered_result(queue_item: dict | None, result: ApplicationResult | None = None, *, skipped: bool = False, failed: bool = False, note: str = ""):
+        if not queue_item or not queue_item.get("discovered_id"):
+            return
+        discovered_id = int(queue_item["discovered_id"])
+        if result and result.status == ApplyStatus.APPLIED:
+            discovered_store.update_status([discovered_id], discovered_store.STATUS_APPLIED, notes=note)
+            return
+        if result and result.status == ApplyStatus.FAILED:
+            discovered_store.update_status([discovered_id], discovered_store.STATUS_FAILED, notes=note or (result.error_message or ""))
+            return
+        if failed:
+            discovered_store.update_status([discovered_id], discovered_store.STATUS_FAILED, notes=note)
+            return
+        if skipped or (result and result.status in (ApplyStatus.SKIPPED, ApplyStatus.EXTERNAL)):
+            discovered_store.update_status([discovered_id], discovered_store.STATUS_SKIPPED, notes=note or (result.error_message if result else ""))
 
     try:
         for platform_name, pcfg in config["platforms"].items():
@@ -310,6 +426,9 @@ def run_bot(config_path: str = "config.yaml"):
                 "applied": 0,
                 "skipped": 0,
             })
+            if _tracker:
+                _tracker.add_activity(f"{platform_name.upper()} started", "info")
+                _tracker.add_log(f"{platform_name.upper()}: started.")
 
             if platform_name not in EXTRACTOR_REGISTRY:
                 platform_final_state = "error"
@@ -338,6 +457,15 @@ def run_bot(config_path: str = "config.yaml"):
                 except TypeError:
                     extractor = extractor_cls(driver, pcfg, profile, answers, stealth_cfg)
 
+            if discovery_mode:
+                try:
+                    extractor.config["scroll_count"] = max(
+                        int(extractor.config.get("scroll_count", 8) or 8),
+                        int(discovery_cfg.get("scroll_depth", 15) or 15),
+                    )
+                except Exception:
+                    pass
+
             email = (os.getenv(f"{platform_name.upper()}_EMAIL") or "").strip()
             password = (os.getenv(f"{platform_name.upper()}_PASSWORD") or "").strip()
             totp = os.getenv(f"{platform_name.upper()}_TOTP_SECRET", "")
@@ -348,8 +476,13 @@ def run_bot(config_path: str = "config.yaml"):
 
             try:
                 extractor.login(email, password, totp)
+                if _tracker:
+                    _tracker.add_activity(f"{platform_name.upper()} session ready", "success")
             except Exception as e:
                 logger.error(f"Login failed: {e}")
+                if _tracker:
+                    _tracker.add_activity(f"{platform_name.upper()} login failed", "error")
+                    _tracker.add_log(f"{platform_name.upper()}: login failed - {e}")
                 platform_final_state = "error"
                 platform_final_extra = {"error_message": f"login failed: {e}"}
                 set_platform_state(platform_name, platform_final_state, {
@@ -417,49 +550,91 @@ def run_bot(config_path: str = "config.yaml"):
                     limiter = None
 
             search_cfg = pcfg["search"]
+            queued_cards = []
+            if apply_queue_items:
+                for item in apply_queue_items:
+                    if (item.get("platform") or "").strip().lower() != platform_name:
+                        continue
+                    queued_cards.append({
+                        "job_id": str(item.get("job_id") or "").strip(),
+                        "title": item.get("title") or "",
+                        "company": item.get("company") or "",
+                        "location": item.get("location") or "",
+                        "url": item.get("url") or "",
+                        "_element": None,
+                        "_queue_item": item,
+                    })
+
             stop_platform_processing = False
-            for query in search_cfg["queries"]:
+            query_sequence = ["__apply_queue__"] if queued_cards else search_cfg["queries"]
+            for query in query_sequence:
                 if stop_platform_processing or counters["applied"] >= run_cap:
                     break
                 controller.check()
-                filters = SearchFilters(
-                    queries=[query], location=search_cfg["location"],
-                    remote=search_cfg.get("remote", False),
-                    hybrid=search_cfg.get("hybrid", False),
-                    date_posted=search_cfg["date_posted"],
-                    experience_levels=search_cfg.get("experience_levels", []),
-                    job_type=search_cfg.get("job_type", "Full-time"),
-                    easy_apply_only=search_cfg.get("easy_apply_only", True),
-                )
-                extractor.search(filters)
-                cards = extractor.collect_job_cards(
-                    max_cards=pcfg["max_apply_per_run"] * 3)
+                queue_mode = bool(queued_cards)
+                if _tracker:
+                    _tracker.set_step("Queued apply" if queue_mode else f"Searching: {query}", 5)
+                    _tracker.add_activity(
+                        f"{platform_name.upper()} queued apply" if queue_mode else f"{platform_name.upper()} search: {query}",
+                        "info",
+                    )
+                if queue_mode:
+                    logger.info(f"Processing {len(queued_cards)} queued discovered job(s) for {platform_name}")
+                    cards = queued_cards
+                else:
+                    filters = SearchFilters(
+                        queries=[query], location=search_cfg["location"],
+                        remote=search_cfg.get("remote", False),
+                        hybrid=search_cfg.get("hybrid", False),
+                        date_posted=search_cfg["date_posted"],
+                        experience_levels=search_cfg.get("experience_levels", []),
+                        job_type=search_cfg.get("job_type", "Full-time"),
+                        easy_apply_only=search_cfg.get("easy_apply_only", True),
+                    )
+                    extractor.search(filters)
+                    max_cards = (
+                        int(discovery_cfg.get("max_per_session", 100) or 100)
+                        if discovery_mode
+                        else pcfg["max_apply_per_run"] * 3
+                    )
+                    cards = extractor.collect_job_cards(max_cards=max_cards)
 
                 for card in cards:
                     if counters["applied"] >= run_cap:
                         break
                     controller.check()
                     job_id = card["job_id"]
+                    queue_item = card.get("_queue_item")
+                    if _tracker:
+                        _tracker.set_current_job(
+                            title=card.get("title", ""),
+                            company=card.get("company", ""),
+                            platform=platform_name,
+                            step="Filtering",
+                        )
+                        _tracker.set_step("Filtering", 10)
 
-                    ok, reason = company_passes(card["company"],
-                        config["filters"]["company_blacklist"])
-                    if not ok:
-                        _record_skip(card, platform_name, SkipReason.BLACKLISTED_COMPANY, reason)
-                        counters["skipped"] += 1
-                        platform_skipped += 1
-                        _sync_run_progress()
-                        continue
-                    ok, reason = title_passes(card["title"],
-                        config["filters"]["title_keywords_include"],
-                        config["filters"]["title_keywords_exclude"])
-                    if not ok:
-                        _record_skip(card, platform_name, SkipReason.BLACKLISTED_TITLE, reason)
-                        counters["skipped"] += 1
-                        platform_skipped += 1
-                        _sync_run_progress()
-                        continue
+                    if not queue_item:
+                        ok, reason = company_passes(card["company"],
+                            config["filters"]["company_blacklist"])
+                        if not ok:
+                            _record_skip(card, platform_name, SkipReason.BLACKLISTED_COMPANY, reason)
+                            counters["skipped"] += 1
+                            platform_skipped += 1
+                            _sync_run_progress()
+                            continue
+                        ok, reason = title_passes(card["title"],
+                            config["filters"]["title_keywords_include"],
+                            config["filters"]["title_keywords_exclude"])
+                        if not ok:
+                            _record_skip(card, platform_name, SkipReason.BLACKLISTED_TITLE, reason)
+                            counters["skipped"] += 1
+                            platform_skipped += 1
+                            _sync_run_progress()
+                            continue
                     if config["filters"]["skip_already_applied"] and store.already_applied(job_id):
                         _record_skip(card, platform_name, SkipReason.DUPLICATE, "already applied")
+                        _mark_discovered_result(queue_item, skipped=True, note="already applied")
                         counters["skipped"] += 1
                         platform_skipped += 1
                         _sync_run_progress()
@@ -467,40 +642,52 @@ def run_bot(config_path: str = "config.yaml"):
 
                     try:
                         job = extractor.open_job_detail(card)
+                        if _tracker:
+                            _tracker.set_current_job(
+                                title=job.title,
+                                company=job.company,
+                                platform=platform_name,
+                                step="Job detail loaded",
+                            )
+                            _tracker.set_step("Job detail loaded", 20)
                     except Exception as e:
                         logger.exception(f"open_job_detail: {e}")
+                        _mark_discovered_result(queue_item, failed=True, note=f"open_job_detail: {e}")
                         counters["failed"] += 1
                         _sync_run_progress()
                         continue
 
-                    ok, reason = description_passes(job.description,
-                        config["filters"]["description_keywords_exclude"])
-                    if not ok:
-                        _record_skip_full(job, SkipReason.EXCLUDED_KEYWORD, reason)
-                        counters["skipped"] += 1
-                        platform_skipped += 1
-                        _sync_run_progress()
-                        continue
-                    ok, reason = salary_passes(job.salary, config["filters"]["min_salary"])
-                    if not ok:
-                        _record_skip_full(job, SkipReason.SALARY_TOO_LOW, reason)
-                        counters["skipped"] += 1
-                        platform_skipped += 1
-                        _sync_run_progress()
-                        continue
+                    if not queue_item:
+                        ok, reason = description_passes(job.description,
+                            config["filters"]["description_keywords_exclude"])
+                        if not ok:
+                            _record_skip_full(job, SkipReason.EXCLUDED_KEYWORD, reason)
+                            counters["skipped"] += 1
+                            platform_skipped += 1
+                            _sync_run_progress()
+                            continue
+                        ok, reason = salary_passes(job.salary, config["filters"]["min_salary"])
+                        if not ok:
+                            _record_skip_full(job, SkipReason.SALARY_TOO_LOW, reason)
+                            counters["skipped"] += 1
+                            platform_skipped += 1
+                            _sync_run_progress()
+                            continue
                     if job.raw.get("already_applied"):
                         _record_skip_full(job, SkipReason.DUPLICATE, "already applied on LinkedIn")
+                        _mark_discovered_result(queue_item, skipped=True, note="already applied on platform")
                         counters["skipped"] += 1
                         platform_skipped += 1
                         _sync_run_progress()
                         continue
-                    if not extractor.can_auto_apply(job):
+                    if not discovery_mode and not extractor.can_auto_apply(job):
                         _record_skip_full(
                             job,
                             SkipReason.NOT_EASY_APPLY,
                             "external apply",
                             status=ApplyStatus.EXTERNAL,
                         )
+                        _mark_discovered_result(queue_item, skipped=True, note="external apply")
                         counters["skipped"] += 1
                         platform_skipped += 1
                         _sync_run_progress()
@@ -524,10 +711,15 @@ def run_bot(config_path: str = "config.yaml"):
                             stop_platform_processing = True
                             break
 
+                    queued_fit_score = queue_item.get("fit_score") if queue_item else None
+                    queued_fit_reasoning = queue_item.get("fit_reasoning") if queue_item else None
+
                     # === FIT SCORING ===
                     fit_score_result = None
-                    if fit_scoring_enabled and job.description:
+                    if fit_scoring_enabled and job.description and not (queue_item and queued_fit_score is not None):
                         try:
+                            if _tracker:
+                                _tracker.set_step("Fit scoring", 30)
                             fit_score_result = calculate_fit_score(
                                 ai_provider,
                                 cv_text,
@@ -537,7 +729,15 @@ def run_bot(config_path: str = "config.yaml"):
                             if fit_score_result:
                                 counters["fit_scored"] += 1
                                 log_fit_score(fit_score_result, job, job_id=job.job_id)
-                                if fit_score_result.score < fit_threshold:
+                                if _tracker:
+                                    _tracker.set_current_job(
+                                        title=job.title,
+                                        company=job.company,
+                                        platform=platform_name,
+                                        step="Fit scoring",
+                                        fit_score=fit_score_result.score,
+                                    )
+                                if (not discovery_mode) and (not queue_item) and fit_score_result.score < fit_threshold:
                                     _record_skip_full(
                                         job,
                                         SkipReason.FIT_SCORE_LOW,
@@ -553,11 +753,53 @@ def run_bot(config_path: str = "config.yaml"):
                         except Exception as e:
                             logger.warning(f"Fit scoring failed: {e}")
 
+                    if discovery_mode:
+                        discovered_status = discovered_store.STATUS_DISCOVERED
+                        auto_threshold = int(discovery_cfg.get("auto_apply_threshold", 90) or 90)
+                        auto_skip_threshold = int(discovery_cfg.get("auto_skip_threshold", 30) or 30)
+                        score_value = fit_score_result.score if fit_score_result else queued_fit_score
+                        reasoning_value = fit_score_result.reasoning if fit_score_result else queued_fit_reasoning
+                        if score_value is not None:
+                            if score_value >= auto_threshold:
+                                discovered_status = discovered_store.STATUS_AUTO_APPLY
+                                counters["auto_apply_queued"] += 1
+                            elif score_value < auto_skip_threshold:
+                                discovered_status = discovered_store.STATUS_SKIPPED
+                        discovered_id = discovered_store.save_discovered({
+                            "platform": platform_name,
+                            "job_id": job.job_id,
+                            "title": job.title,
+                            "company": job.company,
+                            "location": job.location,
+                            "url": job.url,
+                            "description": job.description,
+                            "salary": job.salary,
+                            "fit_score": score_value,
+                            "fit_reasoning": reasoning_value,
+                            "is_easy_apply": job.is_easy_apply,
+                            "status": discovered_status,
+                            "metadata": {"raw": job.raw or {}},
+                        })
+                        if discovered_id:
+                            counters["discovered"] += 1
+                            logger.info(
+                                f"Discovered [{job.title} @ {job.company}]"
+                                f" status={discovered_status}"
+                                f" fit={score_value if score_value is not None else '-'}"
+                            )
+                        if counters["discovered"] >= int(discovery_cfg.get("max_per_session", 100) or 100):
+                            logger.info(f"Discovery cap reached ({counters['discovered']})")
+                            stop_platform_processing = True
+                        _sync_run_progress()
+                        continue
+
                     # === RESUME TAILORING ===
                     effective_resume = resume_path
                     cover_letter_paths = None
                     if tailoring_enabled and job.description:
                         try:
+                            if _tracker:
+                                _tracker.set_step("Resume tailoring", 50)
                             tailored = generate_tailored_resume(
                                 ai_provider, profile, cv_text, job,
                                 output_dir=ai_cfg.get("resume_output_dir", "resumes/generated")
@@ -573,6 +815,8 @@ def run_bot(config_path: str = "config.yaml"):
                     )
                     if cover_letter_enabled and generate_cover_letter:
                         try:
+                            if _tracker:
+                                _tracker.set_step("Cover letter", 70)
                             generated = generate_cover_letter(
                                 ai_provider,
                                 profile,
@@ -589,6 +833,8 @@ def run_bot(config_path: str = "config.yaml"):
                             logger.warning(f"Cover letter generation failed: {e}")
 
                     try:
+                        if _tracker:
+                            _tracker.set_step("Applying", 90)
                         result = extractor.apply(
                             job,
                             effective_resume,
@@ -605,14 +851,19 @@ def run_bot(config_path: str = "config.yaml"):
                         result,
                         resume_path=effective_resume,
                         cover_letter_path=result.cover_letter_path,
-                        fit_score=fit_score_result.score if fit_score_result else None,
-                        fit_reasoning=fit_score_result.reasoning if fit_score_result else None,
+                        fit_score=fit_score_result.score if fit_score_result else queued_fit_score,
+                        fit_reasoning=fit_score_result.reasoning if fit_score_result else queued_fit_reasoning,
                     )
+                    _mark_discovered_result(queue_item, result=result)
 
                     if result.status == ApplyStatus.APPLIED:
                         counters["applied"] += 1
                         platform_applied += 1
                         current_platform_applied = platform_applied
+                        if _tracker:
+                            _tracker.set_step("Applied", 100)
+                            _tracker.add_activity(f"Applied: {job.title} @ {job.company}", "success")
+                            _tracker.add_log(f"APPLIED {platform_name}: {job.title} @ {job.company}")
                         if limiter:
                             limiter.increment()
                         if result.cover_letter_path:
@@ -625,18 +876,49 @@ def run_bot(config_path: str = "config.yaml"):
                         })
                         suffix = " (tailored)" if effective_resume != resume_path else ""
                         logger.success(f"✅ APPLIED{suffix} [{job.title} @ {job.company}]")
+                        notify(
+                            notif_manager,
+                            title="Application submitted",
+                            message=f"{job.title} at {job.company}",
+                            level=NotificationLevel.SUCCESS if NotificationLevel else None,
+                            category=NotificationCategory.APPLICATION if NotificationCategory else None,
+                            metadata={
+                                "platform": platform_name,
+                                "company": job.company or "",
+                                "total_applied": counters["applied"],
+                            },
+                        )
+                        if counters["applied"] and counters["applied"] % 10 == 0:
+                            notify(
+                                notif_manager,
+                                title="Apply milestone",
+                                message=f"{counters['applied']} applications submitted in this run.",
+                                level=NotificationLevel.INFO if NotificationLevel else None,
+                                category=NotificationCategory.DAILY_SUMMARY if NotificationCategory else None,
+                                metadata={"run_id": run_id, "applied": counters["applied"]},
+                            )
                     elif result.status == ApplyStatus.SKIPPED:
                         counters["skipped"] += 1
                         platform_skipped += 1
                         current_platform_skipped = platform_skipped
+                        if _tracker:
+                            _tracker.set_step("Skipped", 100)
                         logger.debug(
                             f"⏭️  Apply returned SKIPPED — check if double-count: {result.error_message}"
                         )
                     elif result.status == ApplyStatus.NEEDS_ANSWERS:
                         counters["needs"] += 1
+                        if _tracker:
+                            _tracker.set_step("Needs answers", 100)
+                            _tracker.add_activity(f"Needs answers: {job.title} @ {job.company}", "warning")
+                            _tracker.add_log(f"NEEDS_ANSWERS {platform_name}: {job.title}")
                         add_unanswered(result.unanswered_questions)
                     else:
                         counters["failed"] += 1
+                        if _tracker:
+                            _tracker.set_step("Failed", 100)
+                            _tracker.add_activity(f"Failed: {job.title} @ {job.company}", "error")
+                            _tracker.add_log(f"FAILED {platform_name}: {job.title} - {result.error_message or 'unknown error'}")
                         add_unanswered(result.unanswered_questions)
 
                     _sync_run_progress()
@@ -648,6 +930,14 @@ def run_bot(config_path: str = "config.yaml"):
                             counters["rate_limit_detected"] += 1
                             logger.warning(
                                 f"Rate limit detected for {platform_name} - stopping run after current record"
+                            )
+                            notify(
+                                notif_manager,
+                                title="Rate limit detected",
+                                message=f"{platform_name} paused after rate limit warning.",
+                                level=NotificationLevel.WARNING if NotificationLevel else None,
+                                category=NotificationCategory.RATE_LIMIT if NotificationCategory else None,
+                                metadata={"platform": platform_name, "reason": matched_phrase},
                             )
                             platform_final_state = "paused"
                             platform_final_extra = {"note": matched_phrase}
@@ -674,7 +964,40 @@ def run_bot(config_path: str = "config.yaml"):
                 **platform_final_extra,
             })
 
+            if platform_final_state == "paused" and platform_final_extra:
+                notify(
+                    notif_manager,
+                    title=f"{platform_name} paused",
+                    message=platform_final_extra.get("note", "Platform paused."),
+                    level=NotificationLevel.WARNING if NotificationLevel else None,
+                    category=NotificationCategory.RATE_LIMIT if NotificationCategory else None,
+                    metadata={"platform": platform_name, **platform_final_extra},
+                )
+
+        apply_queue_consumed = bool(apply_queue_items)
         logger.info(f"🎉 Run done. Counters: {counters}")
+        if _tracker:
+            _tracker.add_activity(
+                f"Run completed: {counters['applied']} applied, {counters['skipped']} skipped",
+                "success",
+            )
+            _tracker.add_log(
+                f"Run completed. Applied={counters['applied']} Skipped={counters['skipped']} Failed={counters['failed']} Needs={counters['needs']}"
+            )
+        notify(
+            notif_manager,
+            title="Run completed",
+            message="Job-Hunter Pro run finished.",
+            level=NotificationLevel.INFO if NotificationLevel else None,
+            category=NotificationCategory.DAILY_SUMMARY if NotificationCategory else None,
+            metadata={
+                "run_id": run_id,
+                "applied": counters["applied"],
+                "skipped": counters["skipped"],
+                "failed": counters["failed"],
+                "needs_answers": counters["needs"],
+            },
+        )
     except Exception as e:
         if current_platform_name:
             set_platform_state(current_platform_name, "error", {
@@ -684,11 +1007,39 @@ def run_bot(config_path: str = "config.yaml"):
                 "error_message": str(e),
             })
         logger.exception(f"Run crashed: {e}")
+        if _tracker:
+            _tracker.set_state("error")
+            _tracker.add_activity(f"Run crashed: {e}", "error")
+            _tracker.add_log(f"Run crashed: {e}")
+        notify(
+            notif_manager,
+            title="Run crashed",
+            message=str(e),
+            level=NotificationLevel.ERROR if NotificationLevel else None,
+            category=NotificationCategory.ERROR if NotificationCategory else None,
+            metadata={"platform": current_platform_name or "", "run_id": run_id},
+        )
     finally:
         store.finish_run(run_id, counters["applied"], counters["skipped"],
                          counters["failed"], counters["needs"])
+        if apply_queue_consumed:
+            try:
+                Path("data/.control/apply_queue.json").unlink(missing_ok=True)
+            except Exception:
+                pass
         hb_stop.set()
         controller.set_state("idle")
+        if _tracker:
+            _tracker.set_run_progress(counters["applied"], run_cap)
+            _tracker.set_run_counters(
+                counters["applied"],
+                counters["skipped"],
+                counters["failed"],
+                counters["needs"],
+            )
+            _tracker.set_state("idle")
+            _tracker.add_activity("Bot stopped", "info")
+            _tracker.add_log("Bot stopped.")
         controller.clear_command()
         clear_session_override()
         time.sleep(2)
@@ -704,11 +1055,15 @@ def _record_skip(card, platform, reason, detail, **extra):
         platform=platform, job_id=card["job_id"],
         title=card.get("title", ""), company=card.get("company", ""),
         location=card.get("location", ""),
+        url=card.get("url", ""),
     )
     result = ApplicationResult(
         status=ApplyStatus.SKIPPED, skip_reason=reason, error_message=detail)
     store.record_application(job, result, **extra)
     logger.info(f"⏭️  SKIP [{card.get('title')} @ {card.get('company')}]: {detail}")
+    if _tracker:
+        _tracker.add_activity(f"Skipped: {card.get('title')} @ {card.get('company')}", "warning")
+        _tracker.add_log(f"SKIP {platform}: {card.get('title')} - {detail}")
 
 
 def _record_skip_full(job, reason, detail, status=ApplyStatus.SKIPPED, **extra):
@@ -716,6 +1071,10 @@ def _record_skip_full(job, reason, detail, status=ApplyStatus.SKIPPED, **extra):
         status=status, skip_reason=reason, error_message=detail)
     store.record_application(job, result, **extra)
     logger.info(f"⏭️  SKIP [{job.title} @ {job.company}]: {detail}")
+    if _tracker:
+        level = "warning" if status in (ApplyStatus.SKIPPED, ApplyStatus.EXTERNAL) else "error"
+        _tracker.add_activity(f"{status.value.title()}: {job.title} @ {job.company}", level)
+        _tracker.add_log(f"{status.value.upper()} {job.platform}: {job.title} - {detail}")
 
 
 if __name__ == "__main__":

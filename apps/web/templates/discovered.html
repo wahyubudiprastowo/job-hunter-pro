@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}Discovered Jobs - Job-Hunter Pro{% endblock %}
+
+{% block top_left %}
+  <div class="page-header" style="margin: 0;">
+    <h1 class="page-title">Discovered Jobs</h1>
+    <p class="page-subtitle">Browse {{ total }} discovered jobs, review them, then apply selectively.</p>
+  </div>
+{% endblock %}
+
+{% block content %}
+<div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="kpi-card blue">
+    <div class="kpi-icon"><i class="bi bi-search"></i></div>
+    <div class="kpi-label">Total Discovered</div>
+    <div class="kpi-value">{{ stats.total or 0 }}</div>
+  </div>
+  <div class="kpi-card green">
+    <div class="kpi-icon"><i class="bi bi-check2-circle"></i></div>
+    <div class="kpi-label">Selected</div>
+    <div class="kpi-value">{{ stats.by_status.get('selected', 0) }}</div>
+  </div>
+  <div class="kpi-card yellow">
+    <div class="kpi-icon"><i class="bi bi-bookmark"></i></div>
+    <div class="kpi-label">Saved</div>
+    <div class="kpi-value">{{ stats.by_status.get('saved', 0) }}</div>
+  </div>
+  <div class="kpi-card purple">
+    <div class="kpi-icon"><i class="bi bi-bullseye"></i></div>
+    <div class="kpi-label">Avg Fit Score</div>
+    <div class="kpi-value">{{ stats.avg_fit_score if stats.avg_fit_score is not none else '—' }}</div>
+  </div>
+</div>
+
+<div class="filter-pills">
+  <a href="{{ url_for('discovered') }}" class="filter-pill {% if not current_status %}active{% endif %}">
+    All <span class="small">({{ stats.total or 0 }})</span>
+  </a>
+  <a href="{{ url_for('discovered', status='discovered') }}" class="filter-pill {% if current_status == 'discovered' %}active{% endif %}">
+    Pending Review <span class="small">({{ stats.by_status.get('discovered', 0) }})</span>
+  </a>
+  <a href="{{ url_for('discovered', status='selected') }}" class="filter-pill {% if current_status == 'selected' %}active{% endif %}">
+    Selected <span class="small">({{ stats.by_status.get('selected', 0) }})</span>
+  </a>
+  <a href="{{ url_for('discovered', status='auto_apply') }}" class="filter-pill {% if current_status == 'auto_apply' %}active{% endif %}">
+    Auto-Apply <span class="small">({{ stats.by_status.get('auto_apply', 0) }})</span>
+  </a>
+  <a href="{{ url_for('discovered', status='saved') }}" class="filter-pill {% if current_status == 'saved' %}active{% endif %}">
+    Saved <span class="small">({{ stats.by_status.get('saved', 0) }})</span>
+  </a>
+  <a href="{{ url_for('discovered', status='applied') }}" class="filter-pill {% if current_status == 'applied' %}active{% endif %}">
+    Applied <span class="small">({{ stats.by_status.get('applied', 0) }})</span>
+  </a>
+</div>
+
+<div class="search-bar mb-3">
+  <input type="text" class="search-input" placeholder="Search title or company..." id="search-input" oninput="filterRows()" style="flex: 2;">
+
+  <select class="filter-select" onchange="applyFilter('min_fit', this.value)">
+    <option value="">All Fit Scores</option>
+    <option value="80" {% if request.args.get('min_fit') == '80' %}selected{% endif %}>Fit >= 80</option>
+    <option value="60" {% if request.args.get('min_fit') == '60' %}selected{% endif %}>Fit >= 60</option>
+    <option value="40" {% if request.args.get('min_fit') == '40' %}selected{% endif %}>Fit >= 40</option>
+  </select>
+
+  <select class="filter-select" onchange="applyFilter('platform', this.value)">
+    <option value="">All Platforms</option>
+    <option value="linkedin" {% if request.args.get('platform') == 'linkedin' %}selected{% endif %}>LinkedIn</option>
+    <option value="indeed" {% if request.args.get('platform') == 'indeed' %}selected{% endif %}>Indeed</option>
+  </select>
+
+  <select class="filter-select" onchange="applyFilter('days', this.value)">
+    <option value="">Any Time</option>
+    <option value="1" {% if request.args.get('days') == '1' %}selected{% endif %}>Last 24h</option>
+    <option value="3" {% if request.args.get('days') == '3' %}selected{% endif %}>Last 3 days</option>
+    <option value="7" {% if request.args.get('days') == '7' %}selected{% endif %}>Last week</option>
+  </select>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <div>
+        <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)">
+        <label for="select-all" class="ms-2">Select all on page</label>
+      </div>
+
+      <span class="text-muted">|</span>
+      <span class="small text-muted">Selected: <strong id="selected-count">0</strong></span>
+      <div style="flex: 1;"></div>
+
+      <form method="post" action="{{ url_for('discovered_bulk_action') }}" style="display:flex; gap:8px;" id="bulk-form">
+        <input type="hidden" name="job_ids" id="bulk-job-ids" value="">
+        <select name="action" class="filter-select" style="min-width: 200px;">
+          <option value="selected">Mark for Apply</option>
+          <option value="auto_apply">Queue Auto-Apply</option>
+          <option value="saved">Save for Later</option>
+          <option value="skipped">Skip</option>
+          <option value="discovered">Reset to Discovered</option>
+        </select>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check2-square"></i> Apply Action
+        </button>
+        <button type="button" class="btn btn-outline-secondary" onclick="scheduleSelected()">
+          <i class="bi bi-calendar-event"></i> Schedule
+        </button>
+      </form>
+
+      <form method="post" action="{{ url_for('discovered_apply_selected') }}" style="display:inline;">
+        <button type="submit" class="btn btn-success" {% if not stats.by_status.get('selected', 0) %}disabled{% endif %}>
+          <i class="bi bi-rocket-takeoff"></i> Apply Now ({{ stats.by_status.get('selected', 0) }})
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding: 0;">
+    <table class="table" id="jobs-table">
+      <thead>
+        <tr>
+          <th style="width:40px;"></th>
+          <th>Title</th>
+          <th>Company</th>
+          <th>Location</th>
+          <th>Platform</th>
+          <th>Fit</th>
+          <th>Salary</th>
+          <th>Easy?</th>
+          <th>Status</th>
+          <th>Discovered</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr data-id="{{ job.id }}" data-title="{{ (job.title or '')|lower }}" data-company="{{ (job.company or '')|lower }}">
+          <td><input type="checkbox" class="job-checkbox" value="{{ job.id }}" onchange="updateSelectedCount()"></td>
+          <td>
+            {% if job.url %}
+              <a href="{{ job.url }}" target="_blank" rel="noopener noreferrer" title="{{ job.title }}">{{ job.title|truncate(60) }}</a>
+            {% else %}
+              {{ job.title|truncate(60) }}
+            {% endif %}
+            {% if job.fit_reasoning %}
+              <i class="bi bi-info-circle text-muted ms-1" title="{{ job.fit_reasoning }}"></i>
+            {% endif %}
+          </td>
+          <td>{{ job.company|truncate(28) }}</td>
+          <td>{{ job.location|truncate(24) }}</td>
+          <td><span class="badge bg-secondary">{{ job.platform }}</span></td>
+          <td>
+            {% if job.fit_score is not none %}
+              <span class="fit-score {% if job.fit_score >= 80 %}fit-score-high{% elif job.fit_score >= 60 %}fit-score-mid{% else %}fit-score-low{% endif %}">
+                {{ job.fit_score }}
+              </span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td><small>{{ job.salary or '—' }}</small></td>
+          <td>
+            {% if job.is_easy_apply %}
+              <i class="bi bi-check-circle-fill text-success" title="Easy Apply"></i>
+            {% else %}
+              <i class="bi bi-x-circle text-muted" title="External"></i>
+            {% endif %}
+          </td>
+          <td><span class="badge badge-{{ job.status }}">{{ job.status|upper }}</span></td>
+          <td><small class="text-muted">{{ job.discovered_at_display or '—' }}</small></td>
+          <td>
+            <div class="d-flex gap-1">
+              <form method="post" action="{{ url_for('discovered_action', job_id=job.id) }}" style="display:inline;">
+                <input type="hidden" name="action" value="selected">
+                <button type="submit" class="btn btn-success btn-sm" title="Mark for Apply"><i class="bi bi-check"></i></button>
+              </form>
+              <form method="post" action="{{ url_for('discovered_action', job_id=job.id) }}" style="display:inline;">
+                <input type="hidden" name="action" value="saved">
+                <button type="submit" class="btn btn-light btn-sm" title="Save"><i class="bi bi-bookmark"></i></button>
+              </form>
+              <form method="post" action="{{ url_for('discovered_action', job_id=job.id) }}" style="display:inline;">
+                <input type="hidden" name="action" value="skipped">
+                <button type="submit" class="btn btn-outline-secondary btn-sm" title="Skip"><i class="bi bi-x"></i></button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="11" class="text-muted text-center" style="padding: 60px;">
+            <i class="bi bi-search" style="font-size: 48px; opacity: 0.3;"></i>
+            <p class="mt-3">No discovered jobs match the current filter.</p>
+            <p class="small">Enable discovery mode and run the bot to populate this page.</p>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="schedule-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000;">
+  <div style="background: var(--color-bg-elevated); max-width: 500px; margin: 80px auto; padding: 30px; border-radius: 12px;">
+    <h3>Schedule Apply</h3>
+    <p class="text-muted small">Store selected jobs with a target apply time.</p>
+    <form method="post" action="{{ url_for('discovered_schedule') }}">
+      <input type="hidden" name="job_ids" id="schedule-ids" value="">
+      <label>Apply when:</label>
+      <input type="datetime-local" name="schedule_time" class="search-input" style="width:100%;">
+      <div class="mt-3 d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-light" onclick="closeScheduleModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Schedule</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleSelectAll(checkbox) {
+  document.querySelectorAll('.job-checkbox').forEach(cb => {
+    cb.checked = checkbox.checked;
+  });
+  updateSelectedCount();
+}
+
+function updateSelectedCount() {
+  const checked = document.querySelectorAll('.job-checkbox:checked');
+  document.getElementById('selected-count').textContent = checked.length;
+  document.getElementById('bulk-job-ids').value = Array.from(checked).map(cb => cb.value).join(',');
+}
+
+function applyFilter(param, value) {
+  const url = new URL(window.location.href);
+  if (value) {
+    url.searchParams.set(param, value);
+  } else {
+    url.searchParams.delete(param);
+  }
+  window.location.href = url.toString();
+}
+
+function filterRows() {
+  const query = document.getElementById('search-input').value.toLowerCase();
+  document.querySelectorAll('#jobs-table tbody tr[data-id]').forEach(row => {
+    const title = row.dataset.title || '';
+    const company = row.dataset.company || '';
+    row.style.display = title.includes(query) || company.includes(query) ? '' : 'none';
+  });
+}
+
+function showScheduleModal(ids) {
+  document.getElementById('schedule-ids').value = ids;
+  document.getElementById('schedule-modal').style.display = 'block';
+}
+
+function scheduleSelected() {
+  const ids = document.getElementById('bulk-job-ids').value;
+  if (!ids) {
+    window.alert('Select at least one discovered job first.');
+    return;
+  }
+  showScheduleModal(ids);
+}
+
+function closeScheduleModal() {
+  document.getElementById('schedule-modal').style.display = 'none';
+}
+</script>
+{% endblock %}

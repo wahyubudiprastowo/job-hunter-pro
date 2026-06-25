@@ -39,6 +39,19 @@ from selenium.common.exceptions import (
 )
 
 from packages.extractors.base import BaseExtractor
+from packages.extractors.indeed_2026_fixes import (
+    INDEED_SELECTORS_2026,
+    apply_stealth_javascript,
+    build_search_url_2026,
+    collect_job_cards_2026,
+    handle_cloudflare_if_present,
+)
+from packages.extractors.indeed_v2_fixes import (
+    INDEED_SELECTORS_V2,
+    _extract_title_v2,
+    build_indeed_url_v2,
+    collect_indeed_cards_v2,
+)
 from packages.core.models import (
     SearchFilters, JobListing, ApplicationResult, ApplyStatus,
     SkipReason, UnansweredQuestion,
@@ -97,11 +110,24 @@ SELECTORS = {
     "search_input": (By.ID, "text-input-what"),
     "location_input": (By.ID, "text-input-where"),
     "search_submit": (By.XPATH, "//button[@type='submit' and contains(., 'Find jobs')]"),
-    "job_card": (By.CSS_SELECTOR, "div.job_seen_beacon, div[data-jk], li.css-1ac2h1w"),
-    "job_card_link": (By.CSS_SELECTOR, "a.jcs-JobTitle, h2.jobTitle a"),
-    "job_card_title": (By.CSS_SELECTOR, "h2.jobTitle, span[title]"),
-    "job_card_company": (By.CSS_SELECTOR, "span[data-testid='company-name'], .companyName"),
-    "job_card_location": (By.CSS_SELECTOR, "div[data-testid='text-location'], .companyLocation"),
+    "job_card": (
+        By.CSS_SELECTOR,
+        "div[data-testid='slider_item'], td.resultContent, li[data-jk], "
+        "div.job_seen_beacon, div[data-jk], li.css-1ac2h1w",
+    ),
+    "job_card_link": (By.CSS_SELECTOR, "h2.jobTitle a, a[data-jk], a.jcs-JobTitle"),
+    "job_card_title": (
+        By.CSS_SELECTOR,
+        "h2.jobTitle span[title], h2.jobTitle a span, h2.jobTitle, [data-testid='job-title']",
+    ),
+    "job_card_company": (
+        By.CSS_SELECTOR,
+        "[data-testid='company-name'], span.companyName, .companyName, [data-testid*='company']",
+    ),
+    "job_card_location": (
+        By.CSS_SELECTOR,
+        "[data-testid='text-location'], .companyLocation, [data-testid*='location']",
+    ),
     "detail_title": (By.CSS_SELECTOR, "h1.jobsearch-JobInfoHeader-title, h2.jobsearch-JobInfoHeader-title"),
     "detail_company": (By.CSS_SELECTOR, "div[data-company-name='true'], .jobsearch-CompanyInfoContainer"),
     "detail_location": (By.CSS_SELECTOR, "div[data-testid='inlineHeader-companyLocation']"),
@@ -127,6 +153,8 @@ SELECTORS = {
     "hcaptcha_iframe": (By.CSS_SELECTOR, "iframe[src*='hcaptcha'], iframe[title*='challenge']"),
     "hcaptcha_checkbox": (By.CSS_SELECTOR, "#checkbox"),
 }
+SELECTORS.update(INDEED_SELECTORS_2026)
+SELECTORS.update(INDEED_SELECTORS_V2)
 
 
 DATE_CODE = {
@@ -271,8 +299,14 @@ class IndeedExtractor(BaseExtractor):
         4. Possible hCaptcha challenge
         """
         d = self.driver
+        try:
+            apply_stealth_javascript(d)
+        except Exception as e:
+            logger.debug(f"Indeed stealth JS apply skipped: {e}")
+
         self._open_with_region_fallback("/")
         human_sleep(2, 4)
+        handle_cloudflare_if_present(d, timeout=45, return_to_url=f"{self.base_url}/")
 
         if self._is_logged_in_session():
             logger.info("Already logged in to Indeed.")
@@ -280,6 +314,7 @@ class IndeedExtractor(BaseExtractor):
 
         self._open_with_region_fallback("/account/login")
         human_sleep(2, 4)
+        handle_cloudflare_if_present(d, timeout=60, return_to_url=f"{self.base_url}/account/login")
 
         if self._is_logged_in_session():
             logger.info("Already logged in to Indeed.")
@@ -384,6 +419,9 @@ class IndeedExtractor(BaseExtractor):
         logger.info(f"Indeed search: {q} -> {url}")
         self.driver.get(url)
         human_sleep(3, 5)
+        if not handle_cloudflare_if_present(self.driver, timeout=120, return_to_url=url):
+            logger.warning("Cloudflare challenge could not be cleared for this search - skipping query")
+            return
 
         self._dismiss_search_overlay()
 
@@ -419,78 +457,20 @@ class IndeedExtractor(BaseExtractor):
                 logger.debug(f"Indeed overlay close skipped: {e}")
 
     def _build_search_url(self, query, f: SearchFilters) -> str:
-        """
-        Build Indeed search URL.
-
-        Format: /jobs?q=<query>&l=<location>&sc=<filters>&fromage=<days>&sort=date
-        """
-        params = {
-            "q": query,
-            "l": f.location or "",
-        }
-
-        if f.date_posted in DATE_CODE and DATE_CODE[f.date_posted]:
-            params["fromage"] = DATE_CODE[f.date_posted]
-
-        params["sort"] = "date"
-
-        sc_parts = []
-        if f.easy_apply_only:
-            sc_parts.append("attr(DSQF7)")
-
-        if f.remote:
-            sc_parts.append("attr(DSQF7)")
-
-        if sc_parts:
-            params["sc"] = "0kf:" + "".join(sc_parts) + ";"
-
-        encoded = urlencode({k: v for k, v in params.items() if v})
-        return f"{self.base_url}/jobs?{encoded}"
+        """Build Indeed search URL (Patch 31.1 fixed)."""
+        return build_indeed_url_v2(self.base_url, query, f)
 
     def collect_job_cards(self, max_cards=50):
-        """Collect job cards from search results page."""
-        d = self.driver
-        cards, seen = [], set()
-
-        scroll_count = self.config.get("scroll_count", 8)
-        for _ in range(scroll_count):
-            try:
-                d.execute_script("window.scrollBy(0, 800);")
-            except Exception:
-                pass
-            human_sleep(1.0, 2.0)
-
-        nodes = d.find_elements(*SELECTORS["job_card"])
-        logger.info(f"Found {len(nodes)} Indeed job card nodes.")
-
-        for node in nodes[:max_cards]:
-            try:
-                jid = node.get_attribute("data-jk")
-                if not jid:
-                    try:
-                        link = node.find_element(*SELECTORS["job_card_link"])
-                        href = link.get_attribute("href") or ""
-                        if "jk=" in href:
-                            jid = href.split("jk=")[1].split("&")[0]
-                    except NoSuchElementException:
-                        continue
-
-                if not jid or jid in seen:
-                    continue
-                seen.add(jid)
-
-                cards.append({
-                    "job_id": jid,
-                    "title": self._safe_text(node, SELECTORS["job_card_title"]),
-                    "company": self._safe_text(node, SELECTORS["job_card_company"]),
-                    "location": self._safe_text(node, SELECTORS["job_card_location"]),
-                    "_element": node,
-                })
-            except StaleElementReferenceException:
-                continue
-
-        logger.info(f"Collected {len(cards)} unique Indeed cards.")
-        return cards
+        """Collect cards using scoped selectors (Patch 31.1)."""
+        if not handle_cloudflare_if_present(self.driver, timeout=30):
+            logger.warning("Could not bypass Cloudflare - proceeding anyway")
+        return collect_indeed_cards_v2(
+            driver=self.driver,
+            max_cards=max_cards,
+            scroll_count=self.config.get("scroll_count", 8),
+            sleep_func=human_sleep,
+            base_url=self.base_url,
+        )
 
     @staticmethod
     def _safe_text(parent, selector):
@@ -502,31 +482,45 @@ class IndeedExtractor(BaseExtractor):
     def open_job_detail(self, card):
         """Click card and extract detail."""
         d = self.driver
-        el = card["_element"]
+        el = card.get("_element")
 
-        try:
-            d.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
-            time.sleep(0.5)
-        except StaleElementReferenceException:
-            try:
-                el = d.find_element(By.CSS_SELECTOR, f"[data-jk='{card['job_id']}']")
+        if el is None:
+            el = self._refind_card_element(card["job_id"])
+            if el is not None:
                 card["_element"] = el
+
+        if el is not None:
+            try:
                 d.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
                 time.sleep(0.5)
-            except Exception:
-                pass
+            except StaleElementReferenceException:
+                el = self._refind_card_element(card["job_id"])
+                if el is not None:
+                    card["_element"] = el
+                    try:
+                        d.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
+                        time.sleep(0.5)
+                    except Exception:
+                        pass
 
-        try:
-            ActionChains(d).move_to_element(el).pause(0.2).click().perform()
-        except (ElementClickInterceptedException, StaleElementReferenceException):
+        if el is not None:
             try:
-                d.execute_script("arguments[0].click();", el)
-            except Exception:
-                pass
+                ActionChains(d).move_to_element(el).pause(0.2).click().perform()
+            except (ElementClickInterceptedException, StaleElementReferenceException):
+                try:
+                    d.execute_script("arguments[0].click();", el)
+                except Exception:
+                    pass
+        else:
+            d.get(f"{self.base_url}/viewjob?jk={card['job_id']}")
 
         human_sleep(2, 3.5)
 
-        title = card["title"] or self._safe_text(d, SELECTORS["detail_title"])
+        title = card.get("title") or (self._safe_text(el, SELECTORS["job_card_title"]) if el is not None else "")
+        if not title and el is not None:
+            title = _extract_title_v2(el)
+        if not title:
+            title = self._safe_text(d, SELECTORS["detail_title"])
         company = card["company"] or self._safe_text(d, SELECTORS["detail_company"])
 
         try:
@@ -549,6 +543,19 @@ class IndeedExtractor(BaseExtractor):
             salary=salary,
             is_easy_apply=is_easy,
         )
+
+    def _refind_card_element(self, job_id):
+        selectors = [
+            f"[data-jk='{job_id}']",
+            f"a[data-jk='{job_id}']",
+            f"a[href*='jk={job_id}']",
+        ]
+        for selector in selectors:
+            try:
+                return self.driver.find_element(By.CSS_SELECTOR, selector)
+            except NoSuchElementException:
+                continue
+        return None
 
     def _detect_indeed_apply(self, driver) -> bool:
         """

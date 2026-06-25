@@ -1,0 +1,32 @@
+# === LinkedIn Credentials ===
+LINKEDIN_EMAIL=wahyubudiprastowo@gmail.com
+LINKEDIN_PASSWORD=W3w1lln0tg0d0wn
+LINKEDIN_TOTP_SECRET=
+
+INDEED_EMAIL=wahyubudiprastowo@gmail.com
+INDEED_PASSWORD=W3w1lln0tg0d0wn
+HEADLESS=false
+
+# jalankan & "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" --user-data-dir="$PWD\.chrome-profile-indeed" di terminal untuk save login
+USER_DATA_DIR=./.chrome-profile-indeed
+CHROME_PROFILE_DIRECTORY=Default
+INDEED_USER_DATA_DIR=./.chrome-profile-indeed
+INDEED_CHROME_PROFILE_DIRECTORY=Default
+
+# === OpenAI (opsional, untuk AI tailor di Phase 2) ===
+AI_API_KEY=sk-3d39a725ffa5e05f-539a83-9e66c5a9
+AI_BASE_URL=https://openwebui.tail443aaa.ts.net/api/v1/vscode/sk-3d39a725ffa5e05f-539a83-9e66c5a9
+
+# === Web Dashboard ===
+FLASK_SECRET_KEY=ganti-jadi-random-string
+WEB_HOST=0.0.0.0
+WEB_PORT=5050
+
+# === Browser ===
+HEADLESS=false
+USER_DATA_DIR=./.chrome-profile
+CHROME_VERSION_MAIN=
+
+# === Bot Behavior ===
+LOG_LEVEL=INFO
+DATA_DIR=./data
