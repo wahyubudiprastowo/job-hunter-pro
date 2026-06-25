@@ -30,6 +30,10 @@ from apps.worker.control_platforms import (
     clear_preferred_platforms,
 )
 from apps.worker.runner import run_bot
+from apps.web.discovery_trigger import (
+    set_discovery_session,
+    get_discovery_session,
+)
 from apps.web.settings_api import (
     load_config as settings_load_config,
     save_config as settings_save_config,
@@ -609,13 +613,84 @@ def discovered():
     )
     jobs = [_normalize_discovered_row(job) for job in jobs]
     stats = discovered_store.get_stats()
+    discovery_session = get_discovery_session()
+    if discovery_session:
+        discovery_session = dict(discovery_session)
+        discovery_session["started_at_display"] = _format_local_unix(
+            discovery_session.get("started_at")
+        )
     return render_template(
         "discovered.html",
         jobs=jobs,
         stats=stats,
         total=stats.get("total", 0),
         current_status=status,
+        discovery_session=discovery_session,
     )
+
+
+@app.route("/discovered/trigger", methods=["POST"])
+def discovered_trigger():
+    global _runner_thread
+    _, config_error = _load_config_file()
+    if config_error:
+        flash(f"Config error in config.yaml: {config_error}")
+        return redirect(url_for("discovered"))
+
+    diag = controller.get_diagnostics()
+    if diag["state"] in ("running", "paused") and not diag.get("is_zombie"):
+        flash("Bot already running. Wait for it to finish.")
+        return redirect(url_for("discovered"))
+
+    platforms_raw = (request.form.get("platforms") or "").strip()
+    platforms = [p.strip() for p in platforms_raw.split(",") if p.strip()]
+    platforms = list(dict.fromkeys(platforms))
+    if not platforms:
+        flash("No platforms selected for discovery.")
+        return redirect(url_for("discovered"))
+
+    try:
+        max_per_session = max(1, min(500, int(request.form.get("max_per_session", "100"))))
+    except Exception:
+        max_per_session = 100
+    try:
+        scroll_depth = max(1, min(100, int(request.form.get("scroll_depth", "15"))))
+    except Exception:
+        scroll_depth = 15
+
+    if not set_discovery_session(platforms, max_per_session, scroll_depth):
+        flash("Could not start discovery session.")
+        return redirect(url_for("discovered"))
+
+    set_session_platforms(platforms, mode="sequential")
+
+    controller.reset()
+    controller.set_state("running")
+    controller.beat()
+    tracker = get_tracker()
+    tracker.reset(keep_logs=False)
+    tracker.set_state("running")
+    tracker.add_activity("Discovery scan requested", "info")
+    _runner_thread = threading.Thread(target=run_bot, daemon=True)
+    _runner_thread.start()
+    flash(
+        f"Discovery started: {', '.join(platforms)} "
+        f"(cap: {max_per_session} jobs, scroll: {scroll_depth})."
+    )
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/discovered/status")
+def discovered_status():
+    session = get_discovery_session()
+    if session:
+        session = dict(session)
+        session["started_at_display"] = _format_local_unix(session.get("started_at"))
+    return jsonify({
+        "session": session,
+        "stats": discovered_store.get_stats(),
+        "bot_state": controller.get_state(),
+    })
 
 
 @app.route("/discovered/action/<int:job_id>", methods=["POST"])

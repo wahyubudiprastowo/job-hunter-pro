@@ -91,6 +91,14 @@ except ImportError:
     _HAS_PLATFORM_CONTROL = False
 
 try:
+    from apps.web.discovery_trigger import merge_discovery_config, clear_discovery_session
+    _HAS_DISCOVERY_TRIGGER = True
+except ImportError:
+    merge_discovery_config = None
+    clear_discovery_session = lambda: None
+    _HAS_DISCOVERY_TRIGGER = False
+
+try:
     from packages.notifications import NotificationCategory, NotificationLevel, NotificationManager
     from packages.notifications.manager import notify
     _HAS_NOTIFICATIONS = True
@@ -212,6 +220,8 @@ def run_bot(config_path: str = "config.yaml"):
     store.init_db()
     discovered_store.init_schema()
     config = load_config(config_path)
+    if _HAS_DISCOVERY_TRIGGER and merge_discovery_config:
+        config = merge_discovery_config(config)
     orchestration_cfg = config.get("orchestration", {}) or {}
     discovery_cfg = config.get("discovery", {}) or {}
 
@@ -591,13 +601,25 @@ def run_bot(config_path: str = "config.yaml"):
                         job_type=search_cfg.get("job_type", "Full-time"),
                         easy_apply_only=search_cfg.get("easy_apply_only", True),
                     )
-                    extractor.search(filters)
-                    max_cards = (
-                        int(discovery_cfg.get("max_per_session", 100) or 100)
-                        if discovery_mode
-                        else pcfg["max_apply_per_run"] * 3
-                    )
-                    cards = extractor.collect_job_cards(max_cards=max_cards)
+                    try:
+                        extractor.search(filters)
+                        max_cards = (
+                            int(discovery_cfg.get("max_per_session", 100) or 100)
+                            if discovery_mode
+                            else pcfg["max_apply_per_run"] * 3
+                        )
+                        cards = extractor.collect_job_cards(max_cards=max_cards)
+                    except Exception as e:
+                        logger.exception(f"{platform_name} search failed for '{query}': {e}")
+                        if _tracker:
+                            _tracker.add_activity(
+                                f"{platform_name.upper()} search failed: {query}",
+                                "error",
+                            )
+                            _tracker.add_log(
+                                f"SEARCH_FAILED {platform_name}: {query} - {e}"
+                            )
+                        continue
 
                 for card in cards:
                     if counters["applied"] >= run_cap:
@@ -1042,6 +1064,7 @@ def run_bot(config_path: str = "config.yaml"):
             _tracker.add_log("Bot stopped.")
         controller.clear_command()
         clear_session_override()
+        clear_discovery_session()
         time.sleep(2)
         try:
             driver.quit()

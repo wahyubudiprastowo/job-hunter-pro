@@ -7,7 +7,7 @@ mode: "full_auto"
 platforms:
   linkedin:
     enabled: true
-    max_apply_per_run: 5
+    max_apply_per_run: 50
     scroll_count: 15
     search:
       # PATCH 11: De-duplicated, prioritized queries
@@ -33,8 +33,8 @@ platforms:
       easy_apply_only: true
 
   indeed:
-    enabled: true   # PATCH 22: keep off until credentials + first manual login/captcha verification
-    max_apply_per_run: 5
+    enabled: false   # PATCH 22: keep off until credentials + first manual login/captcha verification
+    max_apply_per_run: 50
     scroll_count: 15
     region: "global"      # use global Indeed domain; target market comes from search.location
     search:
@@ -138,7 +138,7 @@ personal:
   linkedin_url: "https://linkedin.com/in/wahyubudiprastowo"
   github_url: "https://github.com/wahyubudiprastowo"
   portfolio_url: ""
-  years_experience: "8"
+  years_experience: "15"
   current_company: "Digiserve"
   current_title: "IT Infrastructure Specialist"
   highest_education: "Bachelor's Degree"
@@ -247,8 +247,8 @@ global_limits:
   cap_reduction_days: 7
 
 discovery:
-  enabled: false
-  max_per_session: 100
+  enabled: true
+  max_per_session: 50
   scroll_depth: 15
   auto_apply_threshold: 90
   auto_skip_threshold: 30

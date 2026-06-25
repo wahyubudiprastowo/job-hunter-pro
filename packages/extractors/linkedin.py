@@ -252,7 +252,37 @@ class LinkedInExtractor(BaseExtractor):
         q = filters.queries[0]
         url = self._build_search_url(q, filters)
         logger.info(f"🔎 LinkedIn search: {q} → {url}")
-        self.driver.get(url)
+        last_error = None
+        for attempt in range(2):
+            try:
+                self.driver.get(url)
+                last_error = None
+                break
+            except TimeoutException as e:
+                last_error = e
+                logger.warning(
+                    f"LinkedIn search timeout on attempt {attempt + 1}/2 for '{q}': {e}"
+                )
+                try:
+                    self.driver.execute_script("window.stop();")
+                except Exception:
+                    pass
+                try:
+                    current_url = (self.driver.current_url or "").lower()
+                except Exception:
+                    current_url = ""
+                if "/jobs" in current_url:
+                    logger.info("LinkedIn jobs page partially loaded after timeout - continuing.")
+                    last_error = None
+                    break
+                if attempt == 0:
+                    try:
+                        self.driver.get(f"{self.base_url}/jobs/")
+                        human_sleep(2, 3)
+                    except Exception:
+                        pass
+                    continue
+                raise
         human_sleep(3, 5)
 
     def _build_search_url(self, query, f):

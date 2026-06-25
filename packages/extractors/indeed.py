@@ -44,7 +44,10 @@ from packages.extractors.indeed_2026_fixes import (
     apply_stealth_javascript,
     build_search_url_2026,
     collect_job_cards_2026,
-    handle_cloudflare_if_present,
+)
+from packages.extractors.cloudflare_helper import (
+    detect_cloudflare_state,
+    handle_cloudflare_safely,
 )
 from packages.extractors.indeed_v2_fixes import (
     INDEED_SELECTORS_V2,
@@ -306,7 +309,13 @@ class IndeedExtractor(BaseExtractor):
 
         self._open_with_region_fallback("/")
         human_sleep(2, 4)
-        handle_cloudflare_if_present(d, timeout=45, return_to_url=f"{self.base_url}/")
+        if not handle_cloudflare_safely(d, timeout=300, return_to_url=f"{self.base_url}/"):
+            logger.warning("=" * 60)
+            logger.warning("Indeed Cloudflare could not be cleared.")
+            logger.warning("Run: python scripts\\prewarm_indeed.py")
+            logger.warning("Complete Cloudflare manually, close browser, then retry.")
+            logger.warning("=" * 60)
+            raise LoginError("Cloudflare blocked - run prewarm script")
 
         if self._is_logged_in_session():
             logger.info("Already logged in to Indeed.")
@@ -314,7 +323,13 @@ class IndeedExtractor(BaseExtractor):
 
         self._open_with_region_fallback("/account/login")
         human_sleep(2, 4)
-        handle_cloudflare_if_present(d, timeout=60, return_to_url=f"{self.base_url}/account/login")
+        if not handle_cloudflare_safely(d, timeout=300, return_to_url=f"{self.base_url}/account/login"):
+            logger.warning("=" * 60)
+            logger.warning("Indeed Cloudflare could not be cleared.")
+            logger.warning("Run: python scripts\\prewarm_indeed.py")
+            logger.warning("Complete Cloudflare manually, close browser, then retry.")
+            logger.warning("=" * 60)
+            raise LoginError("Cloudflare blocked - run prewarm script")
 
         if self._is_logged_in_session():
             logger.info("Already logged in to Indeed.")
@@ -419,7 +434,7 @@ class IndeedExtractor(BaseExtractor):
         logger.info(f"Indeed search: {q} -> {url}")
         self.driver.get(url)
         human_sleep(3, 5)
-        if not handle_cloudflare_if_present(self.driver, timeout=120, return_to_url=url):
+        if not handle_cloudflare_safely(self.driver, timeout=300, return_to_url=url):
             logger.warning("Cloudflare challenge could not be cleared for this search - skipping query")
             return
 
@@ -462,8 +477,14 @@ class IndeedExtractor(BaseExtractor):
 
     def collect_job_cards(self, max_cards=50):
         """Collect cards using scoped selectors (Patch 31.1)."""
-        if not handle_cloudflare_if_present(self.driver, timeout=30):
-            logger.warning("Could not bypass Cloudflare - proceeding anyway")
+        state = detect_cloudflare_state(self.driver)
+        if state["is_challenge"] and not handle_cloudflare_safely(
+            self.driver,
+            timeout=300,
+            return_to_url=self.driver.current_url,
+        ):
+            logger.warning("Could not clear Cloudflare on Indeed results page - returning no cards")
+            return []
         return collect_indeed_cards_v2(
             driver=self.driver,
             max_cards=max_cards,
