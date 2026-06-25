@@ -34,6 +34,12 @@ from apps.web.discovery_trigger import (
     set_discovery_session,
     get_discovery_session,
 )
+from packages.stealth.profile_manager import (
+    list_all_profiles,
+    reset_profile,
+    cleanup_old_backups,
+    get_profile_history,
+)
 from apps.web.settings_api import (
     load_config as settings_load_config,
     save_config as settings_save_config,
@@ -80,9 +86,6 @@ def _format_local_datetime(value):
         return str(value).replace("T", " ")[:19]
 
 
-app.jinja_env.filters["localdt"] = _format_local_datetime
-
-
 def _format_local_unix(value):
     if value in (None, ""):
         return ""
@@ -90,6 +93,10 @@ def _format_local_unix(value):
         return _format_local_datetime(datetime.fromtimestamp(int(value), tz=timezone.utc))
     except Exception:
         return str(value)
+
+
+app.jinja_env.filters["localdt"] = _format_local_datetime
+app.jinja_env.filters["localunix"] = _format_local_unix
 
 
 @app.context_processor
@@ -464,6 +471,11 @@ def settings():
         env_display = get_env_for_display()
         warnings = validate_config(config)
         active_section = request.args.get("section", "search")
+        profiles = []
+        profile_history = []
+        if active_section == "profiles":
+            profiles = list_all_profiles()
+            profile_history = get_profile_history()[-10:]
         return render_template(
             "settings.html",
             config=config,
@@ -471,6 +483,8 @@ def settings():
             warnings=warnings,
             active_section=active_section,
             state=controller.get_state(),
+            profiles=profiles,
+            profile_history=profile_history,
         )
     except Exception as e:
         flash(f"Failed to load settings: {e}")
@@ -480,6 +494,43 @@ def settings():
 @app.route("/settings/notifications")
 def settings_notifications():
     return redirect(url_for("settings", section="credentials"))
+
+
+@app.route("/settings/profiles/reset/<platform>", methods=["POST"])
+def settings_profile_reset(platform):
+    platform = (platform or "").strip().lower()
+    if platform not in ("linkedin", "indeed"):
+        flash(f"Unknown platform: {platform}")
+        return redirect(url_for("settings", section="profiles"))
+
+    diag = controller.get_diagnostics()
+    if diag["state"] in ("running", "paused") and not diag.get("is_zombie"):
+        flash("Stop bot first before resetting profile.")
+        return redirect(url_for("settings", section="profiles"))
+
+    launch = (request.form.get("launch_chrome", "true") or "true").lower() == "true"
+    result = reset_profile(platform, launch_chrome=launch)
+    if result.get("success"):
+        flash(f"{platform.title()} profile reset. {result.get('message', '')}")
+    else:
+        flash(f"Reset failed: {result.get('message', 'unknown error')}")
+    return redirect(url_for("settings", section="profiles"))
+
+
+@app.route("/settings/profiles/cleanup", methods=["POST"])
+def settings_profile_cleanup():
+    diag = controller.get_diagnostics()
+    if diag["state"] in ("running", "paused") and not diag.get("is_zombie"):
+        flash("Stop bot first before cleaning profile backups.")
+        return redirect(url_for("settings", section="profiles"))
+
+    try:
+        keep_count = max(1, min(10, int(request.form.get("keep_count", "3"))))
+    except Exception:
+        keep_count = 3
+    deleted = cleanup_old_backups(keep_count=keep_count)
+    flash(f"Cleaned up {deleted} old backup(s). Kept newest {keep_count}.")
+    return redirect(url_for("settings", section="profiles"))
 
 
 @app.route("/settings/save/<section>", methods=["POST"])

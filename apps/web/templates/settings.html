@@ -32,6 +32,9 @@
   <a href="?section=credentials" class="filter-pill {% if active_section == 'credentials' %}active{% endif %}">
     <i class="bi bi-key"></i> Credentials
   </a>
+  <a href="?section=profiles" class="filter-pill {% if active_section == 'profiles' %}active{% endif %}">
+    <i class="bi bi-person-badge"></i> Browser Profiles
+  </a>
 </div>
 
 {% if active_section == 'search' %}
@@ -195,6 +198,108 @@
     </div>
   </div>
 </form>
+{% elif active_section == 'profiles' %}
+<div class="card">
+  <div class="card-header">
+    <span><i class="bi bi-person-badge"></i> Chrome Profile Management</span>
+  </div>
+  <div class="card-body">
+    <div class="alert alert-info mb-3">
+      <i class="bi bi-info-circle"></i> Reset browser profiles when login cookies are stale or Cloudflare keeps looping.
+    </div>
+
+    <div class="d-grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+      {% for profile in profiles %}
+      <div class="card" style="background: var(--color-bg);">
+        <div class="card-body" style="padding: 16px;">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-{% if profile.platform == 'linkedin' %}linkedin{% else %}briefcase{% endif %}"></i>
+              <strong>{{ profile.platform|upper }}</strong>
+            </div>
+            {% if profile.exists %}
+              {% if profile.age_days > 30 %}
+                <span class="badge bg-warning">Old</span>
+              {% elif profile.age_days > 14 %}
+                <span class="badge bg-info">Aging</span>
+              {% else %}
+                <span class="badge bg-success">Fresh</span>
+              {% endif %}
+            {% else %}
+              <span class="badge bg-secondary">Not Set Up</span>
+            {% endif %}
+          </div>
+
+          <table class="table table-sm mb-0">
+            <tr><th>Path</th><td><code style="font-size: 11px;">{{ profile.path }}</code></td></tr>
+            <tr><th>Profile Dir</th><td>{{ profile.profile_directory or 'Default' }}</td></tr>
+            <tr><th>Size</th><td>{{ profile.size_mb }} MB</td></tr>
+            <tr><th>Age</th><td>{{ profile.age_days }} days</td></tr>
+            <tr><th>Last Used</th><td>{{ profile.last_used | localdt if profile.last_used else '—' }}</td></tr>
+          </table>
+
+          <div class="d-flex gap-2 mt-3">
+            <form method="post" action="/settings/profiles/reset/{{ profile.platform }}" style="display: inline; flex: 1;"
+                  onsubmit="return confirm('Reset {{ profile.platform }} profile? Current profile will be backed up first.');">
+              <input type="hidden" name="launch_chrome" value="true">
+              <button type="submit" class="btn btn-danger btn-sm w-100" {% if state == 'running' or state == 'paused' %}disabled{% endif %}>
+                <i class="bi bi-arrow-clockwise"></i> Reset Profile
+              </button>
+            </form>
+
+            <form method="post" action="/settings/profiles/reset/{{ profile.platform }}" style="display: inline;">
+              <input type="hidden" name="launch_chrome" value="false">
+              <button type="submit" class="btn btn-outline-secondary btn-sm" title="Reset only, do not launch Chrome"
+                      {% if state == 'running' or state == 'paused' %}disabled{% endif %}>
+                <i class="bi bi-folder-x"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <hr class="mt-4">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div>
+        <strong>Backup Maintenance</strong>
+        <div class="small text-muted">Delete older profile backups to free disk space.</div>
+      </div>
+      <form method="post" action="/settings/profiles/cleanup" style="display: inline-flex; align-items: center; gap: 8px;">
+        <input type="number" name="keep_count" value="3" min="1" max="10" class="search-input" style="width: 70px; padding: 8px;">
+        <span class="small text-muted">keep newest</span>
+        <button type="submit" class="btn btn-outline-secondary btn-sm" {% if state == 'running' or state == 'paused' %}disabled{% endif %}>
+          <i class="bi bi-trash"></i> Cleanup
+        </button>
+      </form>
+    </div>
+
+    {% if profile_history %}
+    <hr class="mt-4">
+    <div>
+      <strong>Recent Events</strong>
+      <div class="mt-2" style="max-height: 220px; overflow-y: auto;">
+        <table class="table table-sm">
+          <thead>
+            <tr><th>Time</th><th>Platform</th><th>Event</th><th>Detail</th></tr>
+          </thead>
+          <tbody>
+            {% for event in profile_history|reverse %}
+            <tr>
+              <td>{{ event.timestamp | localunix }}</td>
+              <td><span class="badge bg-secondary">{{ event.platform }}</span></td>
+              <td>{{ event.event }}</td>
+              <td><small>{{ event.detail or '—' }}</small></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
 {% endif %}
 
 <div class="card mt-3" style="background: var(--color-bg);">
