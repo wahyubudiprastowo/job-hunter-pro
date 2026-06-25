@@ -1,0 +1,21 @@
+{
+  "score": 45,
+  "matched_skills": [
+    "Systems Engineering",
+    "Virtualization (VMware)",
+    "Infrastructure Architecture",
+    "Database Management"
+  ],
+  "missing_skills": [
+    "Pre-sales technical support",
+    "Dell Technologies product portfolio",
+    "Sales presentations and product demonstrations",
+    "Enterprise Data Management solutions"
+  ],
+  "red_flags": [
+    "No prior pre-sales or client-facing sales support experience",
+    "Candidate is based in Indonesia while the role is in Singapore"
+  ],
+  "reasoning": "The candidate is a highly technical Cloud Architect and DevOps specialist, whereas this role is a customer-facing Pre-Sales Systems Engineer. The candidate lacks experience with sales presentations, client demos, and Dell's specific enterprise data management and storage portfolio.",
+  "recommendation": "SKIP"
+}

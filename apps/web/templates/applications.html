@@ -36,6 +36,14 @@
   </select>
   {% endif %}
 
+  <select class="filter-select" id="page-size-filter" onchange="filterByPageSize(this.value)">
+    <option value="30" {% if request.args.get('page_size') == '30' %}selected{% endif %}>30 / page</option>
+    <option value="50" {% if not request.args.get('page_size') or request.args.get('page_size') == '50' %}selected{% endif %}>50 / page</option>
+    <option value="100" {% if request.args.get('page_size') == '100' %}selected{% endif %}>100 / page</option>
+    <option value="200" {% if request.args.get('page_size') == '200' %}selected{% endif %}>200 / page</option>
+    <option value="all" {% if request.args.get('page_size') == 'all' %}selected{% endif %}>All</option>
+  </select>
+
   <a href="/applications?export=csv{% if current %}&status={{ current }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}" class="btn btn-outline-primary btn-sm">
     <i class="bi bi-download"></i> Export CSV
   </a>
@@ -98,7 +106,7 @@
   {% if total_pages and total_pages > 1 %}
   <div class="pagination">
     {% if current_page > 1 %}
-      <a href="?page={{ current_page - 1 }}{% if current %}&status={{ current }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}" class="page-btn">
+      <a href="?page={{ current_page - 1 }}{% if current %}&status={{ current }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}{% if request.args.get('page_size') %}&page_size={{ request.args.get('page_size') }}{% endif %}" class="page-btn">
         <i class="bi bi-chevron-left"></i> Prev
       </a>
     {% else %}
@@ -111,19 +119,19 @@
       {% elif p == '...' %}
         <span class="page-btn" style="border:none;">...</span>
       {% else %}
-        <a href="?page={{ p }}{% if current %}&status={{ current }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}" class="page-btn">{{ p }}</a>
+        <a href="?page={{ p }}{% if current %}&status={{ current }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}{% if request.args.get('page_size') %}&page_size={{ request.args.get('page_size') }}{% endif %}" class="page-btn">{{ p }}</a>
       {% endif %}
     {% endfor %}
 
     {% if current_page < total_pages %}
-      <a href="?page={{ current_page + 1 }}{% if current %}&status={{ current }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}" class="page-btn">
+      <a href="?page={{ current_page + 1 }}{% if current %}&status={{ current }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}{% if request.args.get('page_size') %}&page_size={{ request.args.get('page_size') }}{% endif %}" class="page-btn">
         Next <i class="bi bi-chevron-right"></i>
       </a>
     {% else %}
       <button class="page-btn" disabled>Next <i class="bi bi-chevron-right"></i></button>
     {% endif %}
 
-    <span class="text-muted small ms-2">Showing {{ (current_page - 1) * page_size + 1 }} - {{ [current_page * page_size, total_rows]|min }} of {{ total_rows }}</span>
+    <span class="text-muted small ms-2">Showing {{ (current_page - 1) * (page_size or total_rows) + 1 }} - {{ [current_page * (page_size or total_rows), total_rows]|min }} of {{ total_rows }}</span>
   </div>
   {% elif rows %}
     <div class="text-muted small text-center p-3">
@@ -151,6 +159,17 @@ function filterByPlatform(platform) {
     url.searchParams.set('platform', platform);
   } else {
     url.searchParams.delete('platform');
+  }
+  url.searchParams.delete('page');
+  window.location.href = url.toString();
+}
+
+function filterByPageSize(pageSize) {
+  const url = new URL(window.location);
+  if (pageSize) {
+    url.searchParams.set('page_size', pageSize);
+  } else {
+    url.searchParams.delete('page_size');
   }
   url.searchParams.delete('page');
   window.location.href = url.toString();

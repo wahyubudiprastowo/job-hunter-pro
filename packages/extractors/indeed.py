@@ -55,6 +55,7 @@ from packages.extractors.indeed_v2_fixes import (
     build_indeed_url_v2,
     collect_indeed_cards_v2,
 )
+from packages.extractors.robust_click import robust_click
 from packages.core.models import (
     SearchFilters, JobListing, ApplicationResult, ApplyStatus,
     SkipReason, UnansweredQuestion,
@@ -585,19 +586,9 @@ class IndeedExtractor(BaseExtractor):
         clicked = False
         if click_target is not None:
             try:
-                d.execute_script("arguments[0].scrollIntoView({block:'center'});", click_target)
-                ActionChains(d).move_to_element(click_target).pause(0.2).click().perform()
-                clicked = True
-            except (
-                ElementClickInterceptedException,
-                StaleElementReferenceException,
-                ElementNotInteractableException,
-            ):
-                try:
-                    d.execute_script("arguments[0].click();", click_target)
-                    clicked = True
-                except Exception:
-                    clicked = False
+                clicked = robust_click(d, click_target, max_retries=4, scroll=True)
+            except Exception:
+                clicked = False
         if not clicked:
             d.get(detail_url)
 

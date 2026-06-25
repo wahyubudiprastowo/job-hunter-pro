@@ -1,0 +1,21 @@
+{
+  "score": 45,
+  "matched_skills": [
+    "Systems Engineering",
+    "Virtualization (VMware)",
+    "Infrastructure Architecture",
+    "Technical Documentation"
+  ],
+  "missing_skills": [
+    "Pre-sales technical support",
+    "Dell Technologies product portfolio",
+    "Product demonstrations and sales presentations",
+    "Data Management solutions"
+  ],
+  "red_flags": [
+    "No prior pre-sales or client-facing sales support experience",
+    "Candidate is based in Indonesia while the role is in Singapore"
+  ],
+  "reasoning": "The candidate is a strong hands-on Cloud Architect and Infrastructure Specialist, but this role is a customer-facing pre-sales Systems Engineer position at Dell. The candidate lacks experience in sales support, product demonstrations, and Dell's specific enterprise data management solutions.",
+  "recommendation": "SKIP"
+}

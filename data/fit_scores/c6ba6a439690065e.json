@@ -1,0 +1,21 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Systems Engineering",
+    "VMware",
+    "Infrastructure Architecture",
+    "Virtualization"
+  ],
+  "missing_skills": [
+    "Pre-sales technical support",
+    "Product demonstrations and sales presentations",
+    "Dell Technologies solutions",
+    "Data Management solutions"
+  ],
+  "red_flags": [
+    "No prior pre-sales or sales enablement experience",
+    "Candidate is based in Jakarta, Indonesia while the role is in Singapore"
+  ],
+  "reasoning": "The candidate has a strong technical background in cloud infrastructure and DevOps, but this is a pre-sales engineering role requiring client presentations, product demos, and alignment with Dell's product suite. The candidate's experience is entirely post-sales, operational, and hands-on engineering, representing a significant career pivot.",
+  "recommendation": "SKIP"
+}

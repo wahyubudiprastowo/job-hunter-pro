@@ -36,6 +36,7 @@ from apps.web.discovery_trigger import (
 )
 from packages.stealth.profile_manager import (
     list_all_profiles,
+    get_profile_info,
     reset_profile,
     cleanup_old_backups,
     get_profile_history,
@@ -103,17 +104,11 @@ app.jinja_env.filters["localunix"] = _format_local_unix
 def _inject_layout_state():
     unanswered = load_unanswered()
     discovered_stats = discovered_store.get_stats()
-    discovered_badge = (
-        discovered_stats.get("by_status", {}).get("discovered", 0)
-        + discovered_stats.get("by_status", {}).get("selected", 0)
-        + discovered_stats.get("by_status", {}).get("auto_apply", 0)
-        + discovered_stats.get("by_status", {}).get("saved", 0)
-    )
     return {
         "state": controller.get_state(),
         "stats": store.get_stats(),
         "unanswered_count": len(unanswered),
-        "discovered_count": discovered_badge,
+        "discovered_count": discovered_stats.get("total", 0),
     }
 
 
@@ -349,6 +344,27 @@ def _get_platforms() -> list[str]:
     return [str(row[0]) for row in rows if row and row[0]]
 
 
+def _glassdoor_profile_ready() -> tuple[bool, str]:
+    info = get_profile_info("glassdoor")
+    profile_path = Path(info["path"])
+    profile_dir = info.get("profile_directory") or "Default"
+    if not info.get("exists"):
+        return False, "Glassdoor profile not found. Run prewarm first."
+    if float(info.get("size_mb") or 0.0) < 50:
+        return False, "Glassdoor profile is still too small. Finish prewarm/login first."
+    cookie_candidates = [
+        profile_path / profile_dir / "Cookies",
+        profile_path / profile_dir / "Network" / "Cookies",
+    ]
+    cookies_file = next((path for path in cookie_candidates if path.exists()), None)
+    if not cookies_file or cookies_file.stat().st_size < 50 * 1024:
+        return False, "Glassdoor cookies/session not ready yet. Re-run prewarm and close Chrome after login."
+    for name in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+        if (profile_path / name).exists():
+            return False, "Glassdoor Chrome profile is still in use. Close Chrome first."
+    return True, ""
+
+
 def _resolve_discovered_url(row: dict) -> str:
     url = (row.get("url") or "").strip()
     if url:
@@ -408,6 +424,17 @@ def _paginate(rows: list[dict], page: int = 1, page_size: int = 50):
         if total_pages > 1:
             page_range.append(total_pages)
     return rows[start:end], total_pages, current_page, page_range
+
+
+def _parse_page_size() -> int:
+    raw = (request.args.get("page_size") or "50").strip().lower()
+    if raw == "all":
+        return 0
+    try:
+        value = int(raw)
+    except Exception:
+        return 50
+    return value if value in {30, 50, 100, 200} else 50
 
 
 def _applications_csv(rows: list[dict]) -> Response:
@@ -627,12 +654,18 @@ def applications():
     status = request.args.get("status") or None
     platform = request.args.get("platform") or None
     page = max(1, request.args.get("page", default=1, type=int))
+    page_size = _parse_page_size()
     all_rows = store.list_applications(status=status, limit=2000)
     if platform:
         all_rows = [row for row in all_rows if (row.get("platform") or "").lower() == platform.lower()]
     if request.args.get("export") == "csv":
         return _applications_csv(all_rows)
-    rows, total_pages, current_page, page_range = _paginate(all_rows, page=page, page_size=50)
+    effective_page_size = page_size or max(len(all_rows), 1)
+    rows, total_pages, current_page, page_range = _paginate(
+        all_rows,
+        page=page,
+        page_size=effective_page_size,
+    )
     return render_template(
         "applications.html",
         rows=rows,
@@ -641,7 +674,7 @@ def applications():
         total_pages=total_pages,
         current_page=current_page,
         page_range=page_range,
-        page_size=50,
+        page_size=page_size,
         total_rows=len(all_rows),
         show_ghost_status=False,
     )
@@ -660,17 +693,25 @@ def application_detail(app_id):
 def discovered():
     status = request.args.get("status") or None
     platform = request.args.get("platform") or None
+    page = max(1, request.args.get("page", default=1, type=int))
+    page_size = _parse_page_size()
     min_fit_raw = request.args.get("min_fit", "").strip()
     days_raw = request.args.get("days", "").strip()
     min_fit = int(min_fit_raw) if min_fit_raw.isdigit() else None
     days = int(days_raw) if days_raw.isdigit() else None
 
-    jobs = discovered_store.list_discovered(
+    all_jobs = discovered_store.list_discovered(
         status=status,
         platform=platform,
         min_fit=min_fit,
         days=days,
-        limit=500,
+        limit=None,
+    )
+    effective_page_size = page_size or max(len(all_jobs), 1)
+    jobs, total_pages, current_page, page_range = _paginate(
+        all_jobs,
+        page=page,
+        page_size=effective_page_size,
     )
     jobs = [_normalize_discovered_row(job) for job in jobs]
     stats = discovered_store.get_stats()
@@ -685,7 +726,12 @@ def discovered():
         jobs=jobs,
         stats=stats,
         total=stats.get("total", 0),
+        total_rows=len(all_jobs),
         current_status=status,
+        current_page=current_page,
+        total_pages=total_pages,
+        page_range=page_range,
+        page_size=page_size,
         discovery_session=discovery_session,
     )
 
@@ -709,6 +755,12 @@ def discovered_trigger():
     if not platforms:
         flash("No platforms selected for discovery.")
         return redirect(url_for("discovered"))
+
+    if "glassdoor" in platforms:
+        ready, reason = _glassdoor_profile_ready()
+        if not ready:
+            flash(f"Glassdoor profile not ready: {reason}")
+            return redirect(url_for("discovered"))
 
     # Discovery must always start in scrape/curation mode, not resume a stale apply queue.
     queue_path = Path("data/.control/apply_queue.json")
@@ -812,12 +864,17 @@ def discovered_apply_selected():
         flash("Bot already running.")
         return redirect(url_for("discovered"))
 
-    selected_jobs = discovered_store.list_discovered(
-        status=discovered_store.STATUS_SELECTED,
-        limit=200,
-    )
+    ids_raw = request.form.get("job_ids") or ""
+    checked_ids = [int(value) for value in ids_raw.split(",") if value.strip().isdigit()]
+    if checked_ids:
+        selected_jobs = discovered_store.get_by_ids(checked_ids)
+    else:
+        selected_jobs = discovered_store.list_discovered(
+            status=discovered_store.STATUS_SELECTED,
+            limit=200,
+        )
     if not selected_jobs:
-        flash("No jobs marked for apply.")
+        flash("No discovered jobs selected for apply.")
         return redirect(url_for("discovered"))
 
     queue = [_normalize_discovered_row(job) for job in selected_jobs]

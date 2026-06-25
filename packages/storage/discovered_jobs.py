@@ -249,7 +249,7 @@ def list_discovered(
     platform: Optional[str] = None,
     min_fit: Optional[int] = None,
     days: Optional[int] = None,
-    limit: int = 500,
+    limit: Optional[int] = 500,
     db_path: Optional[Path] = None,
 ) -> list[dict]:
     path = Path(db_path or DB_PATH)
@@ -273,8 +273,7 @@ def list_discovered(
                 params.append(int(time.time()) - (days * 86400))
 
             where_sql = f"WHERE {' AND '.join(where)}" if where else ""
-            rows = conn.execute(
-                f"""
+            sql = f"""
                 SELECT *
                 FROM discovered_jobs
                 {where_sql}
@@ -282,10 +281,12 @@ def list_discovered(
                     CASE WHEN fit_score IS NULL THEN 0 ELSE 1 END DESC,
                     fit_score DESC,
                     discovered_at DESC
-                LIMIT ?
-                """,
-                [*params, limit],
-            ).fetchall()
+            """
+            query_params = list(params)
+            if limit is not None:
+                sql += "\nLIMIT ?"
+                query_params.append(limit)
+            rows = conn.execute(sql, query_params).fetchall()
             return [dict(row) for row in rows]
     except Exception as e:
         logger.error(f"list_discovered failed: {e}")

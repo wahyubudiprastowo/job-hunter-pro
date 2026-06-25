@@ -5,7 +5,7 @@
 {% block top_left %}
   <div class="page-header" style="margin: 0;">
     <h1 class="page-title">Discovered Jobs</h1>
-    <p class="page-subtitle">Browse {{ total }} discovered jobs, review them, then apply selectively.</p>
+    <p class="page-subtitle">Browse {{ total_rows }} discovered jobs, review them, then apply selectively.</p>
   </div>
 {% endblock %}
 
@@ -160,6 +160,7 @@
     <option value="">All Platforms</option>
     <option value="linkedin" {% if request.args.get('platform') == 'linkedin' %}selected{% endif %}>LinkedIn</option>
     <option value="indeed" {% if request.args.get('platform') == 'indeed' %}selected{% endif %}>Indeed</option>
+    <option value="glassdoor" {% if request.args.get('platform') == 'glassdoor' %}selected{% endif %}>Glassdoor</option>
   </select>
 
   <select class="filter-select" onchange="applyFilter('days', this.value)">
@@ -167,6 +168,14 @@
     <option value="1" {% if request.args.get('days') == '1' %}selected{% endif %}>Last 24h</option>
     <option value="3" {% if request.args.get('days') == '3' %}selected{% endif %}>Last 3 days</option>
     <option value="7" {% if request.args.get('days') == '7' %}selected{% endif %}>Last week</option>
+  </select>
+
+  <select class="filter-select" onchange="applyFilter('page_size', this.value)">
+    <option value="30" {% if request.args.get('page_size') == '30' %}selected{% endif %}>30 / page</option>
+    <option value="50" {% if not request.args.get('page_size') or request.args.get('page_size') == '50' %}selected{% endif %}>50 / page</option>
+    <option value="100" {% if request.args.get('page_size') == '100' %}selected{% endif %}>100 / page</option>
+    <option value="200" {% if request.args.get('page_size') == '200' %}selected{% endif %}>200 / page</option>
+    <option value="all" {% if request.args.get('page_size') == 'all' %}selected{% endif %}>All</option>
   </select>
 </div>
 
@@ -199,14 +208,51 @@
         </button>
       </form>
 
-      <form method="post" action="{{ url_for('discovered_apply_selected') }}" style="display:inline;">
-        <button type="submit" class="btn btn-success" {% if not stats.by_status.get('selected', 0) %}disabled{% endif %}>
-          <i class="bi bi-rocket-takeoff"></i> Apply Now ({{ stats.by_status.get('selected', 0) }})
+      <form method="post" action="{{ url_for('discovered_apply_selected') }}" style="display:inline;" id="apply-now-form">
+        <input type="hidden" name="job_ids" id="apply-job-ids" value="">
+        <button type="submit" class="btn btn-success" id="apply-now-button" data-base-count="{{ stats.by_status.get('selected', 0) }}">
+          <i class="bi bi-rocket-takeoff"></i> <span id="apply-now-label">Apply Now ({{ stats.by_status.get('selected', 0) }})</span>
         </button>
       </form>
     </div>
   </div>
 </div>
+
+{% if total_pages and total_pages > 1 %}
+<div class="pagination mt-3">
+  {% if current_page > 1 %}
+    <a href="?page={{ current_page - 1 }}{% if current_status %}&status={{ current_status }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}{% if request.args.get('min_fit') %}&min_fit={{ request.args.get('min_fit') }}{% endif %}{% if request.args.get('days') %}&days={{ request.args.get('days') }}{% endif %}{% if request.args.get('page_size') %}&page_size={{ request.args.get('page_size') }}{% endif %}" class="page-btn">
+      <i class="bi bi-chevron-left"></i> Prev
+    </a>
+  {% else %}
+    <button class="page-btn" disabled><i class="bi bi-chevron-left"></i> Prev</button>
+  {% endif %}
+
+  {% for p in page_range %}
+    {% if p == current_page %}
+      <span class="page-btn active">{{ p }}</span>
+    {% elif p == '...' %}
+      <span class="page-btn" style="border:none;">...</span>
+    {% else %}
+      <a href="?page={{ p }}{% if current_status %}&status={{ current_status }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}{% if request.args.get('min_fit') %}&min_fit={{ request.args.get('min_fit') }}{% endif %}{% if request.args.get('days') %}&days={{ request.args.get('days') }}{% endif %}{% if request.args.get('page_size') %}&page_size={{ request.args.get('page_size') }}{% endif %}" class="page-btn">{{ p }}</a>
+    {% endif %}
+  {% endfor %}
+
+  {% if current_page < total_pages %}
+    <a href="?page={{ current_page + 1 }}{% if current_status %}&status={{ current_status }}{% endif %}{% if request.args.get('platform') %}&platform={{ request.args.get('platform') }}{% endif %}{% if request.args.get('min_fit') %}&min_fit={{ request.args.get('min_fit') }}{% endif %}{% if request.args.get('days') %}&days={{ request.args.get('days') }}{% endif %}{% if request.args.get('page_size') %}&page_size={{ request.args.get('page_size') }}{% endif %}" class="page-btn">
+      Next <i class="bi bi-chevron-right"></i>
+    </a>
+  {% else %}
+    <button class="page-btn" disabled>Next <i class="bi bi-chevron-right"></i></button>
+  {% endif %}
+
+  <span class="text-muted small ms-2">Showing {{ (current_page - 1) * (page_size or total_rows) + 1 }} - {{ [current_page * (page_size or total_rows), total_rows]|min }} of {{ total_rows }}</span>
+</div>
+{% elif jobs %}
+  <div class="text-muted small text-center p-3">
+    Showing {{ jobs|length }} result{{ 's' if jobs|length != 1 else '' }}.
+  </div>
+{% endif %}
 
 <div class="card">
   <div class="card-body" style="padding: 0;">
@@ -336,8 +382,20 @@ function toggleSelectAll(checkbox) {
 
 function updateSelectedCount() {
   const checked = document.querySelectorAll('.job-checkbox:checked');
-  document.getElementById('selected-count').textContent = checked.length;
-  document.getElementById('bulk-job-ids').value = Array.from(checked).map(cb => cb.value).join(',');
+  const checkedCount = checked.length;
+  const checkedIds = Array.from(checked).map(cb => cb.value).join(',');
+  document.getElementById('selected-count').textContent = checkedCount;
+  document.getElementById('bulk-job-ids').value = checkedIds;
+  document.getElementById('apply-job-ids').value = checkedIds;
+
+  const applyBtn = document.getElementById('apply-now-button');
+  const applyLabel = document.getElementById('apply-now-label');
+  if (applyBtn && applyLabel) {
+    const baseCount = Number(applyBtn.dataset.baseCount || '0');
+    const effectiveCount = checkedCount > 0 ? checkedCount : baseCount;
+    applyBtn.disabled = effectiveCount <= 0;
+    applyLabel.textContent = `Apply Now (${effectiveCount})`;
+  }
 }
 
 function applyFilter(param, value) {
@@ -424,6 +482,10 @@ function toggleCustomScan() {
   if (!panel) return;
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  updateSelectedCount();
+});
 </script>
 <style>
 .table-sort-button {

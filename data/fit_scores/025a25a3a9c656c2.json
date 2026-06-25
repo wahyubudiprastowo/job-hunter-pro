@@ -1,0 +1,21 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Systems Engineering",
+    "Infrastructure Design",
+    "VMware virtualization",
+    "Data Management"
+  ],
+  "missing_skills": [
+    "Pre-sales technical support",
+    "Sales presentations and product demonstrations",
+    "Dell Technologies solutions architecture",
+    "Customer-facing technical consulting"
+  ],
+  "red_flags": [
+    "Lacks pre-sales experience (entire career is in internal IT infrastructure/DevOps operations)",
+    "Geographic mismatch (Jakarta, Indonesia vs. Singapore)"
+  ],
+  "reasoning": "The candidate has a strong background in hands-on cloud infrastructure and DevOps engineering, but the role requires a pre-sales systems engineer focused on client presentations and Dell-specific solutions. The lack of pre-sales experience and alignment with Dell's product ecosystem represents a significant gap.",
+  "recommendation": "SKIP"
+}
