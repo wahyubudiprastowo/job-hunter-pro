@@ -1,0 +1,22 @@
+{
+  "score": 78,
+  "matched_skills": [
+    "Kubernetes",
+    "Terraform",
+    "Prometheus",
+    "Grafana",
+    "ELK Stack",
+    "Linux system administration",
+    "CI/CD",
+    "Incident response",
+    "Infrastructure automation",
+    "Docker"
+  ],
+  "missing_skills": [
+    "Software development languages for tooling (e.g., Go, Python)",
+    "Bare-metal infrastructure management experience"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate has 8 years of solid experience in infrastructure automation, observability, and container orchestration, which directly maps to the core SRE responsibilities. However, their background is heavily centered on Azure enterprise environments rather than public cloud provider infrastructure (like Scaleway's bare-metal and sovereign cloud), and they lack explicit software engineering experience in languages like Go or Python.",
+  "recommendation": "APPLY"
+}

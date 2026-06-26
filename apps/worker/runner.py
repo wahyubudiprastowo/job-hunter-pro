@@ -269,7 +269,7 @@ def _load_due_discovered_queue(limit: int = 200) -> list[dict]:
     return due_rows
 
 
-def run_bot(config_path: str = "config.yaml"):
+def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = None):
     load_dotenv()
     store.init_db()
     discovered_store.init_schema()
@@ -278,6 +278,8 @@ def run_bot(config_path: str = "config.yaml"):
         config = merge_discovery_config(config)
     orchestration_cfg = config.get("orchestration", {}) or {}
     discovery_cfg = config.get("discovery", {}) or {}
+    if force_discovery is not None:
+        discovery_cfg["enabled"] = bool(force_discovery)
 
     session = get_session_platforms()
     session_platforms = session.get("platforms") if session else None
@@ -1062,6 +1064,10 @@ def run_bot(config_path: str = "config.yaml"):
                         add_unanswered(result.unanswered_questions)
                     else:
                         counters["failed"] += 1
+                        logger.error(
+                            f"FAILED [{job.title} @ {job.company}] on {platform_name}: "
+                            f"{result.error_message or 'unknown error'}"
+                        )
                         if _tracker:
                             _tracker.set_step("Failed", 100)
                             _tracker.add_activity(f"Failed: {job.title} @ {job.company}", "error")
@@ -1120,6 +1126,12 @@ def run_bot(config_path: str = "config.yaml"):
                     category=NotificationCategory.RATE_LIMIT if NotificationCategory else None,
                     metadata={"platform": platform_name, **platform_final_extra},
                 )
+                keep_open_seconds = int(os.getenv("KEEP_BROWSER_ON_PAUSE_SECONDS", "0") or 0)
+                if keep_open_seconds > 0:
+                    logger.info(
+                        f"Keeping browser open for {keep_open_seconds}s after {platform_name} pause."
+                    )
+                    time.sleep(keep_open_seconds)
 
         apply_queue_consumed = bool(apply_queue_items)
         logger.info(f"🎉 Run done. Counters: {counters}")

@@ -49,11 +49,32 @@
   </a>
 </div>
 
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <div>
+        <input type="checkbox" id="select-all-apps" onchange="toggleSelectAllApps(this)">
+        <label for="select-all-apps" class="ms-2">Select all on page</label>
+      </div>
+      <span class="text-muted">|</span>
+      <span class="small text-muted">Selected: <strong id="selected-app-count">0</strong></span>
+      <div style="flex: 1;"></div>
+      <form method="post" action="{{ url_for('applications_apply_selected') }}" id="applications-apply-form" style="display:inline;">
+        <input type="hidden" name="application_ids" id="application-ids" value="">
+        <button type="submit" class="btn btn-success" id="applications-apply-button" disabled>
+          <i class="bi bi-rocket-takeoff"></i> <span id="applications-apply-label">Apply Selected (0)</span>
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <div class="card">
   <div class="card-body" style="padding: 0;">
     <table class="table">
       <thead>
         <tr>
+          <th style="width:40px;"></th>
           <th>#</th>
           <th>Platform</th>
           <th>Title</th>
@@ -70,6 +91,7 @@
       <tbody id="apps-tbody">
         {% for r in rows %}
           <tr data-company="{{ (r.company or '')|lower }}" data-title="{{ (r.title or '')|lower }}" data-platform="{{ r.platform }}">
+            <td><input type="checkbox" class="application-checkbox" value="{{ r.id }}" onchange="updateApplicationSelection()"></td>
             <td><span class="row-id">{{ r.id }}</span></td>
             <td><span class="badge bg-secondary">{{ r.platform }}</span></td>
             <td><a href="/application/{{ r.id }}">{{ (r.title or 'Untitled job')|truncate(50) }}</a></td>
@@ -97,7 +119,7 @@
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="11" class="text-muted text-center" style="padding: 40px;">No applications match the filter.</td></tr>
+          <tr><td colspan="12" class="text-muted text-center" style="padding: 40px;">No applications match the filter.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -143,6 +165,27 @@
 
 {% block scripts %}
 <script>
+function toggleSelectAllApps(checkbox) {
+  document.querySelectorAll('.application-checkbox').forEach(cb => {
+    cb.checked = checkbox.checked;
+  });
+  updateApplicationSelection();
+}
+
+function updateApplicationSelection() {
+  const checked = document.querySelectorAll('.application-checkbox:checked');
+  const checkedCount = checked.length;
+  const checkedIds = Array.from(checked).map(cb => cb.value).join(',');
+  document.getElementById('selected-app-count').textContent = checkedCount;
+  document.getElementById('application-ids').value = checkedIds;
+  const btn = document.getElementById('applications-apply-button');
+  const label = document.getElementById('applications-apply-label');
+  if (btn && label) {
+    btn.disabled = checkedCount <= 0;
+    label.textContent = `Apply Selected (${checkedCount})`;
+  }
+}
+
 function filterRows() {
   const query = document.getElementById('search-input').value.toLowerCase();
   const rows = document.querySelectorAll('#apps-tbody tr[data-company]');
@@ -174,5 +217,9 @@ function filterByPageSize(pageSize) {
   url.searchParams.delete('page');
   window.location.href = url.toString();
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  updateApplicationSelection();
+});
 </script>
 {% endblock %}

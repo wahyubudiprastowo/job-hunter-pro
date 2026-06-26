@@ -1,0 +1,24 @@
+{
+  "score": 78,
+  "matched_skills": [
+    "Kubernetes",
+    "Terraform",
+    "Prometheus",
+    "Grafana",
+    "ELK Stack",
+    "Linux system administration",
+    "CI/CD pipelines",
+    "Docker",
+    "Ansible",
+    "Incident response"
+  ],
+  "missing_skills": [
+    "Bare-metal infrastructure management",
+    "Software development languages for SRE tooling (e.g., Go, Python)"
+  ],
+  "red_flags": [
+    "Candidate is located in Indonesia, whereas the employer is a European cloud provider based in France with no explicit remote or relocation support mentioned."
+  ],
+  "reasoning": "The candidate has strong technical alignment with the SRE role, boasting 8 years of experience in infrastructure automation, Kubernetes, and observability tools like Prometheus and Grafana. However, their experience is heavily centered on Azure rather than bare-metal or alternative cloud environments. Additionally, the geographic mismatch presents a significant hiring barrier.",
+  "recommendation": "MAYBE"
+}

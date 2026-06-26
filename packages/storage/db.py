@@ -243,6 +243,18 @@ def get_application(app_id: int) -> Optional[dict]:
         return _row_to_dict(row) if row else None
 
 
+def get_applications_by_ids(app_ids: list[int]) -> list[dict]:
+    if not app_ids:
+        return []
+    with SessionLocal() as s:
+        rows = s.execute(
+            select(Application)
+            .where(Application.id.in_(app_ids))
+            .order_by(Application.created_at.desc())
+        ).scalars().all()
+        return [_row_to_dict(r) for r in rows]
+
+
 def _resolve_application_url(r: Application) -> str:
     if r.url:
         return r.url

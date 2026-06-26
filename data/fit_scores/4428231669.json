@@ -1,0 +1,30 @@
+{
+  "score": 68,
+  "matched_skills": [
+    "Docker",
+    "Kubernetes",
+    "Helm",
+    "Kustomize",
+    "Git",
+    "Linux",
+    "Azure",
+    "Zero Trust Architecture",
+    "OAuth",
+    "Grafana",
+    "MongoDB",
+    "PostgreSQL"
+  ],
+  "missing_skills": [
+    "OpenTelemetry",
+    "mTLS",
+    "HTTP/2",
+    "JWT",
+    "Podman"
+  ],
+  "red_flags": [
+    "Geographical mismatch: Candidate is based in Jakarta, Indonesia, whereas the job is a hybrid role located in Meolo, Italy (requiring bi-weekly office presence).",
+    "Language barrier: The job description is in Italian, suggesting Italian language proficiency is required, which is not indicated on the candidate's CV."
+  ],
+  "reasoning": "The candidate is a strong technical match with extensive experience in Azure AKS, Kubernetes orchestration, and CI/CD pipelines. However, there are minor gaps in required technologies like OpenTelemetry and mTLS. The critical blocker is the location mismatch for a hybrid role in Italy, making relocation highly impractical for this salary range.",
+  "recommendation": "SKIP"
+}

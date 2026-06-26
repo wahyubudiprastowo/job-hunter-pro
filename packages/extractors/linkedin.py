@@ -132,7 +132,15 @@ SELECTORS = {
     "modal": (By.CSS_SELECTOR,
         ".jobs-easy-apply-modal, "
         ".jobs-easy-apply-content, "
+        ".jobs-easy-apply-modal__content, "
+        ".jobs-easy-apply-modal__content-wrapper, "
+        ".jobs-easy-apply-form-section__grouping, "
+        ".jobs-easy-apply-footer, "
+        ".artdeco-modal-overlay, "
+        ".artdeco-modal, "
         ".artdeco-modal[role='dialog'], "
+        "[data-test-modal-id*='easy-apply'], "
+        "[aria-labelledby*='jobs-apply'], "
         "div[role='dialog']"),
     "btn_next": (By.XPATH, _xpath_button_any(BTN_NEXT_LABELS)),
     "btn_review": (By.XPATH, _xpath_button_any(BTN_REVIEW_LABELS)),
@@ -637,33 +645,31 @@ class LinkedInExtractor(BaseExtractor):
             return ApplicationResult(
                 status=ApplyStatus.FAILED,
                 error_message="Easy Apply detected earlier but button was not clickable.")
-        try:
+        first_modal = self._open_easy_apply_modal(btn, job, timeout=25)
+        if first_modal is None:
+            self._screenshot_for_debug(job.job_id, "modal_not_found")
             try:
-                d.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
+                logger.warning(f"Easy Apply modal not found. url={d.current_url}")
             except Exception:
-                pass
-            btn.click()
-        except (ElementClickInterceptedException, StaleElementReferenceException):
-            try:
-                ActionChains(d).move_to_element(btn).pause(0.2).click().perform()
-            except Exception as e:
-                try:
-                    d.execute_script("arguments[0].click();", btn)
-                except Exception:
-                    logger.warning(f"Easy Apply click failed: {e}")
-                    return ApplicationResult(
-                        status=ApplyStatus.FAILED,
-                        error_message=f"Easy Apply click failed: {e}")
-        
-        human_sleep(2, 3.5)
+                logger.warning("Easy Apply modal not found.")
+            return ApplicationResult(
+                status=ApplyStatus.FAILED,
+                error_message="Modal not found.",
+                qa_log=qa_log, unanswered_questions=unanswered)
 
         previous_progress = -1
         stuck_count = 0
         max_steps = 15
 
         for step in range(max_steps):
-            modal = self._wait_for_apply_modal(btn if step == 0 else None, timeout=12)
+            modal = first_modal if step == 0 else self._wait_for_apply_modal(timeout=18)
+            first_modal = None
             if modal is None:
+                self._screenshot_for_debug(job.job_id, "modal_not_found")
+                try:
+                    logger.warning(f"Easy Apply modal lost/not found. step={step+1} url={d.current_url}")
+                except Exception:
+                    logger.warning(f"Easy Apply modal lost/not found. step={step+1}")
                 return ApplicationResult(
                     status=ApplyStatus.FAILED, error_message="Modal not found.",
                     qa_log=qa_log, unanswered_questions=unanswered)
@@ -742,6 +748,55 @@ class LinkedInExtractor(BaseExtractor):
         return ApplicationResult(
             status=ApplyStatus.FAILED, error_message="Max steps exceeded.",
             qa_log=qa_log, unanswered_questions=unanswered)
+
+    def _open_easy_apply_modal(self, button, job=None, timeout: int = 25):
+        """Click Easy Apply and only return once LinkedIn's apply modal is visible."""
+        def _fresh_button():
+            try:
+                if button and button.is_displayed() and button.is_enabled():
+                    return button
+            except Exception:
+                pass
+            return self._find_easy_apply_button(self.driver, timeout=3)
+
+        click_attempts = [
+            ("native", lambda el: el.click()),
+            ("actions", lambda el: ActionChains(self.driver).move_to_element(el).pause(0.25).click().perform()),
+            ("javascript", lambda el: self.driver.execute_script("arguments[0].click();", el)),
+            ("mouse_event", lambda el: self.driver.execute_script(
+                "arguments[0].dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true, view:window}));",
+                el,
+            )),
+        ]
+
+        deadline = time.time() + timeout
+        for name, clicker in click_attempts:
+            if time.time() >= deadline:
+                break
+            btn = _fresh_button()
+            if btn is None:
+                logger.debug("Easy Apply button disappeared before modal opened.")
+                break
+            try:
+                self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
+            except Exception:
+                pass
+            try:
+                clicker(btn)
+                logger.debug(f"Easy Apply click attempt: {name}")
+            except (ElementClickInterceptedException, StaleElementReferenceException) as e:
+                logger.debug(f"Easy Apply click attempt failed ({name}): {e}")
+                continue
+            except Exception as e:
+                logger.debug(f"Easy Apply click attempt failed ({name}): {e}")
+                continue
+
+            modal = self._wait_for_apply_modal(timeout=min(6, max(2, int(deadline - time.time()))))
+            if modal is not None:
+                logger.debug(f"Easy Apply modal opened via: {name}")
+                return modal
+
+        return self._wait_for_apply_modal(timeout=max(2, int(deadline - time.time())))
 
     def _upload_cover_letter(self, modal, cover_letter_paths):
         if not cover_letter_paths:

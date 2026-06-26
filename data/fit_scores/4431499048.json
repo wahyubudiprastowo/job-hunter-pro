@@ -1,0 +1,23 @@
+{
+  "score": 30,
+  "matched_skills": [
+    "Azure",
+    "Ansible",
+    "Hybrid Cloud Infrastructure",
+    "Technical documentation"
+  ],
+  "missing_skills": [
+    "German language proficiency",
+    "Windows Server Administration",
+    "Active Directory (ADDS, DNS, DHCP)",
+    "Microsoft Entra ID / Azure AD",
+    "Microsoft 365",
+    "PowerShell scripting"
+  ],
+  "red_flags": [
+    "No German language skills listed (required for the role)",
+    "Candidate is a Linux/DevOps specialist, not a Windows Administrator"
+  ],
+  "reasoning": "The candidate is a strong Linux and DevOps/Cloud specialist but lacks the core requirements for this Windows Administrator role, specifically Windows Server administration and Active Directory. Additionally, the candidate does not speak German, which is a mandatory requirement for this Hamburg-based position.",
+  "recommendation": "SKIP"
+}

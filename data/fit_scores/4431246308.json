@@ -1,0 +1,19 @@
+{
+  "score": 50,
+  "matched_skills": [
+    "VMware",
+    "Hyper-V",
+    "Azure",
+    "Networking",
+    "Storage"
+  ],
+  "missing_skills": [
+    "Veeam"
+  ],
+  "red_flags": [
+    "Location mismatch (Candidate is in Jakarta, Indonesia, while the job requires working onsite in Zoetermeer, Netherlands)",
+    "Overqualification (Candidate has 8 years of experience, whereas the job asks for 2-5 years)"
+  ],
+  "reasoning": "The candidate is technically overqualified and has strong experience in virtualization (VMware, Hyper-V) and cloud (Azure) infrastructure. However, the role is onsite in Zoetermeer, Netherlands, making the candidate's location in Indonesia a major blocker unless relocation is provided.",
+  "recommendation": "SKIP"
+}

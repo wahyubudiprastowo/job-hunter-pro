@@ -1,0 +1,21 @@
+{
+  "score": 30,
+  "matched_skills": [
+    "Ansible",
+    "Docker",
+    "Linux system administration",
+    "Cloud networking",
+    "CI/CD (Jenkins, GitLab CI)",
+    "Monitoring and logging (Prometheus, Grafana, ELK)",
+    "Hybrid cloud"
+  ],
+  "missing_skills": [
+    "OpenStack (Nova, Neutron, Cinder/Swift, Keystone, Glance)"
+  ],
+  "red_flags": [
+    "No OpenStack experience (the core requirement of the role)",
+    "Location mismatch: Candidate is based in Jakarta, Indonesia, while the job requires hybrid work in Rome, Italy (3 days/week on-site)"
+  ],
+  "reasoning": "The candidate has a strong background in Linux, DevOps, and cloud networking, but lacks any experience with OpenStack, which is the primary technology required for this role. Furthermore, the candidate is located in Indonesia, making the hybrid on-site requirement in Rome, Italy, a logistical blocker.",
+  "recommendation": "SKIP"
+}

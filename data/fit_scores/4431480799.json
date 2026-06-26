@@ -1,0 +1,23 @@
+{
+  "score": 75,
+  "matched_skills": [
+    "Linux (Ubuntu, Red Hat, CentOS)",
+    "VMware virtualization",
+    "Bash scripting",
+    "Ansible",
+    "Cloud and hybrid cloud",
+    "Monitoring and troubleshooting",
+    "Deployment and release management"
+  ],
+  "missing_skills": [
+    "Tomcat",
+    "JBoss",
+    "Active Directory / LDAP"
+  ],
+  "red_flags": [
+    "Candidate is located in Jakarta, Indonesia, while the position is hybrid in Milan, Italy",
+    "No mention of Italian language proficiency (job description is in Italian)"
+  ],
+  "reasoning": "The candidate has strong system administration, virtualization, and automation experience that aligns well with the technical requirements, including Linux, VMware, and Ansible. However, they lack explicit experience with Tomcat/JBoss and Active Directory, and the hybrid location in Milan presents a major geographical blocker.",
+  "recommendation": "SKIP"
+}

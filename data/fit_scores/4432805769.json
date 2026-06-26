@@ -1,0 +1,26 @@
+{
+  "score": 70,
+  "matched_skills": [
+    "Kubernetes",
+    "Azure",
+    "Ansible",
+    "Jenkins",
+    "Argo CD",
+    "Helm",
+    "Kustomize",
+    "Linux system administration",
+    "TCP/IP",
+    "Application security"
+  ],
+  "missing_skills": [
+    "OpenShift",
+    "Kafka",
+    "RabbitMQ",
+    "Advanced Windows administration"
+  ],
+  "red_flags": [
+    "Geographic mismatch: Candidate is based in Jakarta, Indonesia, while the job requires 4 days per week on-site in Madrid, Spain."
+  ],
+  "reasoning": "The candidate is a strong technical match with extensive experience in Azure, Kubernetes, Ansible, and CI/CD pipelines. However, they lack specific experience with OpenShift and messaging queues like Kafka or RabbitMQ. The most significant barrier is the location, as the role requires a heavy on-site presence in Madrid.",
+  "recommendation": "SKIP"
+}

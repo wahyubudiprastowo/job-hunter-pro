@@ -1,0 +1,29 @@
+{
+  "score": 15,
+  "matched_skills": [
+    "Terraform",
+    "CI/CD",
+    "DevOps practices"
+  ],
+  "missing_skills": [
+    "Java",
+    "Spring Boot",
+    "Python",
+    "AWS Lambda",
+    "AWS Glue",
+    "Amazon S3",
+    "Amazon DynamoDB",
+    "AWS Step Functions",
+    "AWS DMS",
+    "Amazon Athena",
+    "ETL/ELT pipeline development",
+    "Data modeling"
+  ],
+  "red_flags": [
+    "Candidate is an Infrastructure/DevOps specialist, not a Data Engineer",
+    "Lacks required programming languages (Java, Python)",
+    "No experience with AWS data services or ETL pipelines"
+  ],
+  "reasoning": "The candidate is a Senior IT Infrastructure and DevOps Specialist with a strong background in Azure, whereas the role requires a Data Engineer focused on Java, Python, and AWS data services. The candidate lacks almost all mandatory skills for this role, including programming languages and data pipeline experience, despite matching some secondary DevOps/Terraform requirements.",
+  "recommendation": "SKIP"
+}

@@ -1,0 +1,26 @@
+{
+  "score": 15,
+  "matched_skills": [
+    "Azure",
+    "CI/CD",
+    "SQL"
+  ],
+  "missing_skills": [
+    "Microsoft Fabric (Lakehouse, Warehouse, OneLake)",
+    "Power BI",
+    "DAX",
+    "Power Query",
+    "ETL/ELT processes",
+    "Data Warehousing",
+    "Python",
+    "PySpark",
+    "Tabular Editor",
+    "Dynamics 365 integration"
+  ],
+  "red_flags": [
+    "Candidate's background is strictly in IT Infrastructure, DevOps, and Cloud Architecture, not Data Engineering or Business Intelligence.",
+    "Complete lack of experience with Power BI, DAX, and data warehousing concepts."
+  ],
+  "reasoning": "The candidate is a Senior IT Infrastructure and DevOps Specialist with no professional experience in Data Engineering or Business Intelligence. While they have strong Azure cloud experience, they lack the required expertise in Microsoft Fabric, Power BI, DAX, and ETL/ELT pipelines needed for this Data Platform Engineer role.",
+  "recommendation": "SKIP"
+}

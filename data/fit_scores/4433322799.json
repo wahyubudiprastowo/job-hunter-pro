@@ -1,0 +1,20 @@
+{
+  "score": 15,
+  "matched_skills": [
+    "SQL"
+  ],
+  "missing_skills": [
+    "ERP systems management",
+    "Microsoft Dynamics 365 Finance & Operations",
+    "Business Intelligence (BI) and reporting tools",
+    "Functional analysis of administrative and accounting processes",
+    "Italian language proficiency"
+  ],
+  "red_flags": [
+    "Complete career path mismatch (Cloud/DevOps Infrastructure vs. ERP/Business Applications)",
+    "Geographic mismatch (Candidate is based in Indonesia; Job is hybrid in Milan, Italy)",
+    "No experience with ERP systems or financial/accounting workflows"
+  ],
+  "reasoning": "The candidate is a Senior Cloud Infrastructure and DevOps Specialist, whereas the job requires an IT ERP Specialist focused on business, financial, and accounting processes (specifically Microsoft Dynamics 365). There is a fundamental mismatch in both technical domain and geographic location.",
+  "recommendation": "SKIP"
+}

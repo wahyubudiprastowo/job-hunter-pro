@@ -22,7 +22,8 @@ platforms:
         - "Cloud Platform Engineer"
         - "Site Reliability Engineer"
         - "Platform Engineer"
-      location: "European Union"
+      location: "Philadelphia"
+      # location: "European Union"
       remote: true
       hybrid: true
       date_posted: "past_week"
@@ -94,20 +95,17 @@ platforms:
     enabled: true
     max_apply_per_run: 5
     scroll_count: 8
+    query_limit_per_run: 5
+    discovery_max_per_session: 20
     region: "auto"
     login_method: "auto"   # rekomendasi: pakai session/profile dulu, fallback ke email bila perlu
     search:
       queries:
-        - "IT Infrastructure Specialist"
-        - "Senior System Administrator"
-        - "Linux System Administrator"
         - "Cloud Infrastructure Engineer"
-        - "Hybrid Cloud Engineer"
         - "Azure Cloud Engineer"
-        - "Azure DevOps Engineer"
+        - "Azure Engineer"
         - "Cloud Platform Engineer"
         - "Site Reliability Engineer"
-        - "Platform Engineer"
       location: "Singapore"
       remote: true
       hybrid: true

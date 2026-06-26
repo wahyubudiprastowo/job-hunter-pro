@@ -1,0 +1,19 @@
+{
+  "score": 85,
+  "matched_skills": [
+    "Terraform",
+    "Microsoft Azure",
+    "Docker",
+    "Kubernetes",
+    "CI/CD",
+    "Linux",
+    "Git",
+    "Prometheus"
+  ],
+  "missing_skills": [
+    "Python"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate is a strong match with 8 years of experience in Azure, Kubernetes, Terraform, and CI/CD pipelines, which directly aligns with the core tech stack. The only minor gap is the lack of explicit Python experience mentioned in the CV, though they possess strong scripting skills in Bash.",
+  "recommendation": "APPLY"
+}

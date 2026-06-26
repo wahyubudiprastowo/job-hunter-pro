@@ -1,0 +1,25 @@
+{
+  "score": 45,
+  "matched_skills": [
+    "Azure",
+    "DevOps",
+    "IT networks and infrastructure",
+    "Technical documentation"
+  ],
+  "missing_skills": [
+    "Microsoft Defender",
+    "Microsoft 365 suite",
+    "AZ-900 certification",
+    "SC-900 certification",
+    "AZ-104 certification",
+    "AZ-700 certification",
+    "SC-200 certification"
+  ],
+  "red_flags": [
+    "Candidate is located in Indonesia (Jakarta) while the job is in the Netherlands",
+    "No mention of Dutch language proficiency (job description is in Dutch)",
+    "Missing required Microsoft certifications (AZ-900, SC-900, AZ-104)"
+  ],
+  "reasoning": "The candidate has strong Azure infrastructure and DevOps experience that aligns well with the technical core of the role. However, they lack the specific required Microsoft certifications, Microsoft Defender/M365 experience, and are based in Indonesia for a Dutch-speaking role in the Netherlands.",
+  "recommendation": "SKIP"
+}

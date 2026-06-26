@@ -25,6 +25,7 @@ from typing import Optional, Tuple
 from loguru import logger
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
@@ -344,6 +345,9 @@ class GlassdoorExtractor(BaseExtractor):
         self.email = os.getenv("GLASSDOOR_EMAIL", "")
         self.password = os.getenv("GLASSDOOR_PASSWORD", "")
         self.login_method = config.get("login_method", "auto")  # auto | email | google
+        self._last_search_time = 0.0
+        self.pause_current_run = False
+        self.pause_reason = ""
         
         # AI question fallback
         self.ai_provider = ai_provider
@@ -438,6 +442,8 @@ class GlassdoorExtractor(BaseExtractor):
 
     def _has_active_session(self) -> bool:
         """Best-effort check for an already usable Glassdoor session."""
+        if self._is_security_page():
+            return False
         try:
             checks = [
                 SELECTORS["user_avatar"],
@@ -563,6 +569,44 @@ class GlassdoorExtractor(BaseExtractor):
         encoded = urlencode({k: v for k, v in params.items() if v})
         return f"{self.base_url}/Job/jobs.htm?{encoded}"
 
+    def _try_interactive_search(self, query: str, filters: SearchFilters) -> bool:
+        """Use the visible Glassdoor search form before falling back to direct URLs."""
+        d = self.driver
+        try:
+            d.get(self.base_url)
+            human_sleep(2, 4)
+            if _HAS_CF_HELPER and handle_cloudflare_safely:
+                handle_cloudflare_safely(d, timeout=90, return_to_url=self.base_url)
+            if self._is_security_page():
+                return True
+
+            keyword = WebDriverWait(d, 8).until(
+                EC.presence_of_element_located(SELECTORS["search_keyword"])
+            )
+            keyword.send_keys(Keys.CONTROL, "a")
+            keyword.send_keys(Keys.BACKSPACE)
+            type_human(keyword, query)
+
+            try:
+                location = d.find_element(*SELECTORS["search_location"])
+                location.send_keys(Keys.CONTROL, "a")
+                location.send_keys(Keys.BACKSPACE)
+                type_human(location, filters.location or "")
+            except NoSuchElementException:
+                pass
+
+            try:
+                submit = d.find_element(*SELECTORS["search_submit"])
+                submit.click()
+            except NoSuchElementException:
+                keyword.send_keys(Keys.ENTER)
+
+            human_sleep(4, 6)
+            return True
+        except Exception as e:
+            logger.debug(f"Glassdoor interactive search unavailable, falling back to URL: {e}")
+            return False
+
     def _is_security_page(self) -> bool:
         """Detect Glassdoor anti-bot/security pages that replace real search results."""
         try:
@@ -583,19 +627,36 @@ class GlassdoorExtractor(BaseExtractor):
     
     def search(self, filters: SearchFilters):
         """Execute search."""
+        self.pause_current_run = False
+        self.pause_reason = ""
         if not filters.queries:
-            return
+            return False
         q = filters.queries[0]
         url = self._build_search_url(q, filters)
         logger.info(f"Glassdoor search: {q} -> {url}")
-        self.driver.get(url)
-        human_sleep(3, 5)
+        if not self._try_interactive_search(q, filters):
+            self.driver.get(url)
+            human_sleep(3, 5)
         
         # Handle Cloudflare if appears
         if _HAS_CF_HELPER and handle_cloudflare_safely:
-            handle_cloudflare_safely(self.driver, timeout=60)
+            if not handle_cloudflare_safely(self.driver, timeout=180, return_to_url=url):
+                self.pause_current_run = True
+                self.pause_reason = "Glassdoor security challenge not cleared"
+                logger.warning(
+                    "Glassdoor security challenge could not be cleared - "
+                    "pausing Glassdoor for this run."
+                )
+                try:
+                    self.driver.get(self.base_url)
+                    human_sleep(2, 4)
+                except Exception:
+                    pass
+                return False
 
         if self._is_security_page():
+            self.pause_current_run = True
+            self.pause_reason = "Glassdoor search landed on a security/verification page"
             logger.warning(
                 "Glassdoor search landed on a security/verification page. "
                 f"Current URL: {self.driver.current_url}"
@@ -604,7 +665,7 @@ class GlassdoorExtractor(BaseExtractor):
                 "Prewarm the SAME Glassdoor region/domain used by the bot "
                 f"({self.base_url}) and ensure that profile is already verified/logged in."
             )
-            return
+            return False
 
         # Dismiss any sign-in prompt overlay
         try:
@@ -613,6 +674,7 @@ class GlassdoorExtractor(BaseExtractor):
             human_sleep(1, 2)
         except NoSuchElementException:
             pass
+        return True
     
     # ============================================================
     # COLLECT JOB CARDS
@@ -624,6 +686,8 @@ class GlassdoorExtractor(BaseExtractor):
         seen = set()
 
         if self._is_security_page():
+            self.pause_current_run = True
+            self.pause_reason = "Glassdoor results page is blocked by a security challenge"
             logger.warning(
                 "Glassdoor results page is blocked by a security challenge, "
                 "so no job cards can be collected."

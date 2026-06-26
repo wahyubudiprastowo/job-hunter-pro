@@ -1,0 +1,19 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Microsoft Azure"
+  ],
+  "missing_skills": [
+    "Javascript",
+    "Windows platforms basic knowledge",
+    "Pre-sales / Technical support experience",
+    "Document management software configuration"
+  ],
+  "red_flags": [
+    "Location mismatch: Candidate is based in Jakarta, Indonesia, while the job is a hybrid role in Milan, Italy requiring 3 days a week in the office.",
+    "Language barrier: The role is client-facing in Italy, but the candidate does not list Italian language proficiency.",
+    "Role mismatch: Candidate is a Cloud Infrastructure/DevOps Specialist, whereas the job is for an Application Integration and Pre-Sales Specialist."
+  ],
+  "reasoning": "The candidate has strong technical expertise in Microsoft Azure, but their profile is focused on Cloud Infrastructure and DevOps rather than application integration and pre-sales. Furthermore, the candidate is located in Indonesia and lacks the Italian language skills necessary for this hybrid, client-facing role in Milan.",
+  "recommendation": "SKIP"
+}

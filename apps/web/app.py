@@ -33,6 +33,7 @@ from apps.worker.runner import run_bot
 from apps.web.discovery_trigger import (
     set_discovery_session,
     get_discovery_session,
+    clear_discovery_session,
 )
 from packages.stealth.profile_manager import (
     list_all_profiles,
@@ -791,7 +792,11 @@ def discovered_trigger():
     tracker.reset(keep_logs=False)
     tracker.set_state("running")
     tracker.add_activity("Discovery scan requested", "info")
-    _runner_thread = threading.Thread(target=run_bot, daemon=True)
+    _runner_thread = threading.Thread(
+        target=run_bot,
+        kwargs={"force_discovery": True},
+        daemon=True,
+    )
     _runner_thread.start()
     flash(
         f"Discovery started: {', '.join(platforms)} "
@@ -907,6 +912,7 @@ def discovered_apply_selected():
         set_session_platforms(platforms, "sequential")
     else:
         clear_session_override()
+    clear_discovery_session()
 
     controller.reset()
     controller.set_state("running")
@@ -915,7 +921,11 @@ def discovered_apply_selected():
     tracker.reset(keep_logs=False)
     tracker.set_state("running")
     tracker.add_activity("Discovered apply queue started", "info")
-    _runner_thread = threading.Thread(target=run_bot, daemon=True)
+    _runner_thread = threading.Thread(
+        target=run_bot,
+        kwargs={"force_discovery": False},
+        daemon=True,
+    )
     _runner_thread.start()
     flash(f"Started apply queue for {len(queue_payload)} discovered job(s).")
     return redirect(url_for("discovered"))
@@ -945,6 +955,84 @@ def discovered_schedule():
     )
     flash(f"Scheduled {updated} discovered job(s).")
     return redirect(url_for("discovered"))
+
+
+@app.route("/applications/apply-selected", methods=["POST"])
+def applications_apply_selected():
+    global _runner_thread
+    diag = controller.get_diagnostics()
+    if diag["state"] in ("running", "paused") and not diag["is_zombie"]:
+        flash("Bot already running.")
+        return redirect(url_for("applications"))
+
+    ids_raw = request.form.get("application_ids") or ""
+    app_ids = [int(value) for value in ids_raw.split(",") if value.strip().isdigit()]
+    if not app_ids:
+        flash("No application rows selected.")
+        return redirect(url_for("applications"))
+
+    rows = store.get_applications_by_ids(app_ids)
+    if not rows:
+        flash("Selected application rows could not be loaded.")
+        return redirect(url_for("applications"))
+
+    queue_payload = []
+    skipped = 0
+    for row in rows:
+        job_id = str(row.get("job_id") or "").strip()
+        url = (row.get("url") or "").strip()
+        if not job_id and not url:
+            skipped += 1
+            continue
+        queue_payload.append({
+            "application_id": row.get("id"),
+            "platform": row.get("platform"),
+            "job_id": job_id,
+            "title": row.get("title") or "",
+            "company": row.get("company") or "",
+            "location": row.get("location") or "",
+            "url": url,
+            "fit_score": row.get("fit_score"),
+            "fit_reasoning": row.get("fit_reasoning"),
+        })
+
+    if not queue_payload:
+        flash("Selected rows do not have enough job data to retry apply.")
+        return redirect(url_for("applications"))
+
+    queue_path = Path("data/.control/apply_queue.json")
+    queue_path.parent.mkdir(parents=True, exist_ok=True)
+    queue_path.write_text(
+        json.dumps(queue_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    platforms = sorted({row.get("platform") for row in queue_payload if row.get("platform")})
+    if platforms:
+        set_session_platforms(platforms, "sequential")
+    else:
+        clear_session_override()
+    clear_discovery_session()
+
+    controller.reset()
+    controller.set_state("running")
+    controller.beat()
+    tracker = get_tracker()
+    tracker.reset(keep_logs=False)
+    tracker.set_state("running")
+    tracker.add_activity("Application retry queue started", "info")
+    _runner_thread = threading.Thread(
+        target=run_bot,
+        kwargs={"force_discovery": False},
+        daemon=True,
+    )
+    _runner_thread.start()
+
+    message = f"Started apply queue for {len(queue_payload)} application row(s)."
+    if skipped:
+        message += f" Skipped {skipped} row(s) with missing job data."
+    flash(message)
+    return redirect(url_for("applications"))
 
 
 @app.route("/questions", methods=["GET", "POST"])
@@ -1003,6 +1091,7 @@ def control_start():
     else:
         clear_session_override()
         flash_msg = "Bot started in background."
+    clear_discovery_session()
     controller.reset()
     controller.set_state("running")
     controller.beat()
@@ -1010,7 +1099,11 @@ def control_start():
     tracker.reset(keep_logs=False)
     tracker.set_state("running")
     tracker.add_activity("Start requested from dashboard", "info")
-    _runner_thread = threading.Thread(target=run_bot, daemon=True)
+    _runner_thread = threading.Thread(
+        target=run_bot,
+        kwargs={"force_discovery": False},
+        daemon=True,
+    )
     _runner_thread.start()
     flash(flash_msg)
     return redirect(url_for("dashboard"))
@@ -1046,6 +1139,7 @@ def control_start_platform():
         set_session_platforms(platforms_list, mode)
         set_preferred_platforms(platforms_list, mode)
         flash_msg = f"Bot started: {', '.join(platforms_list)} ({mode})."
+    clear_discovery_session()
 
     controller.reset()
     controller.set_state("running")
@@ -1054,7 +1148,11 @@ def control_start_platform():
     tracker.reset(keep_logs=False)
     tracker.set_state("running")
     tracker.add_activity("Platform start requested from dashboard", "info")
-    _runner_thread = threading.Thread(target=run_bot, daemon=True)
+    _runner_thread = threading.Thread(
+        target=run_bot,
+        kwargs={"force_discovery": False},
+        daemon=True,
+    )
     _runner_thread.start()
     flash(flash_msg)
     return redirect(url_for("dashboard"))
