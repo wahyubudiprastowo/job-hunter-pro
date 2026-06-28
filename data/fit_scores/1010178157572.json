@@ -1,0 +1,18 @@
+{
+  "score": 30,
+  "matched_skills": [
+    "Network setup",
+    "Troubleshooting"
+  ],
+  "missing_skills": [
+    "CCTV-related support",
+    "Desktop support",
+    "Office IT support"
+  ],
+  "red_flags": [
+    "Severe overqualification (Senior Cloud Architect with 8 years of experience applying for a Junior Support role)",
+    "Location mismatch (Candidate is in Jakarta, Indonesia, while the role is in Singapore and likely requires on-site support for CCTV and physical networks)"
+  ],
+  "reasoning": "The candidate is a highly experienced Senior Cloud Architect and DevOps Specialist, which represents a significant mismatch for a Junior IT Support and CCTV role. Furthermore, the candidate is based in Indonesia, whereas the role is located in Singapore and involves physical/local IT support tasks.",
+  "recommendation": "SKIP"
+}

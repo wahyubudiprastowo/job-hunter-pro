@@ -1,0 +1,21 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Azure",
+    "Cloud Infrastructure",
+    "Deployment",
+    "Security"
+  ],
+  "missing_skills": [
+    "Full Stack Development",
+    "Frontend Development",
+    "Backend Development",
+    "AI-Assisted Programming",
+    "User Testing"
+  ],
+  "red_flags": [
+    "Candidate is an Infrastructure/DevOps specialist with no demonstrated experience in full-stack application development or programming languages."
+  ],
+  "reasoning": "The candidate has strong expertise in Azure cloud infrastructure and DevOps, which covers the deployment and infrastructure ownership aspects of the role. However, they completely lack the core requirements of full-stack web application development, coding, and AI-assisted programming.",
+  "recommendation": "SKIP"
+}

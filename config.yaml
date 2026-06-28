@@ -22,17 +22,16 @@ platforms:
         - "Cloud Platform Engineer"
         - "Site Reliability Engineer"
         - "Platform Engineer"
-      location: "Philadelphia"
-      # location: "European Union"
-      remote: true
-      hybrid: true
+      # location: "singapore"
+      location: "European Union"
+      remote: false
+      hybrid: false
       date_posted: "past_week"
       experience_levels:
         - "Mid-Senior level"
         - "Associate"
       job_type: "Full-time"
       easy_apply_only: true
-
   indeed:
     enabled: true   # PATCH 22: keep off until credentials + first manual login/captcha verification
     max_apply_per_run: 10
@@ -97,6 +96,7 @@ platforms:
     scroll_count: 8
     query_limit_per_run: 5
     discovery_max_per_session: 20
+    security_wait_timeout: 300
     region: "auto"
     login_method: "auto"   # rekomendasi: pakai session/profile dulu, fallback ke email bila perlu
     search:
@@ -117,6 +117,26 @@ platforms:
       easy_apply_only: true
 
 filters:
+  location_guard:
+    enabled: true
+    # Global guard for all platforms. Prevents stale/expanded results outside the search market.
+    # With location="Philadelphia", accepted examples:
+    # - Philadelphia
+    # - Greater Philadelphia
+    # - Remote in United States
+    # Rejected examples:
+    # - Jakarta
+    # - Indonesia
+    # - Remote in Indonesia
+    allow_remote: true
+    allow_generic_remote: false
+    remote_allowed_markets:
+      - "United States"
+      - "USA"
+      - "US"
+    allowed_keywords: []
+    blocked_keywords: []
+
   # PATCH 11: Expanded title keywords — catches more relevant jobs
   title_keywords_include:
     - "engineer"

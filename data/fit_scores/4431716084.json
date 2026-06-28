@@ -1,0 +1,25 @@
+{
+  "score": 25,
+  "matched_skills": [
+    "VMware",
+    "Cloud-Technologien",
+    "IT-Infrastruktur",
+    "Netzwerke",
+    "Datenbanken",
+    "IT-Sicherheit"
+  ],
+  "missing_skills": [
+    "Fließend Deutsch (Fluent German)",
+    "Active Directory",
+    "Windows-Komponenten",
+    "M365 Support",
+    "Veeam Backup"
+  ],
+  "red_flags": [
+    "No German language skills listed (Fluent German is a mandatory requirement)",
+    "Candidate is located in Indonesia, while the job is in Hamburg, Germany",
+    "Significant role misalignment (Senior Cloud/DevOps Architect vs. local Windows System Administrator)"
+  ],
+  "reasoning": "The candidate is a Senior Cloud Architect based in Indonesia, whereas the role requires a local Windows System Administrator in Hamburg, Germany. Most importantly, the candidate does not meet the mandatory requirement of fluent German language skills. Additionally, their advanced DevOps and Kubernetes skillset is highly overqualified and misaligned with the desktop, Active Directory, and M365 support focus of this position.",
+  "recommendation": "SKIP"
+}

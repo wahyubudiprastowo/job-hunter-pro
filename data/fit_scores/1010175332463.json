@@ -1,0 +1,20 @@
+{
+  "score": 15,
+  "matched_skills": [
+    "Databases (PostgreSQL, MongoDB, SQL Server)"
+  ],
+  "missing_skills": [
+    "Data Engineering",
+    "ETL Pipeline Development",
+    "Data Warehousing",
+    "Big Data Technologies (Spark/Hadoop)",
+    "Data Analysis"
+  ],
+  "red_flags": [
+    "Extreme overqualification (Senior with 8 years experience applying for a Fresher/Intern role)",
+    "Domain mismatch (Infrastructure/DevOps vs. Data Engineering)",
+    "Geographic mismatch (Candidate is in Indonesia, job is onsite in Singapore)"
+  ],
+  "reasoning": "The candidate is a highly experienced Senior Infrastructure Specialist and Cloud Architect, making them significantly overqualified for this Fresher/Intern Data Engineer position. Furthermore, the candidate's core expertise lies in DevOps and cloud infrastructure rather than data engineering, and they are located in Indonesia while the role requires onsite presence in Singapore.",
+  "recommendation": "SKIP"
+}

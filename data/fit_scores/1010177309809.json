@@ -1,0 +1,20 @@
+{
+  "score": 75,
+  "matched_skills": [
+    "Cloud Infrastructure",
+    "CI/CD",
+    "Kubernetes",
+    "Docker",
+    "Terraform",
+    "High Availability",
+    "Security Hardening",
+    "Monitoring & Observability"
+  ],
+  "missing_skills": [
+    "Blockchain infrastructure experience",
+    "High-frequency trading (HFT) system support"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate is a highly experienced Infrastructure and DevOps Specialist with strong expertise in cloud architecture, Kubernetes, Terraform, and CI/CD pipelines, which directly aligns with the core technical requirements. However, they lack specific experience in blockchain, cryptocurrency wallets, or high-frequency trading environments as highlighted in the job description.",
+  "recommendation": "MAYBE"
+}

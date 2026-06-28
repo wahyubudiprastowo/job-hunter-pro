@@ -15,7 +15,7 @@ import time
 import json
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 from loguru import logger
 from rapidfuzz import fuzz
 
@@ -285,9 +285,10 @@ class LinkedInExtractor(BaseExtractor):
                 except Exception:
                     current_url = ""
                 if "/jobs" in current_url:
-                    logger.info("LinkedIn jobs page partially loaded after timeout - continuing.")
-                    last_error = None
-                    break
+                    logger.warning(
+                        f"LinkedIn timeout left stale search page loaded; expected query='{q}', "
+                        f"location='{filters.location}'. Retrying."
+                    )
                 if attempt == 0:
                     try:
                         self.driver.get(f"{self.base_url}/jobs/")
@@ -295,8 +296,25 @@ class LinkedInExtractor(BaseExtractor):
                     except Exception:
                         pass
                     continue
+                if "/jobs" in current_url and self._current_search_matches(q, filters.location):
+                    logger.info("LinkedIn jobs page partially loaded after retry timeout - continuing.")
+                    last_error = None
+                    break
                 raise
         human_sleep(3, 5)
+
+    def _current_search_matches(self, query: str, location: str) -> bool:
+        try:
+            current_url = unquote(self.driver.current_url or "").lower()
+        except Exception:
+            return False
+        query_norm = (query or "").strip().lower()
+        location_norm = (location or "").strip().lower()
+        if query_norm and query_norm not in current_url:
+            return False
+        if location_norm and location_norm not in current_url:
+            return False
+        return True
 
     def _build_search_url(self, query, f):
         parts = [f"keywords={quote(query)}", f"location={quote(f.location)}"]

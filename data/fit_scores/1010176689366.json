@@ -1,0 +1,19 @@
+{
+  "score": 15,
+  "matched_skills": [
+    "Azure Cloud Platform"
+  ],
+  "missing_skills": [
+    "Azure AI services",
+    "Machine Learning model development",
+    "Model training and inference",
+    "API development for AI integration",
+    "Data engineering for AI"
+  ],
+  "red_flags": [
+    "No prior experience in AI/ML engineering",
+    "Candidate is an infrastructure/DevOps specialist, not an AI/software engineer"
+  ],
+  "reasoning": "The candidate is a highly experienced IT Infrastructure and DevOps Specialist with strong Azure cloud expertise, but lacks any background in AI, machine learning, or Azure AI services. Since the role requires designing and deploying AI models, the candidate's profile is not a match.",
+  "recommendation": "SKIP"
+}

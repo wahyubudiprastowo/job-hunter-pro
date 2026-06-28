@@ -1,0 +1,18 @@
+{
+  "score": 10,
+  "matched_skills": [],
+  "missing_skills": [
+    "NetSuite",
+    "QuickBooks",
+    "FloQast",
+    "Bill.com",
+    "Expensify",
+    "Accounting principles",
+    "Zendesk"
+  ],
+  "red_flags": [
+    "Complete domain mismatch: Candidate is a Cloud/DevOps Infrastructure Specialist, while the role requires a Financial Systems (ERP) Administrator."
+  ],
+  "reasoning": "The candidate's background is heavily focused on cloud infrastructure, DevOps, and Kubernetes, which does not align with the financial systems administration focus of this role. The candidate lacks required experience with NetSuite, QuickBooks, and accounting principles.",
+  "recommendation": "SKIP"
+}

@@ -1,0 +1,18 @@
+{
+  "score": 80,
+  "matched_skills": [
+    "Cloud services (Azure)",
+    "Linux system administration",
+    "Virtualization (VMware vSphere, Hyper-V)",
+    "Network security & Firewalls",
+    "VPN configuration",
+    "Infrastructure automation"
+  ],
+  "missing_skills": [
+    "AI-driven technology initiatives / AI adoption",
+    "End-user computing device support"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate is a highly skilled Infrastructure and Cloud Specialist with strong expertise in Azure, Linux, virtualization, and network security, which covers the core requirements of the role. There are minor gaps regarding AI adoption initiatives and end-user device management, and the candidate may be somewhat overqualified for a role that includes desktop support.",
+  "recommendation": "APPLY"
+}

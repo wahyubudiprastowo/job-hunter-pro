@@ -1,0 +1,23 @@
+{
+  "score": 20,
+  "matched_skills": [
+    "AWS (basic)",
+    "Database Management",
+    "Production Support"
+  ],
+  "missing_skills": [
+    "Snowflake",
+    "Data Engineering",
+    "ETL/ELT pipelines",
+    "Data Warehousing",
+    "Data Lakes",
+    "AWS Data Services"
+  ],
+  "red_flags": [
+    "No experience with Snowflake",
+    "No professional Data Engineering or ETL experience",
+    "Primary expertise is in Azure Infrastructure and DevOps rather than Data Engineering"
+  ],
+  "reasoning": "The candidate is a Senior IT Infrastructure Specialist and Cloud Architect with a strong background in Azure, Kubernetes, and DevOps. However, the role is for a Data Engineering Lead specifically requiring deep expertise in Snowflake, AWS, and ETL/data pipeline operations, which are missing from the candidate's profile.",
+  "recommendation": "SKIP"
+}

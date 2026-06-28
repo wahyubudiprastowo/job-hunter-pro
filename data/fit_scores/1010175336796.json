@@ -1,0 +1,21 @@
+{
+  "score": 55,
+  "matched_skills": [
+    "Cloud and hybrid security",
+    "Security policies and baselines",
+    "Access control (IAM/RBAC)",
+    "Network security (Firewalls/Segmentation)",
+    "Security monitoring"
+  ],
+  "missing_skills": [
+    "SIEM detection rules and correlation logic",
+    "Threat modeling",
+    "Security architecture reviews",
+    "Risk assessment frameworks"
+  ],
+  "red_flags": [
+    "Candidate's primary background is in IT Infrastructure and DevOps rather than dedicated Security Engineering or Security Operations (SecOps)."
+  ],
+  "reasoning": "The candidate has strong hands-on experience securing cloud infrastructure (Azure) through IAM, network segmentation, and system hardening. However, they lack specific experience in security operations center (SoC) collaboration, SIEM tuning, threat modeling, and risk assessment frameworks required for this role.",
+  "recommendation": "MAYBE"
+}

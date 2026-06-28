@@ -1,0 +1,22 @@
+{
+  "score": 40,
+  "matched_skills": [
+    "Microsoft Virtualization (Hyper-V)",
+    "Network & Security",
+    "Backup / Disaster Recovery (PRA)",
+    "Hybrid Cloud / On-Premises architecture"
+  ],
+  "missing_skills": [
+    "Windows Server / Active Directory",
+    "Microsoft 365 / Exchange Online",
+    "Entra ID / Intune",
+    "PowerShell"
+  ],
+  "red_flags": [
+    "Geographic mismatch: Candidate is based in Jakarta, Indonesia, while the job is a CDI (permanent contract) in Aix-en-Provence, France.",
+    "Language barrier: The job description is in French, and there is no indication the candidate speaks French.",
+    "Role mismatch: The candidate is a Cloud Architect/DevOps specialist (Linux, Kubernetes, Terraform), whereas the role is a traditional Windows-centric Systems & Networks Administrator."
+  ],
+  "reasoning": "The candidate is highly skilled but has a profile geared towards Cloud Architecture, Linux, and DevOps (Kubernetes, Terraform). The job requires a traditional Windows System Administrator focused on Active Directory, M365, Intune, and PowerShell, representing a significant skill gap. Additionally, the candidate's location in Indonesia is a major blocker for a local French CDI.",
+  "recommendation": "SKIP"
+}

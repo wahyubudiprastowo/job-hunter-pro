@@ -13,6 +13,8 @@ import json
 import time
 import atexit
 import threading
+import subprocess
+import sys
 import re
 import yaml
 from pathlib import Path
@@ -91,12 +93,13 @@ except ImportError:
 try:
     from apps.worker.control_platforms import (
         set_platform_state, clear_platform_states,
-        get_session_platforms, clear_session_override,
+        get_platform_state, get_session_platforms, clear_session_override,
     )
     _HAS_PLATFORM_CONTROL = True
 except ImportError:
     set_platform_state = lambda *a, **k: None
     clear_platform_states = lambda: None
+    get_platform_state = lambda platform: {"platform": platform, "state": "unknown"}
     get_session_platforms = lambda: None
     clear_session_override = lambda: None
     _HAS_PLATFORM_CONTROL = False
@@ -133,11 +136,25 @@ from apps.worker.control import controller
 EXTRACTOR_REGISTRY = {
     "linkedin": LinkedInExtractor,
 }
+_BOT_LOG_SINK_ID = None
+_BOT_LOG_SINK_LOCK = threading.Lock()
 
 if _HAS_INDEED:
     EXTRACTOR_REGISTRY["indeed"] = IndeedExtractor
 if _HAS_GLASSDOOR:
     EXTRACTOR_REGISTRY["glassdoor"] = GlassdoorExtractor
+
+
+def _ensure_bot_log_sink() -> None:
+    global _BOT_LOG_SINK_ID
+    with _BOT_LOG_SINK_LOCK:
+        if _BOT_LOG_SINK_ID is None:
+            Path("data/logs").mkdir(parents=True, exist_ok=True)
+            _BOT_LOG_SINK_ID = logger.add(
+                "data/logs/bot.log",
+                rotation="5 MB",
+                level=os.getenv("LOG_LEVEL", "INFO"),
+            )
 
 
 def load_config(path: str = "config.yaml") -> dict:
@@ -183,6 +200,130 @@ def _indeed_title_gate(job, query: str, config: dict) -> tuple[bool, str]:
     if query_matched or positive_matched:
         return True, ""
     return False, "indeed title gate: title does not match cloud/devops hints"
+
+
+def _normalize_location_text(value: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", (value or "").lower())).strip()
+
+
+def _normalized_config_list(values) -> list[str]:
+    if not values:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    return [_normalize_location_text(str(value)) for value in values if _normalize_location_text(str(value))]
+
+
+def _search_location_passes(
+    job_location: str,
+    search_location: str,
+    allow_remote: bool = False,
+    guard_cfg: dict | None = None,
+) -> tuple[bool, str]:
+    guard_cfg = guard_cfg or {}
+    if guard_cfg.get("enabled", True) is False:
+        return True, ""
+
+    target = _normalize_location_text(search_location)
+    actual = _normalize_location_text(job_location)
+
+    for blocked in _normalized_config_list(guard_cfg.get("blocked_keywords", [])):
+        if blocked in actual:
+            return False, f"location blocked by rule '{blocked}': got '{job_location or '-'}'"
+
+    for allowed in _normalized_config_list(guard_cfg.get("allowed_keywords", [])):
+        if allowed in actual:
+            return True, ""
+
+    if not target or target in {
+        "anywhere",
+        "global",
+        "worldwide",
+        "remote",
+        "european union",
+        "europe",
+        "united states",
+        "usa",
+    }:
+        return True, ""
+    if not actual:
+        return True, ""
+    if target in actual:
+        return True, ""
+
+    target_tokens = [
+        token for token in target.split()
+        if len(token) >= 4 and token not in {"city", "area", "greater", "metro", "metropolitan"}
+    ]
+    if any(token in actual for token in target_tokens):
+        return True, ""
+
+    if allow_remote:
+        remote_markers = (
+            actual == "remote"
+            or actual.startswith("remote ")
+            or " remote" in actual
+            or "remote " in actual
+        )
+        if remote_markers:
+            if actual == "remote" and bool(guard_cfg.get("allow_generic_remote", False)):
+                return True, ""
+            allowed_markets = _normalized_config_list(
+                guard_cfg.get("remote_allowed_markets", ["United States", "USA", "US"])
+            )
+            if not allowed_markets:
+                return True, ""
+            if any(market in actual for market in allowed_markets):
+                return True, ""
+
+    return False, f"location mismatch: expected '{search_location}', got '{job_location or '-'}'"
+
+
+def _discard_stale_search_cards(
+    cards: list[dict],
+    platform_name: str,
+    query: str,
+    search_location: str,
+    allow_remote: bool,
+    guard_cfg: dict | None = None,
+) -> list[dict]:
+    """Drop a search result batch when the visible cards are clearly from a stale location."""
+    if not cards or (guard_cfg or {}).get("enabled", True) is False:
+        return cards
+
+    checked = 0
+    mismatched = 0
+    kept: list[dict] = []
+    for card in cards:
+        location = card.get("location") or ""
+        if not location:
+            kept.append(card)
+            continue
+        checked += 1
+        ok, _reason = _search_location_passes(
+            location,
+            search_location,
+            allow_remote=allow_remote,
+            guard_cfg=guard_cfg,
+        )
+        if ok:
+            kept.append(card)
+        else:
+            mismatched += 1
+
+    if checked and mismatched == checked:
+        logger.warning(
+            f"{platform_name} search results look stale for '{query}': "
+            f"all {checked} card locations mismatch '{search_location}'. Dropping this query."
+        )
+        return []
+
+    if checked and mismatched:
+        logger.info(
+            f"{platform_name} location guard removed {mismatched}/{checked} "
+            f"card(s) before detail load for '{query}'."
+        )
+    return kept
 
 
 def _heartbeat_thread(stop_event: threading.Event):
@@ -269,10 +410,16 @@ def _load_due_discovered_queue(limit: int = 200) -> list[dict]:
     return due_rows
 
 
-def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = None):
+def run_bot(
+    config_path: str = "config.yaml",
+    force_discovery: bool | None = None,
+    platform_override: list[str] | None = None,
+    managed_worker: bool = False,
+):
     load_dotenv()
-    store.init_db()
-    discovered_store.init_schema()
+    if not managed_worker:
+        store.init_db()
+        discovered_store.init_schema()
     config = load_config(config_path)
     if _HAS_DISCOVERY_TRIGGER and merge_discovery_config:
         config = merge_discovery_config(config)
@@ -282,8 +429,11 @@ def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = Non
         discovery_cfg["enabled"] = bool(force_discovery)
 
     session = get_session_platforms()
-    session_platforms = session.get("platforms") if session else None
-    clear_platform_states()
+    session_platforms = list(platform_override) if platform_override else (
+        session.get("platforms") if session else None
+    )
+    if not managed_worker:
+        clear_platform_states()
 
     answers = load_answers()
     profile = CandidateProfile(**config["personal"])
@@ -303,14 +453,14 @@ def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = Non
         logger.info(f"Queued apply mode enabled for {len(apply_queue_items)} discovered job(s)")
     if discovery_mode:
         logger.info("Discovery mode enabled: scrape and curate only, no apply")
-        cleanup_days = int(discovery_cfg.get("cleanup_after_days", 30) or 30)
-        if cleanup_days > 0:
-            discovered_store.cleanup_old(cleanup_days)
+        if not managed_worker:
+            cleanup_days = int(discovery_cfg.get("cleanup_after_days", 30) or 30)
+            if cleanup_days > 0:
+                discovered_store.cleanup_old(cleanup_days)
     notif_manager = None
 
-    Path("data/logs").mkdir(parents=True, exist_ok=True)
-    logger.add("data/logs/bot.log", rotation="5 MB",
-               level=os.getenv("LOG_LEVEL", "INFO"))
+    if (os.getenv("BOT_CHILD_WORKER") or "").strip().lower() not in ("1", "true", "yes", "on"):
+        _ensure_bot_log_sink()
 
     if _HAS_NOTIFICATIONS and NotificationManager:
         try:
@@ -320,10 +470,11 @@ def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = Non
 
     # Keep the pre-start state written by the web controller so the dashboard
     # does not briefly fall back to IDLE while the worker thread boots.
-    controller.clear_command()
-    controller.set_state("running")
-    controller.beat()
-    if _tracker:
+    if not managed_worker:
+        controller.clear_command()
+        controller.set_state("running")
+        controller.beat()
+    if _tracker and not managed_worker:
         _tracker.reset(keep_logs=False)
         _tracker.set_state("running")
         _tracker.set_run_progress(0, run_cap)
@@ -334,11 +485,13 @@ def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = Non
     def _cleanup():
         logger.info("🧹 Cleanup: clearing state files")
         controller.reset()
-    atexit.register(_cleanup)
+    if not managed_worker:
+        atexit.register(_cleanup)
 
     hb_stop = threading.Event()
-    hb_thread = threading.Thread(target=_heartbeat_thread, args=(hb_stop,), daemon=True)
-    hb_thread.start()
+    if not managed_worker:
+        hb_thread = threading.Thread(target=_heartbeat_thread, args=(hb_stop,), daemon=True)
+        hb_thread.start()
 
     # === Load CV (once) ===
     cv_text = None
@@ -401,12 +554,39 @@ def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = Non
 
     browser_user_data_dir, browser_profile_dir = _resolve_browser_profile(session_platforms)
 
-    driver = build_driver(
-        headless=os.getenv("HEADLESS", "false").lower() == "true",
-        user_data_dir=browser_user_data_dir,
-        version_main=int(os.getenv("CHROME_VERSION_MAIN") or 0) or None,
-        profile_directory=browser_profile_dir,
-    )
+    try:
+        driver = build_driver(
+            headless=os.getenv("HEADLESS", "false").lower() == "true",
+            user_data_dir=browser_user_data_dir,
+            version_main=int(os.getenv("CHROME_VERSION_MAIN") or 0) or None,
+            profile_directory=browser_profile_dir,
+        )
+    except Exception as e:
+        logger.exception(f"Browser startup failed: {e}")
+        if _tracker and not managed_worker:
+            _tracker.set_state("error")
+            _tracker.add_activity(f"Browser startup failed: {e}", "error")
+            _tracker.add_log(f"Browser startup failed: {e}")
+        elif _tracker:
+            _tracker.add_activity(
+                f"{(session_platforms or ['worker'])[0].upper()} browser startup failed",
+                "error",
+            )
+        notify(
+            notif_manager,
+            title="Browser startup failed",
+            message=str(e),
+            level=NotificationLevel.ERROR if NotificationLevel else None,
+            category=NotificationCategory.ERROR if NotificationCategory else None,
+            metadata={"profile": browser_user_data_dir or "", "profile_dir": browser_profile_dir or ""},
+        )
+        hb_stop.set()
+        if not managed_worker:
+            controller.set_state("idle")
+            controller.clear_command()
+            clear_session_override()
+            clear_discovery_session()
+        return
 
     run_id = store.start_run()
     counters = {
@@ -552,23 +732,37 @@ def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = Non
                 if _tracker:
                     _tracker.add_activity(f"{platform_name.upper()} session ready", "success")
             except Exception as e:
-                logger.error(f"Login failed: {e}")
-                if _tracker:
-                    _tracker.add_activity(f"{platform_name.upper()} login failed", "error")
-                    _tracker.add_log(f"{platform_name.upper()}: login failed - {e}")
-                platform_final_state = "error"
-                platform_final_extra = {"error_message": f"login failed: {e}"}
-                set_platform_state(platform_name, platform_final_state, {
-                    "applied": platform_applied,
-                    "skipped": platform_skipped,
-                    "finished_at": int(time.time()),
-                    **platform_final_extra,
-                })
-                try:
-                    extractor.close()
-                except Exception:
-                    pass
-                continue
+                if discovery_mode and platform_name == "indeed":
+                    logger.warning(
+                        f"Indeed login unavailable during discovery ({e}); "
+                        "continuing with the public job search session."
+                    )
+                    if _tracker:
+                        _tracker.add_activity(
+                            "INDEED continuing discovery without authenticated session",
+                            "warning",
+                        )
+                        _tracker.add_log(
+                            f"INDEED: login unavailable, continuing public discovery - {e}"
+                        )
+                else:
+                    logger.error(f"Login failed: {e}")
+                    if _tracker:
+                        _tracker.add_activity(f"{platform_name.upper()} login failed", "error")
+                        _tracker.add_log(f"{platform_name.upper()}: login failed - {e}")
+                    platform_final_state = "error"
+                    platform_final_extra = {"error_message": f"login failed: {e}"}
+                    set_platform_state(platform_name, platform_final_state, {
+                        "applied": platform_applied,
+                        "skipped": platform_skipped,
+                        "finished_at": int(time.time()),
+                        **platform_final_extra,
+                    })
+                    try:
+                        extractor.close()
+                    except Exception:
+                        pass
+                    continue
 
             limiter = None
             if _HAS_RATE_LIMITER and SmartRateLimiter:
@@ -692,6 +886,19 @@ def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = Non
                             else pcfg["max_apply_per_run"] * 3
                         )
                         cards = extractor.collect_job_cards(max_cards=max_cards)
+                        location_guard_cfg = {
+                            **(((config.get("filters", {}) or {}).get("location_guard", {}) or {})),
+                            **(pcfg.get("location_guard", {}) or {}),
+                        }
+                        cards = _discard_stale_search_cards(
+                            cards,
+                            platform_name,
+                            query,
+                            search_cfg.get("location", ""),
+                            allow_remote=bool(search_cfg.get("remote", False))
+                            and bool(location_guard_cfg.get("allow_remote", True)),
+                            guard_cfg=location_guard_cfg,
+                        )
                         if not cards and getattr(extractor, "pause_current_run", False):
                             note = getattr(extractor, "pause_reason", "platform paused for this run")
                             logger.warning(f"{platform_name} paused for this run: {note}")
@@ -772,6 +979,27 @@ def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = Non
                         counters["failed"] += 1
                         _sync_run_progress()
                         continue
+
+                    if not queue_item:
+                        location_guard_cfg = {
+                            **(((config.get("filters", {}) or {}).get("location_guard", {}) or {})),
+                            **(pcfg.get("location_guard", {}) or {}),
+                        }
+                        ok, reason = _search_location_passes(
+                            job.location,
+                            search_cfg.get("location", ""),
+                            allow_remote=bool(search_cfg.get("remote", False))
+                            and bool(location_guard_cfg.get("allow_remote", True)),
+                            guard_cfg=location_guard_cfg,
+                        )
+                        if not ok:
+                            logger.info(f"{platform_name} location guard rejected [{job.title} @ {job.company}]: {reason}")
+                            if not discovery_mode:
+                                _record_skip_full(job, SkipReason.LOCATION_MISMATCH, reason)
+                            counters["skipped"] += 1
+                            platform_skipped += 1
+                            _sync_run_progress()
+                            continue
 
                     if platform_name == "indeed" and discovery_mode:
                         ok, reason = _indeed_title_gate(job, query, config)
@@ -1166,10 +1394,15 @@ def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = Non
                 "error_message": str(e),
             })
         logger.exception(f"Run crashed: {e}")
-        if _tracker:
+        if _tracker and not managed_worker:
             _tracker.set_state("error")
             _tracker.add_activity(f"Run crashed: {e}", "error")
             _tracker.add_log(f"Run crashed: {e}")
+        elif _tracker:
+            _tracker.add_activity(
+                f"{(session_platforms or ['worker'])[0].upper()} worker crashed: {e}",
+                "error",
+            )
         notify(
             notif_manager,
             title="Run crashed",
@@ -1181,14 +1414,15 @@ def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = Non
     finally:
         store.finish_run(run_id, counters["applied"], counters["skipped"],
                          counters["failed"], counters["needs"])
-        if apply_queue_consumed:
+        if apply_queue_consumed and not managed_worker:
             try:
                 Path("data/.control/apply_queue.json").unlink(missing_ok=True)
             except Exception:
                 pass
         hb_stop.set()
-        controller.set_state("idle")
-        if _tracker:
+        if not managed_worker:
+            controller.set_state("idle")
+        if _tracker and not managed_worker:
             _tracker.set_run_progress(counters["applied"], run_cap)
             _tracker.set_run_counters(
                 counters["applied"],
@@ -1199,14 +1433,138 @@ def run_bot(config_path: str = "config.yaml", force_discovery: bool | None = Non
             _tracker.set_state("idle")
             _tracker.add_activity("Bot stopped", "info")
             _tracker.add_log("Bot stopped.")
-        controller.clear_command()
-        clear_session_override()
-        clear_discovery_session()
+        if not managed_worker:
+            controller.clear_command()
+            clear_session_override()
+            clear_discovery_session()
         time.sleep(2)
         try:
             driver.quit()
         except Exception:
             pass
+
+
+def run_discovery_parallel(
+    platforms: list[str],
+    config_path: str = "config.yaml",
+) -> None:
+    """Run one discovery-only browser worker per platform profile."""
+    load_dotenv()
+    store.init_db()
+    discovered_store.init_schema()
+    _ensure_bot_log_sink()
+
+    config = load_config(config_path)
+    if _HAS_DISCOVERY_TRIGGER and merge_discovery_config:
+        config = merge_discovery_config(config)
+    discovery_cfg = config.get("discovery", {}) or {}
+    cleanup_days = int(discovery_cfg.get("cleanup_after_days", 30) or 30)
+    if cleanup_days > 0:
+        discovered_store.cleanup_old(cleanup_days)
+
+    selected = [
+        platform for platform in dict.fromkeys(platforms)
+        if platform in EXTRACTOR_REGISTRY
+    ]
+    if len(selected) < 2:
+        run_bot(
+            config_path=config_path,
+            force_discovery=True,
+            platform_override=selected or platforms,
+        )
+        return
+
+    clear_platform_states()
+    controller.clear_command()
+    controller.set_state("running")
+    controller.beat()
+
+    if _tracker:
+        _tracker.reset(keep_logs=False)
+        _tracker.set_state("running")
+        _tracker.add_activity(
+            f"Parallel discovery started: {', '.join(selected)}",
+            "info",
+        )
+        _tracker.add_log(
+            f"Parallel discovery workers started for {', '.join(selected)}."
+        )
+
+    heartbeat_stop = threading.Event()
+    heartbeat = threading.Thread(
+        target=_heartbeat_thread,
+        args=(heartbeat_stop,),
+        daemon=True,
+    )
+    heartbeat.start()
+
+    processes: list[tuple[str, subprocess.Popen]] = []
+    output_threads: list[threading.Thread] = []
+
+    def _stream_worker_output(platform: str, process: subprocess.Popen) -> None:
+        if process.stdout is None:
+            return
+        for line in process.stdout:
+            text = line.rstrip()
+            if text:
+                logger.info(f"[{platform}] {text}")
+
+    try:
+        for platform in selected:
+            worker_env = os.environ.copy()
+            worker_env.update({
+                "PYTHONUNBUFFERED": "1",
+                "BOT_PLATFORM_OVERRIDE": platform,
+                "BOT_FORCE_DISCOVERY": "true",
+                "BOT_MANAGED_WORKER": "true",
+                "BOT_CHILD_WORKER": "true",
+            })
+            process = subprocess.Popen(
+                [sys.executable, "-m", "apps.worker.runner"],
+                cwd=str(Path.cwd()),
+                env=worker_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+            )
+            processes.append((platform, process))
+            output_thread = threading.Thread(
+                target=_stream_worker_output,
+                args=(platform, process),
+                name=f"discovery-log-{platform}",
+                daemon=True,
+            )
+            output_thread.start()
+            output_threads.append(output_thread)
+
+        for platform, process in processes:
+            return_code = process.wait()
+            if return_code:
+                logger.error(
+                    f"{platform} discovery worker exited with code {return_code}"
+                )
+                set_platform_state(platform, "error", {
+                    "finished_at": int(time.time()),
+                    "error_message": f"worker exited with code {return_code}",
+                })
+        for output_thread in output_threads:
+            output_thread.join(timeout=2)
+    finally:
+        for _, process in processes:
+            if process.poll() is None:
+                process.terminate()
+        heartbeat_stop.set()
+        controller.set_state("idle")
+        controller.clear_command()
+        clear_session_override()
+        clear_discovery_session()
+        if _tracker:
+            _tracker.set_state("idle")
+            _tracker.add_activity("Parallel discovery completed", "success")
+            _tracker.add_log("All parallel discovery workers stopped.")
 
 
 def _record_skip(card, platform, reason, detail, **extra):
@@ -1238,4 +1596,24 @@ def _record_skip_full(job, reason, detail, status=ApplyStatus.SKIPPED, **extra):
 
 
 if __name__ == "__main__":
-    run_bot()
+    platform_override_raw = (os.getenv("BOT_PLATFORM_OVERRIDE") or "").strip()
+    platform_override = [
+        value.strip().lower()
+        for value in platform_override_raw.split(",")
+        if value.strip()
+    ] or None
+    force_discovery_env = (os.getenv("BOT_FORCE_DISCOVERY") or "").strip().lower()
+    force_discovery = (
+        force_discovery_env in ("1", "true", "yes", "on")
+        if force_discovery_env
+        else None
+    )
+    managed_worker = (
+        (os.getenv("BOT_MANAGED_WORKER") or "").strip().lower()
+        in ("1", "true", "yes", "on")
+    )
+    run_bot(
+        force_discovery=force_discovery,
+        platform_override=platform_override,
+        managed_worker=managed_worker,
+    )

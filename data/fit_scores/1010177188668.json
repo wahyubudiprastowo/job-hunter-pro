@@ -1,0 +1,16 @@
+{
+  "score": 85,
+  "matched_skills": [
+    "Kubernetes",
+    "Terraform",
+    "CI/CD",
+    "Docker",
+    "Cloud Infrastructure",
+    "GitOps",
+    "Linux"
+  ],
+  "missing_skills": [],
+  "red_flags": [],
+  "reasoning": "The candidate has 8 years of experience in cloud infrastructure, container orchestration (AKS/Kubernetes), and Infrastructure as Code (Terraform), which are core competencies for a Platform Engineer. Although the job description is brief and lacks specific technology requirements, the candidate's background strongly aligns with standard platform engineering roles.",
+  "recommendation": "APPLY"
+}

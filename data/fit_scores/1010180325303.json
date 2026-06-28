@@ -1,0 +1,23 @@
+{
+  "score": 15,
+  "matched_skills": [
+    "Azure",
+    "Kubernetes",
+    "Docker"
+  ],
+  "missing_skills": [
+    "Large Language Models (LLMs)",
+    "Agentic AI",
+    "Retrieval-Augmented Generation (RAG)",
+    "Prompt engineering",
+    "Agent orchestration",
+    "Inference optimization",
+    "DeepSeek/Qwen/Kimi model deployment"
+  ],
+  "red_flags": [
+    "No experience in AI/ML engineering",
+    "Background is strictly in IT infrastructure and DevOps"
+  ],
+  "reasoning": "The candidate is a senior infrastructure and cloud architect with no demonstrated experience in AI, machine learning, or LLM application development. While they possess strong Azure and containerization skills, they lack the core software engineering and AI competencies required for this role.",
+  "recommendation": "SKIP"
+}

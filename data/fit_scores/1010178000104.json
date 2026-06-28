@@ -1,0 +1,23 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Cloud Infrastructure",
+    "Databases (PostgreSQL, MongoDB, Redis)",
+    "Docker",
+    "Kubernetes"
+  ],
+  "missing_skills": [
+    "Backend Software Development",
+    "API Design & Development",
+    "AI/LLM Integration",
+    "Wallet & Ledger Systems Development",
+    "Startup/Zero-to-One Product Engineering"
+  ],
+  "red_flags": [
+    "Candidate is an Infrastructure/DevOps specialist, not a Software/Backend Engineer",
+    "No experience with backend programming languages (e.g., Go, Python, Node.js) listed for application development",
+    "No AI/LLM experience"
+  ],
+  "reasoning": "The candidate is a highly experienced IT Infrastructure and DevOps Specialist, whereas the role requires a Founding Senior Backend Engineer to build APIs, backend services, and AI integrations. While the candidate has strong cloud infrastructure and database administration skills, they lack the core backend software development experience and startup background required for this role.",
+  "recommendation": "SKIP"
+}

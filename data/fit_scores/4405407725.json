@@ -1,0 +1,19 @@
+{
+  "score": 50,
+  "matched_skills": [
+    "backup disaster recovery",
+    "network security",
+    "server management",
+    "data storage"
+  ],
+  "missing_skills": [
+    "Active Directory administration",
+    "Microsoft Intune",
+    "endpoint management"
+  ],
+  "red_flags": [
+    "Geographic mismatch: Candidate is based in Indonesia, while the employer is the City of Philadelphia (US local government, which typically requires US work authorization and local residency)."
+  ],
+  "reasoning": "The candidate is a senior-level Cloud Architect and Infrastructure Specialist, making them overqualified for this Associate-level Systems Engineer role. Furthermore, the candidate lacks specific required experience in Active Directory and Microsoft Intune endpoint management, and their location in Indonesia is a critical blocker for a US municipal government position.",
+  "recommendation": "SKIP"
+}

@@ -52,6 +52,62 @@
         <input type="text" name="location" value="{{ config.platforms.linkedin.search.location or '' }}" class="search-input" style="width:100%; padding:8px;">
       </div>
       <div class="mb-3">
+        <label class="small text-muted d-block">WORK TYPE FILTER</label>
+        <div class="d-flex gap-3 flex-wrap">
+          <label style="display:inline-flex; align-items:center; gap:8px;">
+            <input type="checkbox" name="remote" {% if config.platforms.linkedin.search.remote %}checked{% endif %}>
+            <span>Remote only</span>
+          </label>
+          <label style="display:inline-flex; align-items:center; gap:8px;">
+            <input type="checkbox" name="hybrid" {% if config.platforms.linkedin.search.hybrid %}checked{% endif %}>
+            <span>Hybrid only</span>
+          </label>
+        </div>
+        <div class="small text-muted mt-1">
+          Leave both unchecked to include all work types, including on-site jobs in the selected city.
+        </div>
+      </div>
+      {% set location_guard = config.filters.location_guard if config.filters and config.filters.location_guard else {} %}
+      <div class="card mb-3" style="background: var(--color-bg);">
+        <div class="card-header"><span><i class="bi bi-geo-alt"></i> Global Location Guard</span></div>
+        <div class="card-body">
+          <div class="small text-muted mb-3">
+            Applies to all platforms after job detail is loaded. Use this to prevent stale or expanded search results from leaking into apply/discovery.
+          </div>
+          <div class="d-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+            <label style="display:inline-flex; align-items:center; gap:8px;">
+              <input type="checkbox" name="location_guard_enabled" {% if location_guard.get('enabled', true) %}checked{% endif %}>
+              <span>Enable location guard</span>
+            </label>
+            <label style="display:inline-flex; align-items:center; gap:8px;">
+              <input type="checkbox" name="location_guard_allow_remote" {% if location_guard.get('allow_remote', true) %}checked{% endif %}>
+              <span>Allow remote with market</span>
+            </label>
+            <label style="display:inline-flex; align-items:center; gap:8px;">
+              <input type="checkbox" name="location_guard_allow_generic_remote" {% if location_guard.get('allow_generic_remote', false) %}checked{% endif %}>
+              <span>Allow generic "Remote"</span>
+            </label>
+          </div>
+          <div class="d-grid mt-3" style="grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+            <div>
+              <label class="small text-muted">REMOTE ALLOWED MARKETS</label>
+              {% set remote_markets = location_guard.get('remote_allowed_markets', ['United States', 'USA', 'US']) %}
+              <textarea name="location_guard_remote_markets" class="search-input" style="width:100%; height:72px; padding:8px;">{{ remote_markets|join('\n') }}</textarea>
+            </div>
+            <div>
+              <label class="small text-muted">ALWAYS ALLOW KEYWORDS</label>
+              {% set allowed_locations = location_guard.get('allowed_keywords', []) %}
+              <textarea name="location_guard_allowed_keywords" class="search-input" style="width:100%; height:72px; padding:8px;">{{ allowed_locations|join('\n') }}</textarea>
+            </div>
+            <div>
+              <label class="small text-muted">ALWAYS BLOCK KEYWORDS</label>
+              {% set blocked_locations = location_guard.get('blocked_keywords', []) %}
+              <textarea name="location_guard_blocked_keywords" class="search-input" style="width:100%; height:72px; padding:8px;">{{ blocked_locations|join('\n') }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mb-3">
         <label class="small text-muted">INCLUDE KEYWORDS</label>
         {% set incl = config.filters.title_keywords_include if config.filters.title_keywords_include else [] %}
         <input type="text" name="title_include" value="{{ incl|join(', ') }}" class="search-input" style="width:100%; padding:8px;">

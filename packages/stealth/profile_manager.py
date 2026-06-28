@@ -121,8 +121,12 @@ def get_profile_info(platform: str) -> dict:
         info["created_at"] = datetime.fromtimestamp(ctime).isoformat()
         info["age_days"] = round((time.time() - ctime) / 86400, 1)
 
-        cookies_file = user_data_dir / profile_dir / "Cookies"
-        if cookies_file.exists():
+        cookie_candidates = (
+            user_data_dir / profile_dir / "Cookies",
+            user_data_dir / profile_dir / "Network" / "Cookies",
+        )
+        cookies_file = next((path for path in cookie_candidates if path.exists()), None)
+        if cookies_file:
             info["last_used"] = datetime.fromtimestamp(
                 cookies_file.stat().st_mtime
             ).isoformat()

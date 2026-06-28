@@ -1,0 +1,19 @@
+{
+  "score": 15,
+  "matched_skills": [
+    "Cloud-native architecture",
+    "Git"
+  ],
+  "missing_skills": [
+    "Golang",
+    "Backend software development",
+    "API design and development",
+    "Microservices development"
+  ],
+  "red_flags": [
+    "Candidate is an Infrastructure/DevOps specialist, not a Software Engineer",
+    "No Golang or backend programming language experience listed in CV"
+  ],
+  "reasoning": "The candidate is a Senior IT Infrastructure and Cloud Architect with no demonstrated experience in backend software engineering or Golang, which is the primary requirement for this role. While they have strong DevOps and cloud infrastructure skills, they lack the software development background needed for a Senior Backend Engineer position.",
+  "recommendation": "SKIP"
+}

@@ -1,0 +1,21 @@
+{
+  "score": 20,
+  "matched_skills": [
+    "Azure AD / Microsoft Entra ID"
+  ],
+  "missing_skills": [
+    "Microsoft 365 administration (Exchange Online, SharePoint, Teams, OneDrive)",
+    "Microsoft Intune / Endpoint Management",
+    "Microsoft Defender for Endpoint / Defender for Office 365",
+    "Microsoft Purview Compliance",
+    "PowerShell automation for M365",
+    "Italian language proficiency"
+  ],
+  "red_flags": [
+    "Lacks required Italian language proficiency (JD requires excellent written/verbal Italian)",
+    "Candidate is based in Indonesia, while the role is hybrid in Italy (Milan/Pesaro)",
+    "Significant role mismatch: Candidate is an Azure DevOps/Kubernetes infrastructure specialist, not a Microsoft 365/SaaS administrator"
+  ],
+  "reasoning": "The candidate's profile is heavily focused on Azure cloud infrastructure, Kubernetes, and DevOps, which does not align with the Microsoft 365 SaaS and endpoint management focus of this role. Furthermore, the candidate does not meet the location (Italy) or language (Italian) requirements.",
+  "recommendation": "SKIP"
+}

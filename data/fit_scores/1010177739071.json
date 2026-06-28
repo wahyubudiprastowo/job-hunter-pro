@@ -1,0 +1,24 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Cloud Architecture",
+    "Platform Reliability",
+    "Observability",
+    "Security"
+  ],
+  "missing_skills": [
+    "Software Architecture",
+    "AI/ML Integration",
+    "Event-Driven Architecture",
+    "Data Platform Engineering",
+    "Backend Software Development",
+    "Founding/Startup Experience"
+  ],
+  "red_flags": [
+    "Candidate's background is strictly in IT Infrastructure and DevOps, lacking software engineering and application development experience.",
+    "No experience with AI/ML or building intelligent matching systems.",
+    "Background is primarily in large corporate/subsidiary environments rather than early-stage startups."
+  ],
+  "reasoning": "The candidate is a strong Senior Infrastructure and DevOps Specialist, but the role demands a Founding Principal Software Engineer to build the core application, data platforms, and AI-native capabilities. The candidate lacks the necessary software development, system design, and startup experience required for this founding role.",
+  "recommendation": "SKIP"
+}

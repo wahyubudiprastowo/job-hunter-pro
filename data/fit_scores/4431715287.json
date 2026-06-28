@@ -1,0 +1,21 @@
+{
+  "score": 75,
+  "matched_skills": [
+    "Cloud Infrastructure (Azure)",
+    "Kubernetes",
+    "Docker",
+    "Infrastructure-as-Code (Terraform)",
+    "CI/CD (GitLab CI, Jenkins)",
+    "Observability & Monitoring (Prometheus, Grafana, ELK)",
+    "Bash scripting",
+    "Incident response"
+  ],
+  "missing_skills": [
+    "Dynatrace",
+    "Python",
+    "Go"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate has 8 years of strong experience in cloud infrastructure, Kubernetes, and DevOps practices, which aligns well with the SRE role. However, they lack direct experience with Dynatrace, which is specifically required, and do not list Python or Go scripting languages in their CV.",
+  "recommendation": "MAYBE"
+}

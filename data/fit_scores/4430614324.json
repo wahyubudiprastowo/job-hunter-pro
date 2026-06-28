@@ -1,0 +1,22 @@
+{
+  "score": 30,
+  "matched_skills": [
+    "Hyper-V",
+    "Troubleshooting"
+  ],
+  "missing_skills": [
+    "Windows Server (2016+)",
+    "PowerShell scripting",
+    "Batch/DOS scripting",
+    "Active Directory",
+    "DNS/DHCP (Windows Domain Services)",
+    "IIS (Internet Information Services)"
+  ],
+  "red_flags": [
+    "Geographic mismatch: Candidate is based in Jakarta, Indonesia, while the job is a hybrid role in Milan, Italy.",
+    "Skill mismatch: Candidate is a Linux/DevOps/Cloud specialist, whereas the role requires a traditional Windows Systems Administrator.",
+    "No mention of Italian language skills, which is likely required for this local Italian client role."
+  ],
+  "reasoning": "The candidate's profile is heavily focused on Linux, Azure Cloud, Kubernetes, and DevOps, which is a mismatch for a traditional Windows System Administrator role. Furthermore, the candidate is located in Indonesia, making the hybrid requirement in Milan, Italy, unfeasible.",
+  "recommendation": "SKIP"
+}

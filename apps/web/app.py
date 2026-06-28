@@ -5,6 +5,7 @@ import csv
 import io
 import sqlite3
 import threading
+import subprocess
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from flask import (
@@ -29,7 +30,7 @@ from apps.worker.control_platforms import (
     get_preferred_platforms,
     clear_preferred_platforms,
 )
-from apps.worker.runner import run_bot
+from apps.worker.runner import run_bot, run_discovery_parallel
 from apps.web.discovery_trigger import (
     set_discovery_session,
     get_discovery_session,
@@ -68,6 +69,77 @@ app = Flask(__name__,
             template_folder=str(Path(__file__).parent / "templates"),
             static_folder=str(Path(__file__).parent / "static"))
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me")
+
+
+def _bot_profile_paths() -> list[Path]:
+    paths = set()
+    for platform in ("linkedin", "indeed", "glassdoor"):
+        try:
+            paths.add(Path(get_profile_info(platform)["path"]).resolve())
+        except Exception:
+            continue
+    try:
+        paths.add(Path(os.getenv("USER_DATA_DIR", "./.chrome-profile")).resolve())
+    except Exception:
+        pass
+    return sorted(paths, key=lambda p: str(p).lower())
+
+
+def _stop_bot_profile_chrome_processes() -> int:
+    """Stop only Chrome processes launched with this app's bot profile folders."""
+    profile_paths = _bot_profile_paths()
+    if os.name != "nt" or not profile_paths:
+        return 0
+
+    ps_paths = ", ".join("'" + str(path).replace("'", "''") + "'" for path in profile_paths)
+    script = f"""
+$profiles = @({ps_paths})
+$matches = @(Get-CimInstance Win32_Process -Filter "name = 'chrome.exe'" | Where-Object {{
+    $cmd = $_.CommandLine
+    $hit = $false
+    foreach ($profile in $profiles) {{
+        if ($cmd -and $cmd.ToLower().Contains($profile.ToLower())) {{ $hit = $true }}
+    }}
+    $hit
+}})
+foreach ($proc in $matches) {{
+    Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+    Write-Output $proc.ProcessId
+}}
+"""
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+            capture_output=True,
+            text=True,
+            timeout=8,
+        )
+        killed = [line.strip() for line in (result.stdout or "").splitlines() if line.strip().isdigit()]
+    except Exception:
+        killed = []
+
+    lock_names = [
+        "lockfile",
+        "SingletonLock",
+        "SingletonCookie",
+        "SingletonSocket",
+        "DevToolsActivePort",
+        "Default/LOCK",
+        "Default/SingletonLock",
+        "Default/SingletonCookie",
+        "Default/SingletonSocket",
+        "Default/DevToolsActivePort",
+    ]
+    for base in profile_paths:
+        for name in lock_names:
+            try:
+                marker = base / Path(name)
+                if marker.exists():
+                    marker.unlink()
+            except Exception:
+                pass
+
+    return len(killed)
 
 _runner_thread = None
 
@@ -358,11 +430,23 @@ def _glassdoor_profile_ready() -> tuple[bool, str]:
         profile_path / profile_dir / "Network" / "Cookies",
     ]
     cookies_file = next((path for path in cookie_candidates if path.exists()), None)
-    if not cookies_file or cookies_file.stat().st_size < 50 * 1024:
+    if not cookies_file or cookies_file.stat().st_size < 4 * 1024:
         return False, "Glassdoor cookies/session not ready yet. Re-run prewarm and close Chrome after login."
     for name in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
         if (profile_path / name).exists():
             return False, "Glassdoor Chrome profile is still in use. Close Chrome first."
+
+    try:
+        cookie_uri = f"file:{cookies_file.resolve().as_posix()}?mode=ro"
+        with sqlite3.connect(cookie_uri, uri=True) as conn:
+            glassdoor_cookies = conn.execute(
+                "SELECT COUNT(*) FROM cookies WHERE LOWER(host_key) LIKE '%glassdoor%'"
+            ).fetchone()[0]
+        if not glassdoor_cookies:
+            return False, "Glassdoor login cookies were not found. Re-run prewarm and log in first."
+    except sqlite3.Error:
+        return False, "Glassdoor cookies could not be verified. Close Chrome and try again."
+
     return True, ""
 
 
@@ -586,8 +670,24 @@ def settings_save(section):
                 "min_salary": int(form_data.get("min_salary", ["0"])[0] or 0),
                 "skip_already_applied": "skip_already_applied" in form_data,
             })
+            filters_cfg["location_guard"] = {
+                "enabled": "location_guard_enabled" in form_data,
+                "allow_remote": "location_guard_allow_remote" in form_data,
+                "allow_generic_remote": "location_guard_allow_generic_remote" in form_data,
+                "remote_allowed_markets": _parse_list(
+                    form_data.get("location_guard_remote_markets", [""])[0]
+                ),
+                "allowed_keywords": _parse_list(
+                    form_data.get("location_guard_allowed_keywords", [""])[0]
+                ),
+                "blocked_keywords": _parse_list(
+                    form_data.get("location_guard_blocked_keywords", [""])[0]
+                ),
+            }
             queries = _parse_list(form_data.get("queries", [""])[0])
             location = form_data.get("location", [""])[0]
+            remote = "remote" in form_data
+            hybrid = "hybrid" in form_data
             max_apply = int(form_data.get("max_apply_per_run", ["0"])[0] or 0)
             for platform_name in config.get("platforms", {}):
                 search_cfg = config["platforms"][platform_name].setdefault("search", {})
@@ -595,6 +695,8 @@ def settings_save(section):
                     search_cfg["queries"] = queries
                 if location:
                     search_cfg["location"] = location
+                search_cfg["remote"] = remote
+                search_cfg["hybrid"] = hybrid
                 if max_apply > 0:
                     config["platforms"][platform_name]["max_apply_per_run"] = max_apply
             success, msg = settings_save_config(config)
@@ -778,12 +880,17 @@ def discovered_trigger():
         scroll_depth = max(1, min(100, int(request.form.get("scroll_depth", "15"))))
     except Exception:
         scroll_depth = 15
+    execution_mode = (request.form.get("execution_mode") or "sequential").strip().lower()
+    if execution_mode not in ("sequential", "parallel"):
+        execution_mode = "sequential"
+    if len(platforms) < 2:
+        execution_mode = "sequential"
 
     if not set_discovery_session(platforms, max_per_session, scroll_depth):
         flash("Could not start discovery session.")
         return redirect(url_for("discovered"))
 
-    set_session_platforms(platforms, mode="sequential")
+    set_session_platforms(platforms, mode=execution_mode)
 
     controller.reset()
     controller.set_state("running")
@@ -792,15 +899,22 @@ def discovered_trigger():
     tracker.reset(keep_logs=False)
     tracker.set_state("running")
     tracker.add_activity("Discovery scan requested", "info")
-    _runner_thread = threading.Thread(
-        target=run_bot,
-        kwargs={"force_discovery": True},
-        daemon=True,
-    )
+    if execution_mode == "parallel":
+        _runner_thread = threading.Thread(
+            target=run_discovery_parallel,
+            kwargs={"platforms": platforms},
+            daemon=True,
+        )
+    else:
+        _runner_thread = threading.Thread(
+            target=run_bot,
+            kwargs={"force_discovery": True},
+            daemon=True,
+        )
     _runner_thread.start()
     flash(
         f"Discovery started: {', '.join(platforms)} "
-        f"(cap: {max_per_session} jobs, scroll: {scroll_depth})."
+        f"(mode: {execution_mode}, cap: {max_per_session} jobs, scroll: {scroll_depth})."
     )
     return redirect(url_for("dashboard"))
 
@@ -1189,8 +1303,10 @@ def control_stop():
 def control_reset():
     """PATCH 5: Force-reset stuck state files."""
     diag_before = controller.get_diagnostics()
+    killed = _stop_bot_profile_chrome_processes()
     controller.reset()
     get_tracker().reset(keep_logs=False)
+    flash(f"Stopped {killed} bot Chrome process(es).")
     flash(f"🧹 State reset. Was: {diag_before['state']}, zombie={diag_before['is_zombie']}")
     return redirect(url_for("dashboard"))
 

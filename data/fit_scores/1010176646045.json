@@ -1,0 +1,22 @@
+{
+  "score": 52,
+  "matched_skills": [
+    "DevOps",
+    "Log pipelines (ELK Stack)",
+    "Cloud Infrastructure (Azure)",
+    "CI/CD",
+    "Network Security",
+    "Infrastructure-as-Code (Terraform)"
+  ],
+  "missing_skills": [
+    "Threat Detection Engineering",
+    "Security Operations (SecOps)",
+    "AI/ML integration in security workflows",
+    "Multi-cloud experience (AWS/GCP at scale)"
+  ],
+  "red_flags": [
+    "Candidate's primary background is in IT Infrastructure and Cloud Architecture rather than dedicated Security Operations or Detection Engineering."
+  ],
+  "reasoning": "The candidate has a strong background in cloud infrastructure, DevOps, and log pipeline management (ELK), which aligns well with the engineering and automation aspects of the role. However, they lack direct experience in security operations, threat detection engineering, and AI-driven security workflows, which are central to this position.",
+  "recommendation": "MAYBE"
+}

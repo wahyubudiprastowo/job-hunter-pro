@@ -1,0 +1,14 @@
+{
+  "score": 15,
+  "matched_skills": [],
+  "missing_skills": [
+    "Field service engineering",
+    "On-site hardware troubleshooting",
+    "Desktop and local network support"
+  ],
+  "red_flags": [
+    "Role mismatch: Candidate is a Senior Cloud Architect/DevOps Specialist, whereas the position is for a Field Service Engineer (typically involving physical hardware and on-site support)."
+  ],
+  "reasoning": "The candidate's profile is highly specialized in cloud architecture, Kubernetes, and DevOps automation. The job title of Field Service Engineer typically requires hands-on, on-site hardware and infrastructure support, representing a significant mismatch in career path and daily responsibilities.",
+  "recommendation": "SKIP"
+}

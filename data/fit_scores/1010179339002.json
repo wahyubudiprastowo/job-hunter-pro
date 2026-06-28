@@ -1,0 +1,16 @@
+{
+  "score": 92,
+  "matched_skills": [
+    "Azure",
+    "Production Support",
+    "Monitoring & Observability (Prometheus, Grafana, Azure Monitor)",
+    "Incident Response",
+    "Infrastructure Automation (Terraform, Ansible)",
+    "Kubernetes (AKS)",
+    "Security & Access Control (IAM, RBAC)"
+  ],
+  "missing_skills": [],
+  "red_flags": [],
+  "reasoning": "The candidate has 8 years of deep Azure experience and a strong background in SRE practices, matching the core requirements of the LiveOps Engineer role. They have proven experience in production support, incident response, and setting up comprehensive monitoring stacks (Prometheus, Grafana, ELK) on Azure.",
+  "recommendation": "APPLY"
+}

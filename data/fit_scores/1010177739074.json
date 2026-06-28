@@ -1,0 +1,20 @@
+{
+  "score": 25,
+  "matched_skills": [
+    "Cloud infrastructure",
+    "Databases"
+  ],
+  "missing_skills": [
+    "Frontend development",
+    "Fullstack engineering",
+    "AI-powered product development",
+    "Modern web technologies",
+    "Product development experience"
+  ],
+  "red_flags": [
+    "Candidate is an Infrastructure/DevOps specialist, not a Fullstack Software Engineer",
+    "No frontend experience listed in CV"
+  ],
+  "reasoning": "The candidate is a specialized IT Infrastructure and DevOps Cloud Architect, whereas the role requires a Founding Fullstack Engineer to build product features across the frontend and backend. The candidate lacks frontend development experience, product engineering background, and experience with AI integrations.",
+  "recommendation": "SKIP"
+}

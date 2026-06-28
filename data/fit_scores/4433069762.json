@@ -1,0 +1,23 @@
+{
+  "score": 25,
+  "matched_skills": [
+    "VMware",
+    "Hyper-V",
+    "Microsoft Azure"
+  ],
+  "missing_skills": [
+    "German language fluency (Verhandlungssichere Deutschkenntnisse)",
+    "Windows Server administration (Active Directory, GPOs)",
+    "Microsoft 365 & Exchange Online",
+    "Veeam Backup",
+    "PowerShell scripting",
+    "Microsoft Intune (MDM)"
+  ],
+  "red_flags": [
+    "Lacks required fluent German language skills",
+    "Candidate is based in Indonesia, while the role is in Germany (Ammersee area)",
+    "Candidate's profile is heavily focused on Linux/DevOps/Kubernetes, whereas the role requires a Windows System Administrator"
+  ],
+  "reasoning": "The candidate is a Linux-focused DevOps and Cloud Architect based in Indonesia, whereas the role requires a local, German-fluent Windows System Administrator. There is a significant mismatch in both the core technical stack (Linux/Kubernetes vs. Windows Server/Active Directory) and the language/location requirements.",
+  "recommendation": "SKIP"
+}

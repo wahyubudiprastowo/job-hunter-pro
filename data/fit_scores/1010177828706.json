@@ -1,0 +1,20 @@
+{
+  "score": 30,
+  "matched_skills": [
+    "Docker",
+    "Kubernetes",
+    "CI/CD",
+    "Git"
+  ],
+  "missing_skills": [
+    "Application Software Development",
+    "Programming Languages (e.g., Go, Python, Java, Node.js)",
+    "System Design",
+    "Full-stack/Backend Engineering"
+  ],
+  "red_flags": [
+    "Candidate's background is strictly in IT Infrastructure, DevOps, and Cloud Architecture rather than Software Engineering/Application Development."
+  ],
+  "reasoning": "The candidate is an IT Infrastructure and Cloud Architect specialist with no demonstrated experience in application software engineering or programming languages required for a Senior Software Engineer role. While their DevOps and cloud skills are strong, they lack the core software development capabilities needed for this position.",
+  "recommendation": "SKIP"
+}

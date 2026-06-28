@@ -1,0 +1,23 @@
+{
+  "score": 25,
+  "matched_skills": [
+    "Virtualization (VMware, Hyper-V)",
+    "Network security & Firewalls (general concepts)",
+    "Troubleshooting"
+  ],
+  "missing_skills": [
+    "Active Directory administration",
+    "Windows Server administration",
+    "Cisco and HP switches management",
+    "Fortinet / Checkpoint firewall configuration",
+    "Veeam backup management",
+    "IT support ticketing & 2nd level user support"
+  ],
+  "red_flags": [
+    "Location mismatch (Candidate is based in Indonesia; job is strictly onsite in Albino, Italy)",
+    "Role and seniority mismatch (Senior Cloud/DevOps Architect applying for a local IT Support/SysAdmin role)",
+    "Language barrier (Job description is in Italian, candidate's CV is in English with no mention of Italian language proficiency)"
+  ],
+  "reasoning": "The candidate is a senior-level Cloud Architect and DevOps Specialist whose profile does not align with this mid-level, onsite IT Support and Network Administrator role. The candidate's stack is heavily focused on Azure, Linux, and Kubernetes, whereas the job requires on-premises Windows Server, Active Directory, Cisco networking, and local user support.",
+  "recommendation": "SKIP"
+}

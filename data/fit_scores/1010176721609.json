@@ -1,0 +1,19 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Cloud Infrastructure Design",
+    "Cloud Infrastructure Management",
+    "Database Administration"
+  ],
+  "missing_skills": [
+    "Data Pipeline Development (ETL/ELT)",
+    "Data Architecture Design",
+    "Data Science Frameworks / MLOps",
+    "Data Analytics Tools"
+  ],
+  "red_flags": [
+    "Candidate is an Infrastructure/DevOps specialist with no demonstrated experience in Data Engineering or Data Science support."
+  ],
+  "reasoning": "The candidate is a highly skilled Cloud Architect and DevOps specialist, which covers the infrastructure management aspect of the role. However, they lack the core data engineering capabilities required, such as building data pipelines, data modeling, and implementing data science frameworks.",
+  "recommendation": "SKIP"
+}

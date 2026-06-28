@@ -109,7 +109,6 @@ class Controller:
         self.beat()
         cmd = self.get_command()
         if cmd == "stop":
-            self.clear_command()
             self.set_state("stopped")
             logger.warning("🛑 STOP signal received.")
             raise SystemExit(0)
@@ -125,8 +124,9 @@ class Controller:
                     self.set_state("running")
                     logger.info("▶️  RESUMED.")
                     return
+                if not cmd and self.get_state() == "running":
+                    return
                 if cmd == "stop":
-                    self.clear_command()
                     self.set_state("stopped")
                     raise SystemExit(0)
 

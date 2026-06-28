@@ -1,0 +1,15 @@
+{
+  "score": 5,
+  "matched_skills": [],
+  "missing_skills": [
+    "Construction engineering",
+    "Civil/structural engineering",
+    "Physical data center design/construction",
+    "Project management for physical builds"
+  ],
+  "red_flags": [
+    "Complete career mismatch: Candidate is an IT/Cloud software specialist, whereas the role is for a physical Construction Engineer."
+  ],
+  "reasoning": "The candidate's profile is entirely focused on IT cloud infrastructure, DevOps, and software systems. The job title is Construction Engineer, which relates to physical infrastructure and civil engineering, representing a complete mismatch in skills and experience.",
+  "recommendation": "SKIP"
+}

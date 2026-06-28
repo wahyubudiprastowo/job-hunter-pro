@@ -1,0 +1,27 @@
+{
+  "score": 28,
+  "matched_skills": [
+    "Linux system administration",
+    "VMware vSphere",
+    "SQL databases",
+    "Zero Trust architecture",
+    "Technical documentation"
+  ],
+  "missing_skills": [
+    "Verhandlungssichere Deutschkenntnisse (Fluent German)",
+    "VEEAM backup and recovery",
+    "baramundi software distribution",
+    "PowerShell scripting",
+    "Active Directory, Exchange, and GPOs",
+    "Fortigate / Fortinet firewalls",
+    "PRTG monitoring",
+    "Führerschein Klasse B (Driver's license)"
+  ],
+  "red_flags": [
+    "No German language skills listed (fluent German is required)",
+    "Located in Indonesia, whereas the role is on-site in Augsburg/Landsberg, Germany",
+    "Candidate is a Cloud/DevOps specialist, while the role is a traditional on-prem Windows/Linux System Administrator"
+  ],
+  "reasoning": "The candidate is a Cloud Architect based in Indonesia, whereas the position requires a local on-prem System Administrator in Germany. There is a critical language barrier (no German language skills) and a mismatch in core technologies, as the candidate lacks experience with Active Directory, Veeam, and Fortigate.",
+  "recommendation": "SKIP"
+}

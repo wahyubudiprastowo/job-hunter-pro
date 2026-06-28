@@ -1,0 +1,20 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Microsoft Entra ID (Azure AD)",
+    "Mentoring junior engineers"
+  ],
+  "missing_skills": [
+    "Microsoft Intune",
+    "Exchange Online",
+    "Microsoft Teams",
+    "Modern Workplace Engineering",
+    "Client Engineering"
+  ],
+  "red_flags": [
+    "Domain mismatch: Candidate is a Cloud/DevOps Architect, whereas the role is for a Modern Workplace/Client Administrator.",
+    "Geographic mismatch: Candidate is based in Indonesia, while the role is located in Münster, Germany and written in German."
+  ],
+  "reasoning": "The candidate is a senior Cloud Infrastructure and DevOps specialist, which is a poor fit for a Modern Workplace role. They lack experience with client management tools like Microsoft Intune, Exchange Online, and Teams, which are core requirements for this position.",
+  "recommendation": "SKIP"
+}

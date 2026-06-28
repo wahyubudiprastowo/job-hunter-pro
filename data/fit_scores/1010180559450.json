@@ -1,0 +1,19 @@
+{
+  "score": 55,
+  "matched_skills": [
+    "Cloud monitoring",
+    "Documentation",
+    "Linux system administration",
+    "Scripting and automation"
+  ],
+  "missing_skills": [
+    "Hands-on AWS operations experience (candidate has basic AWS, primary is Azure)",
+    "Internal IT user support / Helpdesk experience"
+  ],
+  "red_flags": [
+    "Overqualification (Senior Cloud Architect with 8 years of experience applying for an Associate-level IT support/ops role)",
+    "Primary cloud expertise is Azure, while the role requires AWS"
+  ],
+  "reasoning": "The candidate is a senior-level Cloud Architect with deep Azure and Kubernetes expertise, making them significantly overqualified for an IT Operations Associate role that includes internal user support. Furthermore, their AWS experience is only basic, whereas the role specifically requires managing AWS operations.",
+  "recommendation": "SKIP"
+}

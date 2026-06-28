@@ -1,0 +1,18 @@
+{
+  "score": 65,
+  "matched_skills": [
+    "GitLab CI",
+    "Jenkins",
+    "CI/CD",
+    "Terraform",
+    "Docker",
+    "Kubernetes",
+    "Infrastructure automation"
+  ],
+  "missing_skills": [
+    "AWS (production-level experience)"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate is a highly experienced Infrastructure and DevOps Specialist with strong CI/CD and containerization skills. However, the job description specifically requires building AWS-based platform capabilities, whereas the candidate's primary cloud expertise is in Azure, with only basic knowledge of AWS.",
+  "recommendation": "MAYBE"
+}

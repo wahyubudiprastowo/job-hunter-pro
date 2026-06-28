@@ -1,0 +1,20 @@
+{
+  "score": 5,
+  "matched_skills": [],
+  "missing_skills": [
+    "RF design",
+    "iBwave certification (Level 2 or higher)",
+    "LMR (Land Mobile Radio) technical expertise",
+    "Analogue and digital radio systems (P25, DMR, TETRA)",
+    "DAS system design processes",
+    "AutoCAD",
+    "BIM 360",
+    "Bluebeam",
+    "Physical security infrastructure design (floor plans, riser diagrams, panel elevations)"
+  ],
+  "red_flags": [
+    "Complete domain mismatch: Candidate is a Cloud/IT DevOps specialist, whereas the role requires an RF/Telecommunications/Physical Security design engineer."
+  ],
+  "reasoning": "The candidate's background is strictly in IT cloud infrastructure, DevOps, and software systems. The job requires specialized hardware engineering skills in Land Mobile Radio (LMR), RF design, and physical security infrastructure design, none of which the candidate possesses.",
+  "recommendation": "SKIP"
+}

@@ -1,0 +1,24 @@
+{
+  "score": 15,
+  "matched_skills": [
+    "VMware",
+    "VPN",
+    "Azure",
+    "Firewall management"
+  ],
+  "missing_skills": [
+    "Active Directory",
+    "Microsoft 365",
+    "Intune",
+    "Exchange Online",
+    "1st and 2nd level user support",
+    "Italian language proficiency"
+  ],
+  "red_flags": [
+    "Location mismatch (Candidate is in Jakarta, Indonesia; job is full-time on-site in Alta Valsugana, Italy)",
+    "Role mismatch (Candidate is a Senior Cloud Architect/DevOps Engineer; job is a mid-level 1st/2nd level IT Support & Helpdesk role)",
+    "Language barrier (Job is for an Italian industrial company supporting local users, but candidate does not list Italian language skills)"
+  ],
+  "reasoning": "The candidate is highly overqualified in cloud architecture and DevOps, but lacks the desktop support, Active Directory, and Intune experience required for this local IT support role. Furthermore, the candidate is based in Indonesia, making the required on-site presence in Italy impossible without relocation, and they likely lack the Italian language skills needed to support local users.",
+  "recommendation": "SKIP"
+}

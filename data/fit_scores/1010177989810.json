@@ -1,0 +1,20 @@
+{
+  "score": 15,
+  "matched_skills": [
+    "Git",
+    "Docker",
+    "PostgreSQL",
+    "MongoDB"
+  ],
+  "missing_skills": [
+    "TypeScript",
+    "Software Engineering",
+    "Application Development"
+  ],
+  "red_flags": [
+    "Candidate is an Infrastructure/DevOps specialist, not a Software Engineer",
+    "No TypeScript or JavaScript experience listed in the CV"
+  ],
+  "reasoning": "The candidate is a Senior IT Infrastructure Specialist and Cloud Architect, whereas the job is for a TypeScript Software Engineer. While the candidate has strong DevOps and cloud infrastructure skills, they lack the core software development experience in TypeScript required for this role.",
+  "recommendation": "SKIP"
+}

@@ -1,0 +1,23 @@
+{
+  "score": 35,
+  "matched_skills": [
+    "Cloud Infrastructure",
+    "Identity & Access Management",
+    "Incident Management",
+    "Technical Documentation"
+  ],
+  "missing_skills": [
+    "Microsoft 365 Administration",
+    "Microsoft Intune",
+    "Endpoint Management (iOS, Android, Windows)",
+    "German language proficiency (Sehr gute Deutschkenntnisse)",
+    "M365 License Management"
+  ],
+  "red_flags": [
+    "Language barrier: Job requires very good German skills, but candidate's CV is in English with no mention of German.",
+    "Role mismatch: Candidate is a Senior Cloud Architect/DevOps Engineer, whereas the job is for a Microsoft 365 and Endpoint (Intune) System Administrator.",
+    "Complete lack of M365 and Intune experience in the CV."
+  ],
+  "reasoning": "While the candidate has strong experience in Azure cloud infrastructure and DevOps, they lack the core requirements for this role, specifically Microsoft 365 administration and Microsoft Intune endpoint management. Additionally, the candidate does not list the required German language skills, and their profile is significantly overqualified/misaligned for a desktop/collaboration administration role.",
+  "recommendation": "SKIP"
+}

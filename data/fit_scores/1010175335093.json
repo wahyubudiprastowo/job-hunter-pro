@@ -1,0 +1,16 @@
+{
+  "score": 10,
+  "matched_skills": [],
+  "missing_skills": [
+    "AI Engineering",
+    "Machine Learning",
+    "Deep Learning"
+  ],
+  "red_flags": [
+    "Complete domain mismatch (Cloud/DevOps Infrastructure vs. AI Engineering)",
+    "Experience level mismatch (Senior with 8 years experience vs. Fresher/Intern)",
+    "Geographic mismatch (Candidate is in Indonesia, job is onsite in Singapore)"
+  ],
+  "reasoning": "The candidate is a senior-level Cloud and Infrastructure Specialist, whereas the position is for a Fresher/Intern AI Engineer. There is no overlap in core technical skills, and the candidate's senior profile is overqualified and misaligned for an entry-level AI role.",
+  "recommendation": "SKIP"
+}

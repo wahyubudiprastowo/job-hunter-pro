@@ -1,0 +1,26 @@
+{
+  "score": 25,
+  "matched_skills": [
+    "Cloud Architecture",
+    "Kubernetes",
+    "Infrastructure-as-Code",
+    "Database Management"
+  ],
+  "missing_skills": [
+    "15+ years of software engineering experience",
+    "Staff/Principal-level engineering experience",
+    "Java (Spring Boot)",
+    "Python",
+    "Distributed systems engineering",
+    "Data lakehouse technologies",
+    "API/SDK development"
+  ],
+  "red_flags": [
+    "Experience gap (8 years vs 15+ years required)",
+    "Lack of Java/Spring Boot and Python software development experience",
+    "Infrastructure/DevOps focus rather than Software/Data Platform Engineering",
+    "Location mismatch (Indonesia vs US)"
+  ],
+  "reasoning": "The candidate is an IT Infrastructure and DevOps specialist with 8 years of experience, whereas the role requires a Senior Staff Data Platform Engineer with 15+ years of experience and a strong background in Java/Python software engineering. There is a significant gap in both years of experience and the core technical stack required for building distributed data platforms.",
+  "recommendation": "SKIP"
+}

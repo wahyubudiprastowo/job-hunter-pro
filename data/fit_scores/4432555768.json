@@ -1,0 +1,21 @@
+{
+  "score": 25,
+  "matched_skills": [
+    "Azure",
+    "Basic network management"
+  ],
+  "missing_skills": [
+    "Dutch language proficiency",
+    "Microsoft 365 administration",
+    "1st and 2nd line IT support",
+    "ERP and CRM application management",
+    "Active Directory user management"
+  ],
+  "red_flags": [
+    "Language barrier (role requires Dutch, candidate is based in Indonesia)",
+    "Extreme overqualification (Senior Cloud Architect applying for a basic IT support/helpdesk role)",
+    "Geographic location mismatch (local Dutch support role vs. candidate in Jakarta)"
+  ],
+  "reasoning": "The candidate is a highly experienced Senior Cloud Architect and DevOps Specialist, which makes them heavily overqualified for this local, hands-on Allround IT Support role. Furthermore, the candidate does not meet the critical requirement of speaking Dutch and is located in Indonesia, while the role is based in the Netherlands.",
+  "recommendation": "SKIP"
+}

@@ -1,0 +1,21 @@
+{
+  "score": 30,
+  "matched_skills": [
+    "VPN",
+    "TCP/IP",
+    "Entra ID"
+  ],
+  "missing_skills": [
+    "Windows 10/11 desktop administration",
+    "Microsoft Intune / MDM",
+    "L1/L2 Helpdesk support",
+    "PC/Notebook hardware troubleshooting",
+    "Printer configuration"
+  ],
+  "red_flags": [
+    "Severe overqualification (Senior Cloud Architect applying for L1/L2 Desktop Support)",
+    "Geographic and language mismatch (Candidate is based in Indonesia, while the job is in Italy and written in Italian)"
+  ],
+  "reasoning": "The candidate is a highly experienced Senior Cloud Architect and DevOps Specialist, whereas the job description is for a junior-to-mid level IT Support/Helpdesk role focusing on desktop management, printers, and local office IT. The candidate's skills and career level do not align with the day-to-day responsibilities of this position.",
+  "recommendation": "SKIP"
+}

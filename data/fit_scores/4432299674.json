@@ -1,0 +1,20 @@
+{
+  "score": 15,
+  "matched_skills": [
+    "SQL",
+    "System monitoring"
+  ],
+  "missing_skills": [
+    "ERP Support experience",
+    "SAP Business One",
+    "IFS",
+    "SAGE 100",
+    "Jira"
+  ],
+  "red_flags": [
+    "Complete lack of ERP system experience",
+    "Severe career mismatch (Senior Cloud/DevOps Architect applying for an entry/mid-level ERP Helpdesk role)"
+  ],
+  "reasoning": "The candidate is a Senior Infrastructure Specialist and Cloud Architect with expertise in Azure, Kubernetes, and DevOps. They have no experience supporting ERP systems like SAP Business One, IFS, or Sage 100, making them both overqualified in infrastructure and unqualified for this specific functional support role.",
+  "recommendation": "SKIP"
+}

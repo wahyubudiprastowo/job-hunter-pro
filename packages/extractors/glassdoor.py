@@ -32,7 +32,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
     TimeoutException, NoSuchElementException,
     StaleElementReferenceException, ElementClickInterceptedException,
-    NoSuchFrameException,
+    NoSuchFrameException, InvalidSessionIdException, WebDriverException,
 )
 
 from packages.extractors.base import BaseExtractor
@@ -125,7 +125,13 @@ SELECTORS = {
     
     # Login success indicators
     "user_avatar": (By.CSS_SELECTOR, "[data-test='profile-icon']"),
-    "user_menu": (By.CSS_SELECTOR, "[data-test='header-user-menu']"),
+    "user_menu": (
+        By.CSS_SELECTOR,
+        "[data-test='header-user-menu'], "
+        "button[data-test='header-profile-button'], "
+        "button[aria-label*='profile' i], "
+        "a[href*='/profile/']",
+    ),
     
     # ===== SEARCH =====
     "search_keyword": (By.CSS_SELECTOR, "input#sc\\.keyword, input[name='sc.keyword']"),
@@ -136,34 +142,44 @@ SELECTORS = {
     "job_list_container": (
         By.CSS_SELECTOR,
         "#MainCol, [data-test='jlGrid'], [data-test='job-listing-module'], "
-        "ul[data-test='job-listings'], div[data-test='job-listings']",
+        "ul[data-test='job-listings'], div[data-test='job-listings'], "
+        "[class*='JobsList_jobsList'], [class*='JobsList_jobList']",
     ),
     "job_card": (By.CSS_SELECTOR,
         "li[data-test='jobListing'], "
         "article[data-test='jobListing'], "
         "div[data-test='job-card'], "
+        "li[class*='JobsList_jobListItem'], "
+        "div[class*='JobsList_jobListItem'], "
         "div.JobsList_jobListItem__JBBUV, "
         "li.react-job-listing"),
     "job_card_link": (By.CSS_SELECTOR,
         "a[data-test='job-link'], "
+        "a[class*='JobCard_jobTitle'], "
         "a.JobCard_jobTitle__GLyJ1, "
-        "a[href*='jobListingId=']"),
+        "a[href*='jobListingId='], "
+        "a[href*='/job-listing/']"),
     "job_card_title": (By.CSS_SELECTOR,
         "a[data-test='job-link'] span, "
         "a[data-test='job-link'], "
+        "a[class*='JobCard_jobTitle'], "
         "a.JobCard_jobTitle__GLyJ1, "
-        "a[href*='jobListingId=']"),
+        "a[href*='jobListingId='], "
+        "a[href*='/job-listing/']"),
     "job_card_company": (By.CSS_SELECTOR,
         "[data-test='employer-name'], "
+        "[class*='EmployerProfile_compactEmployerName'], "
         "div.EmployerProfile_compactEmployerName__9MGcV, "
         "[data-test='company-name']"),
     "job_card_location": (By.CSS_SELECTOR,
         "[data-test='emp-location'], "
         "[data-test='location'], "
-        "[data-test='job-location']"),
+        "[data-test='job-location'], "
+        "[class*='JobCard_location']"),
     "job_card_salary": (By.CSS_SELECTOR,
         "[data-test='detailSalary'], "
-        "div[data-test='salary-estimate']"),
+        "div[data-test='salary-estimate'], "
+        "[class*='JobCard_salaryEstimate']"),
     "job_card_rating": (By.CSS_SELECTOR,
         "[data-test='rating'], "
         "span.EmployerProfile_ratingContainer__N7Z6Y"),
@@ -189,16 +205,21 @@ SELECTORS = {
     
     # ===== APPLY MODAL/IFRAME =====
     "apply_iframe": (By.CSS_SELECTOR,
-        "iframe[title*='Apply'], "
+        "iframe[title*='Apply'], iframe[title*='apply'], "
+        "iframe[src*='apply'], iframe[name*='apply'], "
         "iframe#indeedapply-modal-content, "
         "iframe.ia-IFrame"),
     "apply_modal": (By.CSS_SELECTOR,
         "div[data-test='application-modal'], "
         "div.application-container"),
     "apply_continue_btn": (By.XPATH,
-        "//button[contains(., 'Continue') or contains(., 'Next')]"),
+        "//button[contains(., 'Continue') or contains(., 'Next') "
+        "or contains(., 'Review')]"),
     "apply_submit_btn": (By.XPATH,
-        "//button[contains(., 'Submit') or contains(., 'Send Application')]"),
+        "//button[contains(., 'Submit Application') "
+        "or contains(., 'Submit application') "
+        "or contains(., 'Send Application') "
+        "or normalize-space(.)='Submit']"),
     
     # Verification (applied)
     "applied_indicator": (By.XPATH,
@@ -211,7 +232,10 @@ SELECTORS = {
         "div[data-test='modal-content'] button[data-test='sign-in-button']"),
     "modal_close": (By.CSS_SELECTOR,
         "button[data-test='modal-close'], "
-        "button.SVGInline-svg-close"),
+        "button.SVGInline-svg-close, "
+        "button[aria-label='Close'], "
+        "button[aria-label='close'], "
+        "button[data-test='close-button']"),
 }
 
 
@@ -387,14 +411,14 @@ class GlassdoorExtractor(BaseExtractor):
             logger.success("Already logged in to Glassdoor.")
             return
         
-        # Step 2: Check Cloudflare
-        if self._is_security_page() and _HAS_CF_HELPER and handle_cloudflare_safely:
-            if not handle_cloudflare_safely(d, timeout=180):
+        # Step 2: Check Glassdoor security challenge
+        if self._is_security_page():
+            if not self._wait_for_security_clearance(self.base_url):
                 logger.warning("=" * 60)
-                logger.warning("Glassdoor Cloudflare could not be cleared.")
+                logger.warning("Glassdoor verification could not be cleared.")
                 logger.warning("Run: python scripts/prewarm_glassdoor.py")
                 logger.warning("=" * 60)
-                raise LoginError("Cloudflare blocked - run prewarm script")
+                raise LoginError("Glassdoor security blocked - run prewarm script")
             human_sleep(2, 4)
         
         # Step 3: Check if already logged in (cookie persists)
@@ -412,6 +436,12 @@ class GlassdoorExtractor(BaseExtractor):
             human_sleep(2, 4)
         except NoSuchElementException:
             if self._is_security_page():
+                if self._wait_for_security_clearance(self.base_url):
+                    if self._has_active_session():
+                        logger.success("Already logged in to Glassdoor after verification.")
+                        return
+                    logger.warning("Glassdoor verification cleared, but login controls were not visible.")
+                    return
                 raise LoginError("Glassdoor security page is still active - run prewarm script")
             logger.warning("Sign in button not found, proceeding with current Glassdoor session/page")
             return
@@ -548,11 +578,13 @@ class GlassdoorExtractor(BaseExtractor):
     # ============================================================
     def _build_search_url(self, query: str, filters: SearchFilters) -> str:
         """Build Glassdoor search URL."""
-        params = {
-            "sc.keyword": query,
-            "locT": "C",  # City
-            "sc.location": filters.location or "",
-        }
+        normalized_query = " ".join((query or "").split())
+        slug = re.sub(r"[^a-z0-9]+", "-", normalized_query.lower()).strip("-") or "jobs"
+        url = (
+            f"{self.base_url}/Job/{slug}-jobs-"
+            f"SRCH_KO0%2C{len(normalized_query)}.htm"
+        )
+        params = {}
         
         # Date filter
         if filters.date_posted in DATE_CODE and DATE_CODE[filters.date_posted]:
@@ -562,12 +594,81 @@ class GlassdoorExtractor(BaseExtractor):
         if filters.easy_apply_only:
             params["applicationType"] = "1"
         
-        # Remote
-        if filters.remote:
+        # When remote and hybrid are both enabled, keep all work modes and let
+        # the shared location guard accept the configured market.
+        if filters.remote and not filters.hybrid:
             params["remoteWorkType"] = "1"
         
         encoded = urlencode({k: v for k, v in params.items() if v})
-        return f"{self.base_url}/Job/jobs.htm?{encoded}"
+        return f"{url}?{encoded}" if encoded else url
+
+    def _current_url_lower(self) -> str:
+        try:
+            return (self.driver.current_url or "").lower()
+        except (InvalidSessionIdException, WebDriverException):
+            return ""
+
+    def _on_community_page(self) -> bool:
+        return "/community/" in self._current_url_lower()
+
+    def _on_jobs_or_results_page(self) -> bool:
+        current = self._current_url_lower()
+        return "/job/" in current or "/job-listing/" in current
+
+    def _open_jobs_navigation(self) -> bool:
+        """Open the visible Jobs navigation item from pages such as Community."""
+        try:
+            links = self.driver.find_elements(
+                By.XPATH,
+                "//a[normalize-space()='Jobs' or contains(@href, '/Job/') "
+                "or contains(@href, '/Search/')]",
+            )
+            for link in links:
+                try:
+                    href = link.get_attribute("href") or ""
+                    if not link.is_displayed():
+                        continue
+                    suffix = f": {href}" if href else ""
+                    logger.info(f"Glassdoor opening Jobs navigation{suffix}.")
+                    try:
+                        link.click()
+                    except (ElementClickInterceptedException, WebDriverException):
+                        self.driver.execute_script("arguments[0].click();", link)
+                    human_sleep(3, 5)
+                    return self._on_jobs_or_results_page()
+                except (StaleElementReferenceException, WebDriverException):
+                    continue
+        except (InvalidSessionIdException, WebDriverException):
+            return False
+        return False
+
+    def _restore_job_search_url(self, url: str, reason: str) -> bool:
+        """Force Glassdoor back to the Jobs/Search page after redirects."""
+        try:
+            if self._on_community_page():
+                self._open_jobs_navigation()
+            logger.info(f"Glassdoor {reason}: opening Jobs search URL: {url}")
+            self.driver.get(url)
+            human_sleep(4, 6)
+            if self._on_community_page():
+                logger.info("Glassdoor returned to Community; retrying through the Jobs navigation.")
+                self._open_jobs_navigation()
+                self.driver.get(url)
+                human_sleep(4, 6)
+            if self._on_community_page():
+                self.pause_current_run = True
+                self.pause_reason = "Glassdoor redirected to Community instead of Jobs"
+                logger.warning(
+                    f"{self.pause_reason}. Open the Jobs tab once in this profile, "
+                    "then rerun the Glassdoor scrape."
+                )
+                return False
+            return True
+        except (InvalidSessionIdException, WebDriverException) as e:
+            self.pause_current_run = True
+            self.pause_reason = "Glassdoor browser session closed while navigating to Jobs"
+            logger.warning(f"{self.pause_reason}: {e}")
+            return False
 
     def _try_interactive_search(self, query: str, filters: SearchFilters) -> bool:
         """Use the visible Glassdoor search form before falling back to direct URLs."""
@@ -575,10 +676,11 @@ class GlassdoorExtractor(BaseExtractor):
         try:
             d.get(self.base_url)
             human_sleep(2, 4)
-            if _HAS_CF_HELPER and handle_cloudflare_safely:
-                handle_cloudflare_safely(d, timeout=90, return_to_url=self.base_url)
             if self._is_security_page():
-                return True
+                return False
+            if self._on_community_page():
+                logger.info("Glassdoor opened Community page; falling back to direct Jobs URL.")
+                return False
 
             keyword = WebDriverWait(d, 8).until(
                 EC.presence_of_element_located(SELECTORS["search_keyword"])
@@ -614,16 +716,106 @@ class GlassdoorExtractor(BaseExtractor):
         except Exception:
             title = ""
         try:
-            html = (self.driver.page_source or "").lower()
+            visible_text = (self.driver.find_element(By.TAG_NAME, "body").text or "").lower()
         except Exception:
-            html = ""
+            visible_text = ""
+        current_url = self._current_url_lower()
+        security_url = any(
+            marker in current_url
+            for marker in ("/challenge", "/captcha", "/blocked", "/security-check")
+        )
+        security_text = any(
+            marker in visible_text
+            for marker in (
+                "verify you are human",
+                "additional verification required",
+                "checking your browser",
+                "access denied",
+                "complete the security check",
+            )
+        )
         return (
             "security | glassdoor" in title
-            or "verify you are human" in html
-            or "access denied" in html
-            or "additional verification required" in html
-            or "glassdoor uses cookies to improve your site experience" in html and "captcha" in html
+            or "just a moment" in title
+            or security_url
+            or security_text
         )
+
+    def _has_job_card_nodes(self) -> bool:
+        """Return True when the current page has visible job-result anchors/cards."""
+        try:
+            if self.driver.find_elements(*SELECTORS["job_card"]):
+                return True
+            if self.driver.find_elements(By.CSS_SELECTOR, "a[href*='jobListingId='], a[href*='/job-listing/']"):
+                return True
+        except Exception:
+            return False
+        return False
+
+    def _dismiss_overlays(self) -> None:
+        """Close Glassdoor prompts that cover the Jobs list."""
+        try:
+            close_buttons = self.driver.find_elements(*SELECTORS["modal_close"])
+            for button in close_buttons:
+                try:
+                    if not button.is_displayed():
+                        continue
+                    self.driver.execute_script("arguments[0].click();", button)
+                    human_sleep(0.5, 1)
+                    return
+                except (StaleElementReferenceException, WebDriverException):
+                    continue
+
+            body = self.driver.find_element(By.TAG_NAME, "body")
+            body.send_keys(Keys.ESCAPE)
+            human_sleep(0.5, 1)
+        except (InvalidSessionIdException, WebDriverException, NoSuchElementException):
+            pass
+
+    def _wait_for_security_clearance(self, return_to_url: str, timeout: int | None = None) -> bool:
+        """Let the user solve Glassdoor verification manually, then restore the search URL."""
+        wait_seconds = int(timeout or self.config.get("security_wait_timeout", 300) or 300)
+        logger.warning("=" * 70)
+        logger.warning("GLASSDOOR SECURITY / VERIFICATION DETECTED")
+        logger.warning("=" * 70)
+        logger.warning("Action in the opened browser:")
+        logger.warning("  1. Complete the Glassdoor verification manually")
+        logger.warning("  2. Make sure you are logged in on the SAME region/domain")
+        logger.warning(f"  3. Bot will wait up to {max(1, wait_seconds // 60)} minute(s)")
+        logger.warning(f"Target domain: {self.base_url}")
+        logger.warning("=" * 70)
+
+        end = time.time() + wait_seconds
+        while time.time() < end:
+            if self._has_job_card_nodes():
+                logger.success("Glassdoor job cards visible after verification.")
+                return True
+
+            if not self._is_security_page():
+                try:
+                    current_url = self.driver.current_url or ""
+                except (InvalidSessionIdException, WebDriverException) as e:
+                    self.pause_current_run = True
+                    self.pause_reason = "Glassdoor browser session closed during verification"
+                    logger.warning(f"{self.pause_reason}: {e}")
+                    return False
+                if self.base_url in current_url and ("/Job/" in current_url or "/Search/" in current_url):
+                    logger.success("Glassdoor verification cleared on search/results page.")
+                    return True
+                return_lower = (return_to_url or "").lower()
+                if "/job/" in return_lower or "/search/" in return_lower:
+                    if not self._restore_job_search_url(return_to_url, "verification cleared"):
+                        return False
+                    if self._has_job_card_nodes() or not self._is_security_page():
+                        return True
+                else:
+                    logger.success("Glassdoor verification cleared.")
+                    return True
+
+            time.sleep(5)
+
+        logger.error(f"Glassdoor verification wait timeout after {wait_seconds}s")
+        return False
     
     def search(self, filters: SearchFilters):
         """Execute search."""
@@ -634,46 +826,40 @@ class GlassdoorExtractor(BaseExtractor):
         q = filters.queries[0]
         url = self._build_search_url(q, filters)
         logger.info(f"Glassdoor search: {q} -> {url}")
-        if not self._try_interactive_search(q, filters):
-            self.driver.get(url)
-            human_sleep(3, 5)
+        if not self._restore_job_search_url(url, "search"):
+            return False
         
-        # Handle Cloudflare if appears
-        if _HAS_CF_HELPER and handle_cloudflare_safely:
-            if not handle_cloudflare_safely(self.driver, timeout=180, return_to_url=url):
+        if self._is_security_page() and not self._has_job_card_nodes():
+            if self._wait_for_security_clearance(url):
+                human_sleep(2, 3)
+                if not self._restore_job_search_url(url, "after verification"):
+                    return False
+            else:
                 self.pause_current_run = True
-                self.pause_reason = "Glassdoor security challenge not cleared"
+                self.pause_reason = "Glassdoor search landed on a security/verification page"
                 logger.warning(
-                    "Glassdoor security challenge could not be cleared - "
-                    "pausing Glassdoor for this run."
+                    "Glassdoor search landed on a security/verification page. "
+                    f"Current URL: {self.driver.current_url}"
                 )
-                try:
-                    self.driver.get(self.base_url)
-                    human_sleep(2, 4)
-                except Exception:
-                    pass
+                logger.warning(
+                    "Prewarm the SAME Glassdoor region/domain used by the bot "
+                    f"({self.base_url}) and ensure that profile is already verified/logged in."
+                )
                 return False
 
-        if self._is_security_page():
+        if self._on_community_page():
+            if not self._restore_job_search_url(url, "redirected to Community"):
+                return False
+
+        if not self._on_jobs_or_results_page():
             self.pause_current_run = True
-            self.pause_reason = "Glassdoor search landed on a security/verification page"
+            self.pause_reason = "Glassdoor search did not open a Jobs results page"
             logger.warning(
-                "Glassdoor search landed on a security/verification page. "
-                f"Current URL: {self.driver.current_url}"
-            )
-            logger.warning(
-                "Prewarm the SAME Glassdoor region/domain used by the bot "
-                f"({self.base_url}) and ensure that profile is already verified/logged in."
+                f"{self.pause_reason}. Current URL: {self.driver.current_url}"
             )
             return False
 
-        # Dismiss any sign-in prompt overlay
-        try:
-            close_btn = self.driver.find_element(*SELECTORS["modal_close"])
-            close_btn.click()
-            human_sleep(1, 2)
-        except NoSuchElementException:
-            pass
+        self._dismiss_overlays()
         return True
     
     # ============================================================
@@ -684,6 +870,8 @@ class GlassdoorExtractor(BaseExtractor):
         d = self.driver
         cards = []
         seen = set()
+
+        self._dismiss_overlays()
 
         if self._is_security_page():
             self.pause_current_run = True
@@ -712,11 +900,14 @@ class GlassdoorExtractor(BaseExtractor):
             try:
                 show_more = d.find_element(
                     By.XPATH,
-                    "//button[contains(., 'Show more') or contains(., 'Load more')]"
+                    "//button[@data-test='load-more' "
+                    "or contains(normalize-space(.), 'Show more jobs') "
+                    "or contains(normalize-space(.), 'Load more jobs')]"
                 )
-                show_more.click()
-                human_sleep(1, 2)
-            except NoSuchElementException:
+                if show_more.is_displayed() and show_more.is_enabled():
+                    d.execute_script("arguments[0].click();", show_more)
+                    human_sleep(1, 2)
+            except (NoSuchElementException, StaleElementReferenceException, WebDriverException):
                 pass
         
         # Find cards
@@ -776,6 +967,9 @@ class GlassdoorExtractor(BaseExtractor):
             m = re.search(r"jobListingId=(\d+)", href)
             if m:
                 return m.group(1)
+            m = re.search(r"[?&]jl=(\d+)", href)
+            if m:
+                return m.group(1)
             m = re.search(r"jl(\d+)\.htm", href)
             if m:
                 return m.group(1)
@@ -788,6 +982,9 @@ class GlassdoorExtractor(BaseExtractor):
             href = link.get_attribute("href") or ""
             # /partner/jobListing.htm?jobListingId=1234567890
             m = re.search(r"jobListingId=(\d+)", href)
+            if m:
+                return m.group(1)
+            m = re.search(r"[?&]jl=(\d+)", href)
             if m:
                 return m.group(1)
             # /job-listing/title-jl1234567890.htm
@@ -812,7 +1009,10 @@ class GlassdoorExtractor(BaseExtractor):
     def _collect_job_card_links_fallback(self) -> list:
         """Fallback when the main list container/selector changes but links still exist."""
         try:
-            links = self.driver.find_elements(By.CSS_SELECTOR, "a[href*='jobListingId=']")
+            links = self.driver.find_elements(
+                By.CSS_SELECTOR,
+                "a[href*='jobListingId='], a[href*='/job-listing/']",
+            )
             nodes = []
             seen = set()
             for link in links:
@@ -820,10 +1020,15 @@ class GlassdoorExtractor(BaseExtractor):
                 try:
                     candidate = link.find_element(
                         By.XPATH,
-                        "./ancestor::*[self::li or self::article or self::div][1]"
+                        "./ancestor::*[self::li or self::article "
+                        "or @data-test='jobListing' "
+                        "or contains(@class, 'JobsList_jobListItem')][1]"
                     )
                 except Exception:
-                    candidate = link
+                    try:
+                        candidate = link.find_element(By.XPATH, "./ancestor::div[1]")
+                    except Exception:
+                        candidate = link
                 try:
                     key = candidate.id
                 except Exception:
@@ -875,24 +1080,26 @@ class GlassdoorExtractor(BaseExtractor):
     def open_job_detail(self, card) -> JobListing:
         """Open job detail and return JobListing."""
         d = self.driver
-        
-        # Click card to open detail in right panel
+
+        # Use the card URL so title/company/detail always belong to the same job.
+        card_url = (card.get("url") or "").strip()
         try:
-            element = card.get("_element")
-            if element:
+            if card_url:
+                d.get(card_url)
+            else:
+                element = card.get("_element")
+                if not element:
+                    raise ValueError("Glassdoor card has no URL or element")
                 try:
-                    element.click()
+                    link = element.find_element(*SELECTORS["job_card_link"])
+                    d.execute_script("arguments[0].click();", link)
                 except Exception:
                     d.execute_script("arguments[0].click();", element)
-            else:
-                # Fallback: navigate to URL
-                d.get(card["url"])
             human_sleep(2, 4)
         except Exception as e:
-            logger.warning(f"Click card failed: {e}")
-            # Try direct navigation
-            if card.get("url"):
-                d.get(card["url"])
+            logger.warning(f"Open Glassdoor job URL failed: {e}")
+            if card_url:
+                d.get(card_url)
                 human_sleep(2, 4)
         
         # Dismiss sign-in prompt if appears
@@ -904,18 +1111,21 @@ class GlassdoorExtractor(BaseExtractor):
             pass
         
         # Extract details
-        title = self._safe_text_global(SELECTORS["detail_title"]) or card.get("title", "")
-        company = self._safe_text_global(SELECTORS["detail_company"]) or card.get("company", "")
+        detail_title = self._safe_text_global(SELECTORS["detail_title"])
+        if re.match(r"^\s*\d[\d,]*\s+.+\s+jobs?\s+in\s+", detail_title, re.IGNORECASE):
+            detail_title = ""
+        title = card.get("title", "") or detail_title
+        company = card.get("company", "") or self._safe_text_global(SELECTORS["detail_company"])
         description = self._safe_text_global(SELECTORS["detail_description"]) or ""
-        salary = self._safe_text_global(SELECTORS["detail_salary"]) or card.get("salary", "")
+        salary = card.get("salary", "")
         
-        # Build URL
-        url = d.current_url
+        url = card_url or d.current_url
         
         # Check if Easy Apply
         is_easy_apply = self.can_auto_apply_check()
         
         return JobListing(
+            platform="glassdoor",
             job_id=card["job_id"],
             title=title,
             company=company,
@@ -967,76 +1177,454 @@ class GlassdoorExtractor(BaseExtractor):
               cover_letter_paths: dict | None = None) -> ApplicationResult:
         """Apply to Glassdoor job."""
         d = self.driver
-        
-        # Find and click Easy Apply button
+        qa_log: list[dict] = []
+        unanswered: list[UnansweredQuestion] = []
+        cover_letter_used = None
+        handles_before = set(d.window_handles)
+
         try:
             try:
                 apply_btn = d.find_element(*SELECTORS["easy_apply_btn"])
             except NoSuchElementException:
                 apply_btn = d.find_element(*SELECTORS["apply_btn_xpath"])
-            
-            apply_btn.click()
+
+            d.execute_script("arguments[0].scrollIntoView({block: 'center'});", apply_btn)
+            human_sleep(0.4, 0.8)
+            try:
+                apply_btn.click()
+            except (ElementClickInterceptedException, StaleElementReferenceException, WebDriverException):
+                d.execute_script("arguments[0].click();", apply_btn)
             human_sleep(2, 4)
         except NoSuchElementException:
             return ApplicationResult(
                 status=ApplyStatus.EXTERNAL,
                 error_message="No Easy Apply button found",
             )
-        
-        # Switch to iframe if present (Glassdoor often uses iframe)
-        switched_iframe = False
-        try:
-            iframe = WebDriverWait(d, 10).until(
-                EC.presence_of_element_located(SELECTORS["apply_iframe"])
+
+        self._switch_to_new_apply_window(handles_before)
+        if not self._switch_to_apply_context():
+            self._save_apply_debug(job.job_id, "form_not_found")
+            return ApplicationResult(
+                status=ApplyStatus.FAILED,
+                error_message="Glassdoor Easy Apply form not found after click",
             )
-            d.switch_to.frame(iframe)
-            switched_iframe = True
-            human_sleep(2, 3)
-        except TimeoutException:
-            pass  # No iframe, modal in main page
-        
-        # Click Continue/Next until reach Submit
-        try:
-            max_steps = 10
-            for step in range(max_steps):
-                human_sleep(1, 2)
-                
-                # Try Submit first
-                try:
-                    submit_btn = d.find_element(*SELECTORS["apply_submit_btn"])
-                    submit_btn.click()
-                    human_sleep(3, 5)
-                    
-                    # Verify applied
-                    if self._verify_applied():
-                        self._applied_in_run += 1
-                        if switched_iframe:
-                            d.switch_to.default_content()
-                        return ApplicationResult(
-                            status=ApplyStatus.APPLIED,
-                        )
-                except NoSuchElementException:
-                    pass
-                
-                # Try Continue/Next
-                try:
-                    next_btn = d.find_element(*SELECTORS["apply_continue_btn"])
-                    next_btn.click()
-                    human_sleep(1, 2)
-                except NoSuchElementException:
-                    break
-        finally:
-            if switched_iframe:
-                try:
-                    d.switch_to.default_content()
-                except Exception:
-                    pass
-        
-        # If we reach here without applied state, mark needs_answers
+
+        previous_signature = ""
+        for step in range(12):
+            self._switch_to_apply_context()
+            logger.info(f"Glassdoor Apply step {step + 1}")
+
+            self._upload_apply_files(resume_path, cover_letter_paths)
+            cover_letter_used = self._fill_cover_letter_text(cover_letter_paths) or cover_letter_used
+            step_unanswered = self._fill_apply_fields(qa_log, job)
+            unanswered = self._merge_unanswered(unanswered, step_unanswered)
+
+            if step_unanswered:
+                logger.warning(
+                    f"Glassdoor Apply needs {len(step_unanswered)} answer(s) at step {step + 1}"
+                )
+                self._save_apply_debug(job.job_id, f"needs_answers_step{step + 1}")
+                return ApplicationResult(
+                    status=ApplyStatus.NEEDS_ANSWERS,
+                    error_message="Unanswered Glassdoor question(s)",
+                    qa_log=qa_log,
+                    unanswered_questions=unanswered,
+                    resume_path=resume_path or None,
+                    cover_letter_path=cover_letter_used,
+                )
+
+            if self._click_visible_button(SELECTORS["apply_submit_btn"]):
+                human_sleep(3, 5)
+                if self._verify_applied():
+                    self._applied_in_run += 1
+                    return ApplicationResult(
+                        status=ApplyStatus.APPLIED,
+                        qa_log=qa_log,
+                        unanswered_questions=unanswered,
+                        resume_path=resume_path or None,
+                        cover_letter_path=cover_letter_used,
+                    )
+                self._save_apply_debug(job.job_id, "submit_unverified")
+                return ApplicationResult(
+                    status=ApplyStatus.FAILED,
+                    error_message="Submit clicked but Glassdoor confirmation was not found",
+                    qa_log=qa_log,
+                    unanswered_questions=unanswered,
+                    resume_path=resume_path or None,
+                    cover_letter_path=cover_letter_used,
+                )
+
+            if self._click_visible_button(SELECTORS["apply_continue_btn"]):
+                human_sleep(2, 4)
+                continue
+
+            signature = self._apply_page_signature()
+            if self._verify_applied():
+                self._applied_in_run += 1
+                return ApplicationResult(
+                    status=ApplyStatus.APPLIED,
+                    qa_log=qa_log,
+                    resume_path=resume_path or None,
+                    cover_letter_path=cover_letter_used,
+                )
+            if signature == previous_signature:
+                self._save_apply_debug(job.job_id, f"stuck_step{step + 1}")
+                break
+            previous_signature = signature
+
         return ApplicationResult(
-            status=ApplyStatus.NEEDS_ANSWERS,
-            error_message="Apply form requires manual answers",
+            status=ApplyStatus.FAILED,
+            error_message="Glassdoor Apply has no Continue or Submit action",
+            qa_log=qa_log,
+            unanswered_questions=unanswered,
+            resume_path=resume_path or None,
+            cover_letter_path=cover_letter_used,
         )
+
+    def _switch_to_new_apply_window(self, handles_before: set[str]) -> bool:
+        end = time.time() + 10
+        while time.time() < end:
+            try:
+                new_handles = [h for h in self.driver.window_handles if h not in handles_before]
+                if new_handles:
+                    self.driver.switch_to.window(new_handles[0])
+                    human_sleep(1, 2)
+                    logger.info("Switched to new Glassdoor Apply tab/window")
+                    return True
+            except WebDriverException:
+                return False
+            time.sleep(0.5)
+        return False
+
+    def _has_apply_form_markers(self) -> bool:
+        selectors = (
+            "input[type='file'], input[type='text'], input[type='email'], "
+            "input[type='tel'], textarea, select, "
+            "[data-testid*='apply'], [data-test*='apply'], "
+            "[class*='application'], [class*='Application']"
+        )
+        try:
+            if any(el.is_displayed() for el in self.driver.find_elements(By.CSS_SELECTOR, selectors)):
+                return True
+            body = (self.driver.find_element(By.TAG_NAME, "body").text or "").lower()
+            return any(
+                marker in body
+                for marker in ("submit application", "continue application", "upload resume")
+            )
+        except WebDriverException:
+            return False
+
+    def _switch_to_apply_context(self) -> bool:
+        try:
+            self.driver.switch_to.default_content()
+        except WebDriverException:
+            return False
+
+        if self._has_apply_form_markers():
+            return True
+
+        try:
+            frames = self.driver.find_elements(By.TAG_NAME, "iframe")
+        except WebDriverException:
+            return False
+        for frame in frames:
+            try:
+                attrs = " ".join(
+                    frame.get_attribute(name) or ""
+                    for name in ("id", "name", "title", "src", "class")
+                ).lower()
+                if not any(token in attrs for token in ("apply", "indeed", "smartapply", "ia-")):
+                    continue
+                self.driver.switch_to.frame(frame)
+                if self._has_apply_form_markers():
+                    logger.debug("Glassdoor Apply form found inside iframe")
+                    return True
+                self.driver.switch_to.default_content()
+            except (NoSuchFrameException, StaleElementReferenceException, WebDriverException):
+                try:
+                    self.driver.switch_to.default_content()
+                except WebDriverException:
+                    pass
+        return False
+
+    def _upload_apply_files(self, resume_path: str, cover_letter_paths: dict | None) -> None:
+        try:
+            inputs = self.driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
+        except WebDriverException:
+            return
+        for file_input in inputs:
+            try:
+                label = self._label_for(file_input).lower()
+                name = (file_input.get_attribute("name") or "").lower()
+                marker = f"{label} {name}"
+                target = None
+                if "cover" in marker and cover_letter_paths:
+                    target = cover_letter_paths.get("pdf") or cover_letter_paths.get("txt")
+                elif resume_path:
+                    target = resume_path
+                if target:
+                    absolute = os.path.abspath(target)
+                    if os.path.exists(absolute):
+                        file_input.send_keys(absolute)
+                        logger.debug(f"Glassdoor uploaded file: {os.path.basename(absolute)}")
+            except (StaleElementReferenceException, WebDriverException):
+                continue
+
+    def _fill_cover_letter_text(self, cover_letter_paths: dict | None) -> Optional[str]:
+        if not cover_letter_paths or not cover_letter_paths.get("txt"):
+            return None
+        path = cover_letter_paths["txt"]
+        if not os.path.exists(path):
+            return None
+        content = Path(path).read_text(encoding="utf-8")
+        for textarea in self.driver.find_elements(By.TAG_NAME, "textarea"):
+            try:
+                if "cover" not in self._label_for(textarea).lower():
+                    continue
+                if not (textarea.get_attribute("value") or "").strip():
+                    textarea.send_keys(content)
+                return path
+            except (StaleElementReferenceException, WebDriverException):
+                continue
+        return None
+
+    def _fill_apply_fields(self, qa_log: list[dict], job: JobListing) -> list[UnansweredQuestion]:
+        unanswered: list[UnansweredQuestion] = []
+        text_selector = (
+            "input[type='text'], input[type='email'], input[type='tel'], "
+            "input[type='number'], textarea"
+        )
+        for element in self.driver.find_elements(By.CSS_SELECTOR, text_selector):
+            try:
+                if not element.is_displayed() or (element.get_attribute("value") or "").strip():
+                    continue
+                label = self._label_for(element)
+                answer = self._lookup_answer(label, "text")
+                if answer is None:
+                    if self._is_required(element):
+                        unanswered.append(self._unanswered(job, label, "text"))
+                        qa_log.append({"q": label, "a": None, "filled": False})
+                    continue
+                element.clear()
+                type_human(element, str(answer))
+                qa_log.append({"q": label, "a": str(answer), "filled": True})
+            except (StaleElementReferenceException, WebDriverException):
+                continue
+
+        for element in self.driver.find_elements(By.TAG_NAME, "select"):
+            try:
+                if not element.is_displayed():
+                    continue
+                select = Select(element)
+                options = [o.text.strip() for o in select.options if o.text.strip()]
+                if element.get_attribute("value") not in ("", None):
+                    continue
+                label = self._label_for(element)
+                answer = self._lookup_answer(label, "select", options)
+                if answer is None:
+                    if self._is_required(element):
+                        unanswered.append(self._unanswered(job, label, "select", options))
+                    continue
+                best = max(
+                    options,
+                    key=lambda option: fuzz.partial_ratio(option.lower(), str(answer).lower()),
+                    default=None,
+                )
+                if best:
+                    select.select_by_visible_text(best)
+                    qa_log.append({"q": label, "a": best, "filled": True})
+            except (StaleElementReferenceException, WebDriverException):
+                continue
+
+        seen_names: set[str] = set()
+        for radio in self.driver.find_elements(By.CSS_SELECTOR, "input[type='radio']"):
+            try:
+                if not radio.is_displayed():
+                    continue
+                name = radio.get_attribute("name") or ""
+                if not name or name in seen_names:
+                    continue
+                seen_names.add(name)
+                group = self.driver.find_elements(By.CSS_SELECTOR, f"input[name='{name}']")
+                if any(option.is_selected() for option in group):
+                    continue
+                labels = [self._label_for(option) or (option.get_attribute("value") or "") for option in group]
+                question = self._label_for_radio_group(name)
+                answer = self._lookup_answer(question, "radio", labels)
+                if answer is None:
+                    unanswered.append(self._unanswered(job, question, "radio", labels))
+                    continue
+                best_index = max(
+                    range(len(labels)),
+                    key=lambda i: fuzz.partial_ratio(labels[i].lower(), str(answer).lower()),
+                    default=None,
+                )
+                if best_index is not None:
+                    self.driver.execute_script("arguments[0].click();", group[best_index])
+                    qa_log.append({"q": question, "a": labels[best_index], "filled": True})
+            except (StaleElementReferenceException, WebDriverException):
+                continue
+
+        for checkbox in self.driver.find_elements(By.CSS_SELECTOR, "input[type='checkbox']"):
+            try:
+                if not checkbox.is_displayed() or checkbox.is_selected():
+                    continue
+                label = self._label_for(checkbox).lower()
+                if any(token in label for token in ("agree", "consent", "privacy", "terms", "certify", "confirm")):
+                    self.driver.execute_script("arguments[0].click();", checkbox)
+                    qa_log.append({"q": label, "a": "checked", "filled": True})
+                elif self._is_required(checkbox):
+                    unanswered.append(self._unanswered(job, label, "checkbox"))
+            except (StaleElementReferenceException, WebDriverException):
+                continue
+        return unanswered
+
+    def _label_for(self, element) -> str:
+        try:
+            element_id = element.get_attribute("id")
+            if element_id:
+                labels = self.driver.find_elements(By.CSS_SELECTOR, f"label[for='{element_id}']")
+                if labels and labels[0].text.strip():
+                    return labels[0].text.strip()
+        except WebDriverException:
+            pass
+        try:
+            parent = element.find_element(By.XPATH, "ancestor::label[1]")
+            if parent.text.strip():
+                return parent.text.strip()
+        except (NoSuchElementException, WebDriverException):
+            pass
+        return (
+            element.get_attribute("aria-label")
+            or element.get_attribute("placeholder")
+            or element.get_attribute("name")
+            or "(unknown)"
+        ).strip()
+
+    def _label_for_radio_group(self, name: str) -> str:
+        try:
+            fieldset = self.driver.find_element(
+                By.XPATH, f"//input[@name='{name}']/ancestor::fieldset[1]"
+            )
+            legend = fieldset.find_element(By.TAG_NAME, "legend")
+            if legend.text.strip():
+                return legend.text.strip()
+        except (NoSuchElementException, WebDriverException):
+            pass
+        return name or "(unknown)"
+
+    def _lookup_answer(self, question: str, field_type: str, options: list[str] | None = None):
+        normalized = (question or "").strip().lower()
+        if not normalized:
+            return None
+        try:
+            for key, value in self.profile.as_field_map().items():
+                if key in normalized and value:
+                    return value
+        except Exception:
+            pass
+        for key, value in self.answer_bank.items():
+            candidate = str(key).strip().lower()
+            if candidate == normalized or candidate in normalized or normalized in candidate:
+                return value
+        best_score, best_value = 0, None
+        for key, value in self.answer_bank.items():
+            score = fuzz.token_set_ratio(normalized, str(key).lower())
+            if score > best_score:
+                best_score, best_value = score, value
+        if best_score >= 85:
+            return best_value
+        if (
+            _HAS_AI
+            and self.ai_provider
+            and self.ai_provider.is_available()
+            and self.ai_config.get("question_fallback", False)
+            and self.candidate_facts
+        ):
+            try:
+                return answer_question_with_ai(
+                    self.ai_provider,
+                    question,
+                    self.candidate_facts,
+                    field_type=field_type,
+                    options=options,
+                    system_prompt_template=self.ai_config.get("system_prompt") or None,
+                )
+            except Exception as e:
+                logger.warning(f"Glassdoor AI answer fallback failed: {e}")
+        return None
+
+    @staticmethod
+    def _is_required(element) -> bool:
+        return bool(
+            element.get_attribute("required") is not None
+            or (element.get_attribute("aria-required") or "").lower() == "true"
+        )
+
+    def _unanswered(
+        self,
+        job: JobListing,
+        question: str,
+        field_type: str,
+        options: list[str] | None = None,
+    ) -> UnansweredQuestion:
+        return UnansweredQuestion(
+            question=question or "(unknown)",
+            field_type=field_type,
+            options=options or [],
+            job_id=job.job_id,
+            platform=self.name,
+        )
+
+    @staticmethod
+    def _merge_unanswered(
+        existing: list[UnansweredQuestion],
+        incoming: list[UnansweredQuestion],
+    ) -> list[UnansweredQuestion]:
+        merged = list(existing)
+        seen = {(item.question, item.field_type) for item in merged}
+        for item in incoming:
+            key = (item.question, item.field_type)
+            if key not in seen:
+                seen.add(key)
+                merged.append(item)
+        return merged
+
+    def _click_visible_button(self, selector) -> bool:
+        for button in self.driver.find_elements(*selector):
+            try:
+                if not button.is_displayed() or not button.is_enabled():
+                    continue
+                try:
+                    button.click()
+                except (ElementClickInterceptedException, WebDriverException):
+                    self.driver.execute_script("arguments[0].click();", button)
+                return True
+            except (StaleElementReferenceException, WebDriverException):
+                continue
+        return False
+
+    def _apply_page_signature(self) -> str:
+        try:
+            return "|".join(
+                [
+                    self.driver.current_url or "",
+                    self.driver.title or "",
+                    (self.driver.find_element(By.TAG_NAME, "body").text or "")[:500],
+                ]
+            )
+        except WebDriverException:
+            return ""
+
+    def _save_apply_debug(self, job_id: str, suffix: str) -> None:
+        try:
+            output = Path("data/screenshots")
+            output.mkdir(parents=True, exist_ok=True)
+            path = output / f"glassdoor_{suffix}_{job_id}_{int(time.time())}.png"
+            self.driver.save_screenshot(str(path))
+            logger.info(f"Glassdoor apply debug screenshot: {path}")
+        except Exception:
+            pass
     
     def _verify_applied(self) -> bool:
         """Check if applied indicator appeared."""

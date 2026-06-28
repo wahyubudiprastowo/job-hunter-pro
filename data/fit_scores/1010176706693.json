@@ -1,0 +1,19 @@
+{
+  "score": 82,
+  "matched_skills": [
+    "Cloud Infrastructure (Azure)",
+    "Kubernetes (AKS)",
+    "CI/CD (GitLab CI, Jenkins, ArgoCD)",
+    "Infrastructure as Code (Terraform)",
+    "Containerization (Docker)",
+    "Security (IAM, RBAC, OAuth/OIDC, TLS/SSL, Network Segmentation, Zero Trust)",
+    "Linux System Administration"
+  ],
+  "missing_skills": [
+    "SAST/DAST security scanning tools (e.g., SonarQube, Snyk, Checkmarx)",
+    "Compliance frameworks (e.g., SOC2, ISO 27001)"
+  ],
+  "red_flags": [],
+  "reasoning": "The candidate is a highly experienced Infrastructure and Cloud Specialist with strong DevOps and security integration experience, making them a strong fit for a DevSecOps role. While the job description is brief and lacks specific tool requirements, the candidate's background in secure cloud architecture, CI/CD automation, and Kubernetes security aligns well. Some dedicated application security testing tools (SAST/DAST) are not explicitly highlighted in the CV.",
+  "recommendation": "APPLY"
+}

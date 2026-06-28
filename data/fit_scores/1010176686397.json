@@ -1,0 +1,15 @@
+{
+  "score": 75,
+  "matched_skills": [
+    "Cloud Infrastructure Management",
+    "Linux System Administration",
+    "Monitoring & Observability (Prometheus, Grafana, ELK)",
+    "Troubleshooting & Incident Response"
+  ],
+  "missing_skills": [],
+  "red_flags": [
+    "Candidate is highly overqualified (8 years of experience as a Senior Cloud Architect / Infrastructure Specialist applying for an Operations Support role)."
+  ],
+  "reasoning": "The candidate possesses advanced skills in cloud architecture, Linux administration, and monitoring tools that far exceed the typical requirements for an Operations Support Engineer. While they are technically a strong match, their seniority makes them overqualified for this position, posing a potential retention risk. The job description is brief, but the candidate's profile covers all standard operations competencies.",
+  "recommendation": "MAYBE"
+}

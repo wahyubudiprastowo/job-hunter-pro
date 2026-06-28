@@ -1,0 +1,23 @@
+{
+  "score": 30,
+  "matched_skills": [
+    "VPNs (IPSec)",
+    "Firewall monitoring",
+    "Network security"
+  ],
+  "missing_skills": [
+    "Palo Alto NGFW (PA-Series)",
+    "Panorama",
+    "GlobalProtect",
+    "BGP",
+    "OSPF",
+    "STP",
+    "LAN/WAN switching"
+  ],
+  "red_flags": [
+    "Lacks hands-on experience with Palo Alto firewalls and Panorama, which are the primary requirements for this role.",
+    "Candidate's profile is focused on Cloud/DevOps/Infrastructure rather than dedicated Network Security."
+  ],
+  "reasoning": "The candidate is a highly experienced Cloud Architect and DevOps Specialist but lacks the specific network security expertise required for this role. There is no evidence of experience with Palo Alto firewalls, Panorama, or enterprise routing and switching protocols like BGP, OSPF, and STP.",
+  "recommendation": "SKIP"
+}

@@ -294,15 +294,34 @@ class IndeedExtractor(BaseExtractor):
             (By.CSS_SELECTOR, "a[href*='/account/settings']"),
             (By.CSS_SELECTOR, "a[href*='/account/logout']"),
             (By.CSS_SELECTOR, "a[href*='/myjobs']"),
+            (By.CSS_SELECTOR, "a[href*='/account/'][aria-label], button[aria-label*='Account']"),
+            (By.CSS_SELECTOR, "button[aria-label*='Profile'], [data-testid*='account-menu']"),
+            (By.CSS_SELECTOR, "[data-gnav-element-name='Profile']"),
             (By.XPATH, "//*[contains(., 'Sign out') or contains(., 'Account settings')]"),
         ]
         for by, value in checks:
             try:
-                if self.driver.find_elements(by, value):
+                if any(
+                    element.is_displayed()
+                    for element in self.driver.find_elements(by, value)
+                ):
                     return True
             except Exception:
                 continue
         return False
+
+    def _first_visible_element(self, locator):
+        """Return the first displayed, enabled element for a broad locator."""
+        try:
+            for element in self.driver.find_elements(*locator):
+                try:
+                    if element.is_displayed() and element.is_enabled():
+                        return element
+                except StaleElementReferenceException:
+                    continue
+        except Exception:
+            pass
+        return None
 
     def _open_with_region_fallback(self, path: str):
         target = f"{self.base_url}{path}"
@@ -363,17 +382,24 @@ class IndeedExtractor(BaseExtractor):
             logger.info("Already logged in to Indeed.")
             return True
 
-        if not email or not password:
-            raise LoginError("Indeed credentials missing and no active session found")
+        if not email:
+            raise LoginError("Indeed email missing and no active session found")
 
         try:
             email_el = WebDriverWait(d, 15).until(
-                EC.presence_of_element_located(SELECTORS["login_email_alt"]))
+                lambda _: self._first_visible_element(SELECTORS["login_email_alt"])
+            )
+            d.execute_script(
+                "arguments[0].scrollIntoView({block:'center'});",
+                email_el,
+            )
+            email_el.click()
+            email_el.clear()
             type_human(email_el, email,
                        self.stealth_cfg["typing_min_delay"],
                        self.stealth_cfg["typing_max_delay"])
             human_sleep(0.5, 1.0)
-        except TimeoutException:
+        except (TimeoutException, ElementNotInteractableException):
             if self._is_logged_in_session():
                 logger.info("Indeed session detected after login redirect.")
                 return True
@@ -381,26 +407,38 @@ class IndeedExtractor(BaseExtractor):
             raise LoginError("Indeed login form unavailable")
 
         try:
-            cont_btn = d.find_element(*SELECTORS["login_continue"])
-            cont_btn.click()
-            human_sleep(2, 4)
-        except NoSuchElementException:
-            pass
+            cont_btn = self._first_visible_element(SELECTORS["login_continue"])
+            if cont_btn and robust_click(d, cont_btn, max_retries=3, scroll=True):
+                human_sleep(2, 4)
+        except Exception as e:
+            logger.debug(f"Indeed login Continue click skipped: {e}")
 
         if self._check_captcha():
             logger.warning("Indeed hCaptcha detected at login - attempting solver or manual fallback")
             self._wait_for_manual_captcha()
 
-        try:
-            pwd_el = WebDriverWait(d, 10).until(
-                EC.presence_of_element_located(SELECTORS["login_password"]))
-            type_human(pwd_el, password,
-                       self.stealth_cfg["typing_min_delay"],
-                       self.stealth_cfg["typing_max_delay"])
-            human_sleep(0.5, 1.0)
-            d.find_element(*SELECTORS["login_submit"]).click()
-        except TimeoutException:
-            logger.warning("Indeed password field not found - may use magic link")
+        if password:
+            try:
+                pwd_el = WebDriverWait(d, 10).until(
+                    lambda _: self._first_visible_element(SELECTORS["login_password"])
+                )
+                d.execute_script(
+                    "arguments[0].scrollIntoView({block:'center'});",
+                    pwd_el,
+                )
+                pwd_el.click()
+                pwd_el.clear()
+                type_human(pwd_el, password,
+                           self.stealth_cfg["typing_min_delay"],
+                           self.stealth_cfg["typing_max_delay"])
+                human_sleep(0.5, 1.0)
+                submit_btn = self._first_visible_element(SELECTORS["login_submit"])
+                if submit_btn:
+                    robust_click(d, submit_btn, max_retries=3, scroll=True)
+            except (TimeoutException, ElementNotInteractableException):
+                logger.warning("Indeed password field not available - waiting for email/passkey flow")
+        else:
+            logger.info("Indeed password not configured - waiting for email/passkey flow")
 
         end = time.time() + 120
         while time.time() < end:
@@ -727,7 +765,10 @@ class IndeedExtractor(BaseExtractor):
                 error_message="Apply button not found.",
             )
 
+        handles_before = set(d.window_handles)
         try:
+            d.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+            human_sleep(0.4, 0.9)
             btn.click()
         except (ElementClickInterceptedException, StaleElementReferenceException):
             try:
@@ -740,8 +781,17 @@ class IndeedExtractor(BaseExtractor):
                 )
 
         human_sleep(3, 5)
+        self._switch_to_new_apply_window(handles_before)
 
         if not self._switch_to_ia_frame():
+            self._screenshot_for_debug(job.job_id, "iframe_not_found")
+            try:
+                logger.warning(
+                    "Indeed Apply iframe/form not found after click. "
+                    f"url={d.current_url}, title={d.title}, handles={len(d.window_handles)}"
+                )
+            except Exception:
+                pass
             return ApplicationResult(
                 status=ApplyStatus.FAILED,
                 error_message="Indeed Apply iframe not found.",
@@ -846,14 +896,93 @@ class IndeedExtractor(BaseExtractor):
             time.sleep(0.5)
         return None
 
+    def _switch_to_new_apply_window(self, handles_before: set[str]) -> bool:
+        """Indeed sometimes opens the apply flow in a new tab/window instead of an iframe."""
+        try:
+            handles_after = set(self.driver.window_handles)
+        except Exception:
+            return False
+        new_handles = [h for h in handles_after if h not in handles_before]
+        for handle in new_handles:
+            try:
+                self.driver.switch_to.window(handle)
+                human_sleep(1, 2)
+                logger.info("Switched to new Indeed Apply window/tab")
+                return True
+            except Exception:
+                continue
+        return False
+
+    def _has_ia_form_markers(self) -> bool:
+        """Detect Indeed Apply content even when it is rendered without the legacy iframe."""
+        marker_selectors = [
+            "input[type='file']",
+            "[data-testid*='Apply']",
+            "[id*='ia-']",
+            "[class*='ia-']",
+        ]
+        for selector in marker_selectors:
+            try:
+                if self.driver.find_elements(By.CSS_SELECTOR, selector):
+                    return True
+            except Exception:
+                continue
+        try:
+            page = (self.driver.page_source or "").lower()
+            if "indeed apply" in page or "submit application" in page or "upload resume" in page:
+                return True
+            for btn in self.driver.find_elements(By.TAG_NAME, "button")[:40]:
+                text = ((btn.text or "") + " " + (btn.get_attribute("aria-label") or "")).lower()
+                if any(label in text for label in ("continue", "submit application", "review your application")):
+                    return True
+        except Exception:
+            return False
+        return False
+
     def _switch_to_ia_frame(self) -> bool:
         """Switch driver context to Indeed Apply iframe."""
-        end = time.time() + 8
+        end = time.time() + 15
         while time.time() < end:
+            try:
+                self.driver.switch_to.default_content()
+            except Exception:
+                pass
+            try:
+                for iframe in self.driver.find_elements(By.TAG_NAME, "iframe"):
+                    try:
+                        attrs = " ".join([
+                            iframe.get_attribute("id") or "",
+                            iframe.get_attribute("name") or "",
+                            iframe.get_attribute("title") or "",
+                            iframe.get_attribute("src") or "",
+                            iframe.get_attribute("class") or "",
+                        ]).lower()
+                        if not any(token in attrs for token in ("apply", "indeed", "ia-", "smartapply")):
+                            continue
+                        self.driver.switch_to.frame(iframe)
+                        if self._has_ia_form_markers():
+                            logger.debug("Switched to Indeed Apply iframe")
+                            return True
+                        self.driver.switch_to.default_content()
+                    except (NoSuchFrameException, StaleElementReferenceException):
+                        try:
+                            self.driver.switch_to.default_content()
+                        except Exception:
+                            pass
+                        continue
+            except Exception:
+                pass
+            try:
+                self.driver.switch_to.default_content()
+                if self._has_ia_form_markers():
+                    logger.debug("Indeed Apply form detected in main document")
+                    return True
+            except Exception:
+                pass
             try:
                 iframe = self.driver.find_element(*SELECTORS["ia_iframe"])
                 self.driver.switch_to.frame(iframe)
-                logger.debug("Switched to Indeed Apply iframe")
+                logger.debug("Switched to Indeed Apply iframe via legacy selector")
                 return True
             except (NoSuchElementException, NoSuchFrameException):
                 time.sleep(0.5)
